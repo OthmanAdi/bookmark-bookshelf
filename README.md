@@ -28,7 +28,12 @@ import { createShelfMotion, prefersReducedMotion } from './motion';
 import { mountShelf } from './shelf';
 
 const shelf = mountShelf(host, { items });
-const motion = createShelfMotion({ count: items.length, loop: shelf.loop, reducedMotion: prefersReducedMotion });
+const motion = createShelfMotion({
+  count: items.length,
+  loop: shelf.loop,
+  reducedMotion: prefersReducedMotion,
+  timing: shelf.variant.motion,
+});
 motion.subscribe((state) => shelf.setPose({ position: state.position, open: 0 }));
 motion.attach(shelf.surface, { pxPerItem: () => shelf.pitch() });
 shelf.on((intent) => {
@@ -37,11 +42,17 @@ shelf.on((intent) => {
 });
 ```
 
-**I want a coding agent to build it in.** The repository carries a skill at [`.agents/skills/bookmark-bookshelf/`](.agents/skills/bookmark-bookshelf/SKILL.md). Copy that folder into your agent's skills directory, or point the agent at it in place, then ask:
+**I want a coding agent to build it in.** The repository carries a skill at [`.agents/skills/bookmark-bookshelf/`](.agents/skills/bookmark-bookshelf/SKILL.md). The skill holds the instructions; the modules stay in this repository, so the agent needs both.
 
-> Use the bookmark-bookshelf skill. Build the whole shelf into this project: drag, local storage and the reader with resume, seeded from `links.json`.
+Used in place, from a checkout of this repository, the skill finds the modules next to itself:
 
-> Use the bookmark-bookshelf skill. I only want the draggable 3D shelf for these eight titles. No storage, no reader.
+> Read `.agents/skills/bookmark-bookshelf/SKILL.md` in `/path/to/bookmark-bookshelf` and build the whole shelf into my project at `/path/to/my-app`: drag, local storage and the reader with resume, seeded from `links.json`.
+
+Installed into the skills folder of your agent (copy the `bookmark-bookshelf` folder there), give it the checkout as the source path:
+
+> Use the bookmark-bookshelf skill with source path `/path/to/bookmark-bookshelf`. I only want the draggable 3D shelf for these eight titles in this project. No storage, no reader.
+
+The skill checks the source path for the module folders and the package version before it copies anything.
 
 ## The four parts
 
@@ -58,7 +69,7 @@ Zero runtime dependencies. A production build of the app is about 59 kB of JavaS
 
 ## Why keep it around
 
-- **The drag is real.** Mouse, touch and trackpad move the row 1:1, a flick carries it, and it settles on a volume with a critically damped spring. On a phone a sideways swipe moves the shelf and a vertical one still scrolls the page.
+- **The drag is real.** Mouse, touch and trackpad move the row 1:1, a flick carries it, and it settles on a volume with a critically damped spring. On a phone a sideways swipe moves the shelf and a vertical one still scrolls the page. The default look, Paper Row, steps at an unhurried measured pace when you use the arrows; the other looks answer faster.
 - **It reads, and it remembers.** A volume opens into a page of the text you saved. Reload the tab and you are on the same volume at the same paragraph.
 - **Your data stays with you.** Local storage only, a documented versioned JSON format, export and import. No account, no tracking, no network requests after the page has loaded.
 - **Keyboard and screen readers are first-class.** One tab stop for the row, arrow keys, Home, End, Enter, Escape, focus returned to where you were, a plain list view, and a reduced-motion path that is instant instead of slower.
@@ -80,8 +91,8 @@ The reader shows text **you saved** with a link. It never fetches a page for you
 | `npm run dev` | Development server on `127.0.0.1:5173` |
 | `npm run build` | Type check, then a static build in `dist/` |
 | `npm run preview` | Serve `dist/` on `127.0.0.1:4173` |
-| `npm test` | 411 unit tests (Vitest, happy-dom) |
-| `npm run test:e2e` | 79 browser tests (Playwright: desktop Chromium, phone-sized Chromium with touch, WebKit smoke). Run `npx playwright install chromium webkit` once first |
+| `npm test` | 420 unit tests (Vitest, happy-dom) |
+| `npm run test:e2e` | 81 browser tests (Playwright: desktop Chromium, phone-sized Chromium with touch, WebKit smoke). Run `npx playwright install chromium webkit` once first |
 | `npm run check` | Type check, unit tests and build |
 
 The build is a folder of static files with relative URLs, so it can be served from any path. It is marked `noindex` until you build it with an approved address: `SITE_ORIGIN=https://your.domain npm run build` adds the canonical link and absolute sharing URLs.

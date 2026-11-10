@@ -39,5 +39,5 @@ From trial 2: seeding a store from a plain list of links was not explained, and 
 ## Limits of this evidence
 
 - One run per scenario, one model, no baseline run without the skill. The trials show that the skill is sufficient for these two requests, not how much it helps.
-- The fixes made after the trials were not re-trialled.
+- The fixes made after the trials were not re-trialled. Neither were later changes to the skill: the source-root check, per-look motion timing and the touch tap handling were added after both trials.
 - A third scenario in `evals/evals.json` (the reader alone on a page without a bundler) has not been run.

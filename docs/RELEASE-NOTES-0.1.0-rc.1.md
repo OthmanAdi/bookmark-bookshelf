@@ -27,8 +27,8 @@ Node `^22.12.0`, `^24.0.0` or `>=26.0.0`. Open `http://127.0.0.1:5173/`.
 | Check | Result |
 |---|---|
 | `npx tsc --noEmit` | clean |
-| `npm test` | 411 unit tests pass |
-| `npm run test:e2e` | 79 browser tests pass: desktop Chromium, phone-sized Chromium with touch, WebKit smoke |
+| `npm test` | 420 unit tests pass |
+| `npm run test:e2e` | 81 browser tests pass: desktop Chromium, phone-sized Chromium with touch, WebKit smoke |
 | `npm run build` | static build, about 59 kB of app JavaScript before compression (23 kB gzipped), sample texts not counted |
 | Skill trial, part of the product | a separate agent built the shelf with motion into an empty project from the skill alone; type check, 184 copied unit tests, build and 5 browser checks passed |
 | Skill trial, whole product | a separate agent built all four modules into an empty project from the skill alone; type check, 396 copied unit tests, build and 7 browser checks passed |

@@ -14,7 +14,21 @@ Four small TypeScript modules with no runtime dependencies. Each one works alone
 | store | `src/store` | Versioned library in local storage: validation, migration, import, export | DOM, rendering |
 | reader | `src/reader` | Shows a saved reading copy as text nodes, tracks and restores position | shelves, storage |
 
-The source of truth is this repository. Copy module folders out of it; do not retype them.
+The modules are not inside this skill folder. They live in a checkout of the Bookmark Bookshelf repository, and the first job is to find it. Copy module folders out of it; do not retype them.
+
+## 0. Find the source root
+
+1. **Adjacent repository.** If this file is at `<root>/.agents/skills/bookmark-bookshelf/SKILL.md` and `<root>/src/shelf/index.ts` exists, `<root>` is the source root. This is the case when the skill is used in place.
+2. **Supplied path.** If the skill was copied somewhere else (the skills folder of an agent), the person has to give the path of a checkout: the *source path*. If the request does not contain one, ask for it. Do not guess a download address and do not fetch anything.
+3. **Verify before copying.** In the source root:
+   - `package.json` has `"name": "bookmark-bookshelf"`. Note its `version`.
+   - These markers exist: `src/shelf/index.ts`, `src/motion/index.ts`, `src/store/index.ts`, `src/reader/index.ts`, `src/app/bookshelf.ts`, `src/styles/tokens.css`.
+   - If it is a git checkout, note `git -C <root> rev-parse --short HEAD`.
+
+   If a marker is missing, stop and say which one. This skill describes version `0.1.x`; for another version, read the `types.ts` of each module before trusting the reference files here.
+4. **Report** the source path, version and commit you copied from, so a later update can be compared.
+
+Every path below that starts with `src/`, `examples/` or `public/` is relative to that source root.
 
 ## 1. Decide the scope first
 
@@ -51,7 +65,12 @@ import { createShelfMotion, prefersReducedMotion } from './motion';
 import { mountShelf } from './shelf';
 
 const shelf = mountShelf(host, { items, label: 'My shelf' });
-const motion = createShelfMotion({ count: items.length, loop: shelf.loop, reducedMotion: prefersReducedMotion });
+const motion = createShelfMotion({
+  count: items.length,
+  loop: shelf.loop,
+  reducedMotion: prefersReducedMotion,
+  timing: shelf.variant.motion, // each look carries its own travel and open timing
+});
 
 motion.subscribe((state) => {
   shelf.setPose({ position: state.position, open: 0 });
@@ -80,6 +99,7 @@ These are the things that break when changed. Each has a reason.
 - **One native button per item, not per rendered book.** A looping row renders copies. Only the real copy carries `button.bb-book__control`; copies are `aria-hidden`. Do not make faces focusable and do not put the 3D faces inside a `<button>`: Firefox flattens `preserve-3d` through a button's inner box.
 - **Keep `touch-action: pan-y` on the drag surface.** With `none`, a finger that lands on the shelf can no longer scroll the page.
 - **During a touch drag, ignore `lostpointercapture` from descendants.** The element under the finger captures the pointer implicitly; when the surface takes capture, that descendant's loss event bubbles up. `gesture.ts` checks `event.target === element`. Keep the check.
+- **Touch taps on volumes are recognised from pointer events, not from `click`.** After a swipe released at speed, browsers can swallow the click of the next tap. `shelf.ts` therefore activates a volume on `pointerup` when the touch never left a 10 px radius and lasted under 700 ms, and skips the click the browser sends for that same tap (keyboard clicks, which have `detail` 0, always count). `gesture.ts` also consumes `touchmove` once a drag is locked so that no browser fling starts. Remove either and a flick followed by a tap stops working about half the time.
 - **The reader builds DOM with `createElement` and `textContent` only.** No `innerHTML` anywhere in `src/reader`; a source-level test enforces it. Links are kept only for `http:` and `https:`.
 - **The store accepts only `http:` and `https:` URLs and never fetches one.** The app shows a link and whatever text the person pasted. Do not add remote fetching to make the reader "smarter": browsers block it for most sites and a proxy changes the security model.
 - **Reduced motion is a real path, not a slower one.** `reducedMotion` on the motion module makes moves instant and turns open and close into a 150 ms fade. Pass the live preference (`prefersReducedMotion`), not a value read once.
@@ -102,7 +122,9 @@ Report what you ran and what you did not. A build that passes type checking has 
 
 ## Variants
 
-`paper` (default), `oak`, `night`, `pocket`. A variant is geometry in `src/shelf/variants.ts` plus a CSS block scoped by `data-variant` in `src/shelf/variants.css`. To add one: one entry, one CSS block. Set `data-variant` on `<html>` as well when the page colours should follow.
+`paper` (default), `oak`, `night`, `pocket`. A variant is geometry and motion timing in `src/shelf/variants.ts` plus a CSS block scoped by `data-variant` in `src/shelf/variants.css`. To add one: one entry, one CSS block. Set `data-variant` on `<html>` as well when the page colours should follow.
+
+Timing differs on purpose. `paper` uses measured, unhurried timing for programmed moves (arrow keys, arrow buttons, picking a spine: 1.65 to 2.05 s eased in and out) and opens with a short hold in which the volume gives way to the page. The other three use a quick spring and one continuous open. In every look a dragged or flicked row follows the finger and settles on the spring. After `shelf.setVariant(name)` call `motion.setLoop(shelf.loop)` and `motion.setTiming(shelf.variant.motion)`.
 
 ## What this skill does not cover
 

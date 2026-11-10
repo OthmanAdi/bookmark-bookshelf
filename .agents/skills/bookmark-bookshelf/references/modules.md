@@ -32,7 +32,7 @@ Handle
 | `setPose({ position, open, reduced? })` | Draw one frame. `position` is a float index: 3.4 is 40 % of the way from volume 3 to 4. `open` 0 to 1 flies the centred volume to the stage. |
 | `setItems(items)` | Replace the row. Follow with `motion.setCount(n, index)`. |
 | `setStage(box \| null)` | Viewport box the cover flies to while opening (the reader's cover slot). |
-| `setVariant(name)` | Switch look and geometry. Follow with `motion.setLoop(shelf.loop)`. |
+| `setVariant(name)` | Switch look and geometry. Follow with `motion.setLoop(shelf.loop)` and `motion.setTiming(shelf.variant.motion)`. |
 | `pitch()` | Px between two resting volumes at the current scale. Hand it to the motion module. |
 | `coverBox()` | Viewport box of the centred cover, the origin of the reader sheet. |
 | `focusCurrent()` | Put keyboard focus on the centred volume, for example after closing a reader. |
@@ -71,7 +71,8 @@ createShelfMotion(options: ShelfMotionOptions): ShelfMotion
 | `initial` | 0 | starting index |
 | `reducedMotion` | false | boolean, or a function read on every move |
 | `clock` | browser | pass `createManualClock()` in tests |
-| `spring`, `openDuration` (900), `closeDuration` (640) | | tuning |
+| `timing` | spring travel, 900 ms open, 640 ms close, no hold | `{ travel, openDuration, closeDuration, openHold }` in ms. `travel` is `null` (spring) or `{ base, perItem, max }` for eased programmed moves lasting `min(max, base + perItem * (items - 1))`. Pass `shelf.variant.motion` |
+| `spring`, `openDuration`, `closeDuration` | | finer tuning; the two durations are shorthand for the `timing` fields |
 
 | Member | Use |
 |---|---|
@@ -80,9 +81,10 @@ createShelfMotion(options: ShelfMotionOptions): ShelfMotion
 | `goTo(index, { immediate? })`, `step(±1)` | Travel. With `loop`, indices are unbounded: `goTo(state.target + 12)` goes once round a 12-item row. |
 | `setOpen(boolean, { immediate? })` | Promise that resolves when the open or close finished or was reversed. |
 | `attach(element, { pxPerItem, enabled? })` | Pointer drag, flick and horizontal wheel. Returns a detach function. |
+| `setTiming(partial)` | Change travel or open timing at run time, for example after a look change. |
 | `setCount(n, focus?)`, `setLoop(boolean)`, `destroy()` | As named. |
 
-Behaviour: drag follows the pointer 1:1; release snaps to the nearest whole index with a critically damped spring (no overshoot, about 0.6 s); a flick (0.35 px/ms or faster after 24 px of travel) carries up to 6 volumes; a row with two ends resists past its ends; plain vertical wheel is left to the page.
+Behaviour: with `openHold` above 0, `state.open` reads a tiny positive value during the hold, so a renderer can show at once that the trigger landed. Drag follows the pointer 1:1; release snaps to the nearest whole index with a critically damped spring (no overshoot, about 0.6 s), whatever the travel timing; a flick (0.35 px/ms or faster after 24 px of travel) carries up to 6 volumes; a row with two ends resists past its ends; plain vertical wheel is left to the page.
 
 Lower-level exports for other uses: `attachDrag(element, handlers, options)`, `stepSpring`, `createManualClock`, easing functions.
 
