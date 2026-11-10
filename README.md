@@ -110,4 +110,4 @@ The row geometry, the turn-to-cover focus and the way a volume grows open into a
 
 ## Licence
 
-Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). Bundled typefaces (Newsreader, IBM Plex Mono) are under the SIL Open Font License 1.1; their licence texts ship in [`public/licenses/`](public/licenses) and are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). Bundled typefaces (Newsreader, IBM Plex Mono) are under the SIL Open Font License 1.1, and the built JavaScript includes a small module-preload helper from Vite under the MIT License. The licence texts ship in [`public/licenses/`](public/licenses) and are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Changes are recorded in [CHANGELOG.md](CHANGELOG.md).

@@ -30,18 +30,20 @@ What the recording did not show, and is therefore this project's own design: dra
 
 ## Bundled third-party material
 
-Only two things in a production build come from other parties: the typefaces.
+Three things in a production build come from other parties: two typefaces and one small helper script from the build tool.
 
 | Material | Source package | Version | Licence | Shipped as |
 |---|---|---|---|---|
 | Newsreader (variable, roman and italic, Latin and Latin Extended) | `@fontsource-variable/newsreader` | 5.3.0 | SIL OFL 1.1 | `dist/assets/newsreader-*.woff2` |
 | IBM Plex Mono (400 and 500, Latin and Latin Extended) | `@fontsource/ibm-plex-mono` | 5.3.0 | SIL OFL 1.1 | `dist/assets/ibm-plex-mono-*.woff2` |
 
-Their licence texts are copied byte for byte from the packages into `public/licenses/` and are served with every build. See `THIRD_PARTY_NOTICES.md`.
+| Module preload helper added to the generated JavaScript | `vite` | 8.3.7 | MIT | part of `dist/assets/base-*.js`, about 0.7 kB |
+
+The font licence texts are copied byte for byte from the packages into `public/licenses/`. The MIT notice for the helper is the "Vite core license" section of that package's `LICENSE.md`, copied exactly into `public/licenses/Vite-MIT.txt`. All three are served with every build. See `THIRD_PARTY_NOTICES.md`.
 
 ## Development tools
 
-Used to build and test, not shipped: Vite 8.3.7 (MIT), TypeScript 7.0.2 (Apache-2.0), Vitest 5.1.0 (MIT), happy-dom 21.0.4 (MIT), Playwright Test 1.65.0 (Apache-2.0). An install resolves 95 packages in total on Windows x64: 52 MIT, 26 Apache-2.0, 12 MPL-2.0, 2 OFL-1.1, 1 BSD-2-Clause, 1 BSD-3-Clause, 1 ISC, counted from `package-lock.json`. None of their code is in the build output apart from Vite's small module-preload helper.
+Used to build and test, not shipped: Vite 8.3.7 (MIT), TypeScript 7.0.2 (Apache-2.0), Vitest 5.1.0 (MIT), happy-dom 21.0.4 (MIT), Playwright Test 1.65.0 (Apache-2.0). An install resolves 95 packages in total on Windows x64: 52 MIT, 26 Apache-2.0, 12 MPL-2.0, 2 OFL-1.1, 1 BSD-2-Clause, 1 BSD-3-Clause, 1 ISC, counted from `package-lock.json`. None of their code is in the build output apart from the module-preload helper from Vite listed above.
 
 ## Runtime dependencies
 

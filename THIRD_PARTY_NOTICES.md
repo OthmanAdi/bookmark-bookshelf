@@ -1,6 +1,6 @@
 # Third-party notices
 
-A production build of Bookmark Bookshelf contains two third-party works. Both are typefaces under the SIL Open Font License, Version 1.1. The font files are unmodified subsets as published by the Fontsource project.
+A production build of Bookmark Bookshelf contains three third-party works: two typefaces under the SIL Open Font License, Version 1.1, and one small helper script that the build tool adds to the JavaScript, under the MIT License. The font files are unmodified subsets as published by the Fontsource project.
 
 ## Newsreader
 
@@ -18,6 +18,13 @@ A production build of Bookmark Bookshelf contains two third-party works. Both ar
 - Files used: `ibm-plex-mono-latin-400-normal.woff2`, `ibm-plex-mono-latin-500-normal.woff2`, `ibm-plex-mono-latin-ext-400-normal.woff2`, `ibm-plex-mono-latin-ext-500-normal.woff2`
 - Full licence text: [`public/licenses/IBM-Plex-Mono-OFL-1.1.txt`](public/licenses/IBM-Plex-Mono-OFL-1.1.txt), served with every build at `licenses/IBM-Plex-Mono-OFL-1.1.txt`
 
-The two licence files are byte-for-byte copies of the `LICENSE` files in those packages. Under the OFL the fonts may be bundled and redistributed with software, provided the copyright notice and licence travel with them, which this build does. The font names are not used to promote this product.
+The two font licence files are byte-for-byte copies of the `LICENSE` files in those packages. Under the OFL the fonts may be bundled and redistributed with software, provided the copyright notice and licence travel with them, which this build does. The font names are not used to promote this product.
+
+## Vite module preload helper
+
+- Copyright (c) 2019-present, VoidZero Inc. and Vite contributors
+- Licence: MIT
+- Origin: the npm package `vite` 8.3.7, the build tool. When it bundles the site it adds a short module-preload helper to the generated JavaScript (the `base-*.js` chunk in `assets/`, about 0.7 kB). That helper is the only code from Vite in the build. Vite itself is not shipped.
+- Full licence text: [`public/licenses/Vite-MIT.txt`](public/licenses/Vite-MIT.txt), served with every build at `licenses/Vite-MIT.txt`. It is the "Vite core license" section of `LICENSE.md` in that package, copied exactly.
 
 No other third-party code, fonts, images or text are distributed with the build. Development tools are listed in [PROVENANCE.md](PROVENANCE.md).
