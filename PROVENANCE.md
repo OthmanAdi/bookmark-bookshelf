@@ -36,7 +36,6 @@ Three things in a production build come from other parties: two typefaces and on
 |---|---|---|---|---|
 | Newsreader (variable, roman and italic, Latin and Latin Extended) | `@fontsource-variable/newsreader` | 5.3.0 | SIL OFL 1.1 | `dist/assets/newsreader-*.woff2` |
 | IBM Plex Mono (400 and 500, Latin and Latin Extended) | `@fontsource/ibm-plex-mono` | 5.3.0 | SIL OFL 1.1 | `dist/assets/ibm-plex-mono-*.woff2` |
-
 | Module preload helper added to the generated JavaScript | `vite` | 8.3.7 | MIT | part of `dist/assets/base-*.js`, about 0.7 kB |
 
 The font licence texts are copied byte for byte from the packages into `public/licenses/`. The MIT notice for the helper is the "Vite core license" section of that package's `LICENSE.md`, copied exactly into `public/licenses/Vite-MIT.txt`. All three are served with every build. See `THIRD_PARTY_NOTICES.md`.
