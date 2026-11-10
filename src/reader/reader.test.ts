@@ -1,0 +1,302 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mountReader } from './index';
+import type { ReaderDoc, ReaderHandle, ReaderOptions } from './index';
+
+const doc: ReaderDoc = {
+  id: 'a',
+  title: 'A quiet essay',
+  url: 'https://www.example.com/essay',
+  author: 'Jo Writer',
+  note: 'Read on the train',
+  addedAt: '2026-03-04T10:00:00Z',
+  text: '# Heading\n\nFirst paragraph with a [link](https://example.org/x).\n\n- one\n- two',
+};
+
+let host: HTMLElement;
+let handle: ReaderHandle | null = null;
+
+function mount(options: Partial<ReaderOptions> = {}): ReaderHandle {
+  handle = mountReader(host, { doc, ...options });
+  return handle;
+}
+
+const query = <T extends Element>(selector: string): T => {
+  const found = host.querySelector<T>(selector);
+  if (!found) throw new Error(`missing ${selector}`);
+  return found;
+};
+
+const keydown = (target: EventTarget, key: string, init: KeyboardEventInit = {}) =>
+  target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
+
+beforeEach(() => {
+  host = document.createElement('div');
+  document.body.appendChild(host);
+});
+
+afterEach(() => {
+  handle?.destroy();
+  handle = null;
+  host.remove();
+});
+
+describe('structure', () => {
+  it('builds the dialog frame', () => {
+    const reader = mount();
+    const root = reader.element;
+    expect(root.getAttribute('role')).toBe('dialog');
+    expect(root.getAttribute('aria-modal')).toBe('true');
+    const title = query<HTMLElement>('h1');
+    expect(root.getAttribute('aria-labelledby')).toBe(title.id);
+    expect(title.textContent).toBe('A quiet essay');
+    expect(root.getAttribute('data-open')).toBe('0');
+    expect(reader.scroller.classList.contains('bb-reader__sheet')).toBe(true);
+    expect(query('.bb-reader__window').contains(reader.scroller)).toBe(true);
+    expect(query('.bb-reader__sheet').contains(query('.bb-reader__bar'))).toBe(true);
+    expect(query('.bb-reader__layout').contains(query('.bb-reader__doc'))).toBe(true);
+    expect(query('.bb-reader__layout').contains(query('.bb-reader__cover'))).toBe(true);
+  });
+
+  it('has a visible Close button', () => {
+    mount();
+    const close = query<HTMLButtonElement>('.bb-reader__close');
+    expect(close.textContent).toBe('Close');
+    expect(close.type).toBe('button');
+  });
+
+  it('shows hostname, date, byline, note, reading time and the readout', () => {
+    mount();
+    expect(query('.bb-reader__host-label').textContent).toBe('example.com');
+    expect(query('.bb-reader__kicker').textContent).toContain('example.com');
+    expect(query('.bb-reader__kicker time').getAttribute('datetime')).toContain('2026-03-04');
+    expect(query('.bb-reader__byline').textContent).toBe('Jo Writer');
+    expect(query('.bb-reader__note').textContent).toBe('Read on the train');
+    expect(query('.bb-reader__time').textContent).toBe('1 min read');
+    expect(query('.bb-reader__readout').getAttribute('aria-live')).toBe('off');
+  });
+
+  it('links to the original safely', () => {
+    mount();
+    const open = query<HTMLAnchorElement>('.bb-reader__open');
+    expect(open.getAttribute('href')).toBe(doc.url);
+    expect(open.getAttribute('target')).toBe('_blank');
+    expect(open.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(open.textContent).toBe('Open originalexample.com');
+  });
+
+  it('renders the original action disabled for a non-http url', () => {
+    mount({ doc: { ...doc, url: 'javascript:alert(1)' } });
+    const open = query('.bb-reader__open');
+    expect(open.hasAttribute('href')).toBe(false);
+    expect(open.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('renders the reading copy with block indices', () => {
+    mount();
+    const body = query('.bb-reader__body');
+    expect(Array.from(body.children).map((c) => c.getAttribute('data-block'))).toEqual(['0', '1', '2']);
+    expect(body.querySelector('a')?.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('places the cover in a slot with the given aspect ratio', () => {
+    const cover = document.createElement('div');
+    const reader = mount({ cover, coverAspect: 0.5 });
+    const slot = query<HTMLElement>('.bb-reader__cover-slot');
+    expect(slot.contains(cover)).toBe(true);
+    expect(slot.style.aspectRatio.startsWith('0.5')).toBe(true);
+    expect(reader.coverSlotRect()).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+  });
+
+  it('has no slot rect without a cover', () => {
+    expect(mount().coverSlotRect()).toBeNull();
+  });
+
+  it('toggles visibility on the cover element only', () => {
+    const cover = document.createElement('div');
+    const reader = mount({ cover });
+    reader.setCoverVisible(false);
+    expect(cover.style.visibility).toBe('hidden');
+    expect(reader.element.style.visibility).toBe('hidden');
+    reader.setCoverVisible(true);
+    expect(cover.style.visibility).toBe('');
+  });
+});
+
+describe('keyboard and close', () => {
+  it('calls onClose for Escape and for the close button', () => {
+    const onClose = vi.fn();
+    const reader = mount({ onClose });
+    reader.setReveal(1);
+    keydown(query('.bb-reader__body'), 'Escape');
+    expect(onClose).toHaveBeenCalledTimes(1);
+    query<HTMLButtonElement>('.bb-reader__close').click();
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not remove itself on close', () => {
+    const reader = mount({ onClose: () => undefined });
+    query<HTMLButtonElement>('.bb-reader__close').click();
+    expect(host.contains(reader.element)).toBe(true);
+  });
+
+  it('moves focus to the close button', () => {
+    const reader = mount();
+    reader.setReveal(1);
+    reader.focus();
+    expect(document.activeElement).toBe(query('.bb-reader__close'));
+  });
+
+  it('traps Tab inside the open dialog', () => {
+    const reader = mount({ onSaveText: () => undefined });
+    reader.setReveal(1);
+    const stops = Array.from(
+      reader.element.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), textarea:not([disabled])'),
+    );
+    const first = stops[0];
+    const last = stops[stops.length - 1];
+    expect(first).toBe(query('.bb-reader__close'));
+    last?.focus();
+    const forward = keydown(reader.element, 'Tab');
+    expect(forward).toBe(false);
+    expect(document.activeElement).toBe(first);
+    first?.focus();
+    keydown(reader.element, 'Tab', { shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
+
+  it('leaves Tab alone while closed', () => {
+    const reader = mount();
+    expect(keydown(reader.element, 'Tab')).toBe(true);
+  });
+});
+
+describe('empty state and the paste panel', () => {
+  const empty: ReaderDoc = { ...doc, text: undefined };
+
+  it('shows the explanation and the panel when there is no text', () => {
+    mount({ doc: empty, onSaveText: () => undefined });
+    expect(query('.bb-reader__empty-title').textContent).toBe('No reading copy yet');
+    expect(query('.bb-reader__empty-body').textContent).toContain('never fetches pages');
+    const label = query<HTMLLabelElement>('.bb-reader__paste label');
+    const field = query<HTMLTextAreaElement>('.bb-reader__paste textarea');
+    expect(label.getAttribute('for')).toBe(field.id);
+    expect(query('.bb-reader__save').textContent).toBe('Save');
+    expect(query('.bb-reader__cancel').textContent).toBe('Cancel');
+    expect(host.querySelector('.bb-reader__time')).toBeNull();
+  });
+
+  it('hides the panel and the edit button without onSaveText', () => {
+    mount({ doc: empty });
+    expect(host.querySelector('.bb-reader__paste')).toBeNull();
+    expect(host.querySelector('.bb-reader__edit')).toBeNull();
+    expect(query('.bb-reader__empty-title')).toBeTruthy();
+  });
+
+  it('saves through onSaveText and renders the text', () => {
+    const onSaveText = vi.fn();
+    mount({ doc: empty, onSaveText });
+    query<HTMLTextAreaElement>('.bb-reader__paste textarea').value = '## Pasted\n\nHello <b>there</b>';
+    query<HTMLButtonElement>('.bb-reader__save').click();
+    expect(onSaveText).toHaveBeenCalledWith('## Pasted\n\nHello <b>there</b>');
+    expect(host.querySelector('.bb-reader__paste')).toBeNull();
+    expect(query('.bb-reader__body h2').textContent).toBe('Pasted');
+    expect(query('.bb-reader__body p').textContent).toBe('Hello <b>there</b>');
+    expect(host.querySelector('.bb-reader__body b')).toBeNull();
+    expect(query('.bb-reader__time')).toBeTruthy();
+  });
+
+  it('reopens the panel pre-filled from Edit reading copy, and Cancel returns to the text', () => {
+    const onSaveText = vi.fn();
+    mount({ onSaveText });
+    expect(host.querySelector('.bb-reader__paste')).toBeNull();
+    query<HTMLButtonElement>('.bb-reader__edit').click();
+    expect(query<HTMLTextAreaElement>('.bb-reader__paste textarea').value).toBe(doc.text);
+    query<HTMLButtonElement>('.bb-reader__cancel').click();
+    expect(host.querySelector('.bb-reader__paste')).toBeNull();
+    expect(query('.bb-reader__body h2').textContent).toBe('Heading');
+    expect(onSaveText).not.toHaveBeenCalled();
+  });
+});
+
+describe('reveal', () => {
+  it('hides at 0 and shows at 1', () => {
+    const reader = mount();
+    reader.setReveal(1);
+    expect(reader.element.getAttribute('data-open')).toBe('1');
+    expect(reader.element.style.visibility).toBe('visible');
+    reader.setReveal(0);
+    expect(reader.element.getAttribute('data-open')).toBe('0');
+    expect(reader.element.style.visibility).toBe('hidden');
+  });
+
+  it('uses transforms from a box mid transition and clears them at 1', () => {
+    const reader = mount();
+    Object.defineProperty(reader.element, 'clientWidth', { value: 1000 });
+    Object.defineProperty(reader.element, 'clientHeight', { value: 800 });
+    reader.setReveal(0.5, { x: 100, y: 50, width: 200, height: 300 });
+    const windowEl = query<HTMLElement>('.bb-reader__window');
+    expect(windowEl.style.transform).toContain('translate(50px, 25px)');
+    expect(reader.scroller.style.transform).toContain('scale(');
+    expect(reader.element.getAttribute('data-open')).toBe('0');
+    expect(reader.element.style.visibility).toBe('visible');
+    reader.setReveal(1);
+    expect(windowEl.style.transform).toBe('');
+    expect(reader.scroller.style.transform).toBe('');
+    expect(reader.scroller.style.opacity).toBe('');
+  });
+
+  it('fades without a source box', () => {
+    const reader = mount();
+    reader.setReveal(0.5);
+    expect(reader.scroller.style.opacity).toBe('0.5');
+    expect(query<HTMLElement>('.bb-reader__window').style.transform).toBe('');
+  });
+});
+
+describe('update and destroy', () => {
+  it('swaps the document in place', () => {
+    const reader = mount();
+    const root = reader.element;
+    reader.update({ ...doc, title: 'Another title', text: 'just text', author: undefined });
+    expect(reader.element).toBe(root);
+    expect(query('h1').textContent).toBe('Another title');
+    expect(root.getAttribute('aria-labelledby')).toBe(query('h1').id);
+    expect(host.querySelector('.bb-reader__byline')).toBeNull();
+    expect(query('.bb-reader__body p').textContent).toBe('just text');
+  });
+
+  it('removes the root and ignores later calls', () => {
+    const reader = mount();
+    reader.destroy();
+    expect(host.contains(reader.element)).toBe(false);
+    expect(() => {
+      reader.destroy();
+      reader.update(doc);
+    }).not.toThrow();
+  });
+});
+
+describe('progress', () => {
+  it('does not report at mount and offers the last position', () => {
+    const onProgress = vi.fn();
+    const reader = mount({ onProgress });
+    expect(onProgress).not.toHaveBeenCalled();
+    expect(reader.progress()).toMatchObject({ block: expect.any(Number), percent: 1 });
+  });
+
+  it('restores a saved position without reporting it as a change', () => {
+    const onProgress = vi.fn();
+    const reader = mount({ onProgress, progress: { block: 1, ratio: 0.5, percent: 0.4 } });
+    expect(onProgress).not.toHaveBeenCalled();
+    expect(typeof reader.progress().block).toBe('number');
+  });
+
+  it('stops listening after destroy', () => {
+    const onProgress = vi.fn();
+    const reader = mount({ onProgress });
+    const scroller = reader.scroller;
+    reader.destroy();
+    scroller.dispatchEvent(new Event('scroll'));
+    expect(onProgress).not.toHaveBeenCalled();
+  });
+});
