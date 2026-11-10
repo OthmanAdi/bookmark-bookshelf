@@ -1,0 +1,272 @@
+/*
+ * Cloth palettes and variant looks.
+ * A variant is a `data-variant` value on the shelf root, and optionally on <html>
+ * when the host wants the whole page to follow (the app does this).
+ */
+
+/* ---------- cloths (shared by every variant unless overridden) ---------- */
+
+.bb-cloth--ink {
+  --cloth: #1f1e1b;
+  --cloth-ink: #efe9dc;
+  --cloth-art: #c9b78f;
+}
+
+.bb-cloth--bone {
+  --cloth: #e4dccb;
+  --cloth-ink: #1f1e1b;
+  --cloth-art: #b5301a;
+}
+
+.bb-cloth--rust {
+  --cloth: #a4442a;
+  --cloth-ink: #f8eedf;
+  --cloth-art: #f2c9a0;
+}
+
+.bb-cloth--moss {
+  --cloth: #40533a;
+  --cloth-ink: #f0ebdc;
+  --cloth-art: #c9d3a0;
+}
+
+.bb-cloth--plum {
+  --cloth: #4b2b3e;
+  --cloth-ink: #f3e6e8;
+  --cloth-art: #dba8b8;
+}
+
+.bb-cloth--ochre {
+  --cloth: #c9982f;
+  --cloth-ink: #211c12;
+  --cloth-art: #5b3b12;
+}
+
+.bb-cloth--slate {
+  --cloth: #45515d;
+  --cloth-ink: #eff1ee;
+  --cloth-art: #adc0ce;
+}
+
+.bb-cloth--teal {
+  --cloth: #1f5a5c;
+  --cloth-ink: #eaf2ea;
+  --cloth-art: #f0c56b;
+}
+
+/* ---------- Paper Row (default): cobalt accent, spines read bottom to top ---------- */
+
+:root[data-variant='paper'],
+.bb-shelf[data-variant='paper'] {
+  --bb-accent: #2446b4;
+  --bb-accent-strong: #1b3690;
+  --bb-accent-ink: #f6f7fb;
+  /* The focus ring must stand apart from the cobalt accent it often sits on. */
+  --bb-focus: #c2410c;
+}
+
+.bb-shelf[data-variant='paper'] .bb-spine__title {
+  rotate: 180deg;
+}
+
+/* Desktop only: tall enough that spines reach about 340px in a 720px-high window. Phones keep the compact scene. */
+@media (min-width: 40.0625rem) {
+  .bb-shelf[data-variant='paper'] {
+    --bb-shelf-height: clamp(17rem, 55vh, 26rem);
+  }
+}
+
+/* ---------- Oak Library: board, back panel, foil lettering ---------- */
+
+:root[data-variant='oak'],
+.bb-shelf[data-variant='oak'] {
+  --bb-paper: #e9e0d0;
+  --bb-paper-raised: #f1e9da;
+  --bb-sheet: #faf6ec;
+  --bb-accent: #8c3b1c;
+  --bb-accent-strong: #6f2d14;
+}
+
+.bb-shelf[data-variant='oak'] .bb-shelf__backdrop {
+  inset: 6px 0 var(--bb-floor-y) 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(60, 36, 16, 0.07) 0 2px, rgba(60, 36, 16, 0) 2px 46px),
+    linear-gradient(#6b4a2c, #5a3d23);
+  box-shadow: inset 0 14px 22px -10px rgba(20, 10, 2, 0.6);
+}
+
+.bb-shelf[data-variant='oak'] .bb-shelf__floor {
+  top: calc(100% - var(--bb-floor-y));
+  height: 20px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 3px),
+    repeating-linear-gradient(90deg, rgba(40, 22, 8, 0.1) 0 1px, rgba(40, 22, 8, 0) 1px 90px),
+    linear-gradient(#8a6238, #6f4c28);
+  box-shadow: 0 10px 14px -8px rgba(26, 18, 8, 0.55);
+}
+
+.bb-shelf[data-variant='oak'] .bb-book__spine {
+  border-radius: 3px;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0) 5%, rgba(0, 0, 0, 0) 95%, rgba(0, 0, 0, 0.22)),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 34%, rgba(0, 0, 0, 0) 62%, rgba(0, 0, 0, 0.3));
+}
+
+.bb-shelf[data-variant='oak'] .bb-spine__title,
+.bb-shelf[data-variant='oak'] .bb-spine__mark {
+  color: #e7c98a;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.bb-shelf[data-variant='oak'] .bb-cloth--bone .bb-spine__title,
+.bb-shelf[data-variant='oak'] .bb-cloth--bone .bb-spine__mark,
+.bb-shelf[data-variant='oak'] .bb-cloth--ochre .bb-spine__title,
+.bb-shelf[data-variant='oak'] .bb-cloth--ochre .bb-spine__mark {
+  color: #3a2410;
+  text-shadow: none;
+}
+
+.bb-shelf[data-variant='oak'] .bb-spine__sigil {
+  background: #e7c98a;
+  border-radius: 50%;
+  rotate: none;
+}
+
+/* ---------- Night Study: dark ground, one pool of light ---------- */
+
+:root[data-variant='night'],
+.bb-shelf[data-variant='night'] {
+  --bb-paper: #14161a;
+  --bb-paper-raised: #1b1e24;
+  --bb-sheet: #f4f1ea;
+  --bb-ink: #ece8df;
+  --bb-ink-soft: #b5b0a6;
+  --bb-ink-faint: #8d897f;
+  --bb-rule: rgba(236, 232, 223, 0.18);
+  --bb-rule-strong: rgba(236, 232, 223, 0.6);
+  --bb-accent: #e0a83f;
+  --bb-accent-strong: #c98f27;
+  --bb-accent-ink: #17140c;
+  --bb-focus: #8ab4ff;
+}
+
+.bb-shelf[data-variant='night'] {
+  background: var(--bb-paper);
+}
+
+.bb-shelf[data-variant='night'] .bb-shelf__backdrop {
+  background: radial-gradient(ellipse 38% 78% at 50% 58%, rgba(255, 226, 170, 0.2), rgba(255, 226, 170, 0.05) 55%, rgba(255, 226, 170, 0) 100%);
+}
+
+.bb-shelf[data-variant='night'] .bb-shelf__floor {
+  height: 26px;
+  background: radial-gradient(ellipse 34% 100% at 50% 0, rgba(255, 226, 170, 0.28), rgba(255, 226, 170, 0) 100%);
+}
+
+.bb-shelf[data-variant='night'] .bb-book__spine {
+  background-image: linear-gradient(90deg, rgba(255, 236, 200, 0.22), rgba(255, 236, 200, 0) 22%, rgba(0, 0, 0, 0.1) 60%, rgba(0, 0, 0, 0.5));
+}
+
+.bb-shelf[data-variant='night'] .bb-book:not(.is-centre) .bb-book__spine {
+  filter: brightness(0.74);
+}
+
+.bb-shelf[data-variant='night'] .bb-cover {
+  box-shadow:
+    0 0 0 1px rgba(255, 236, 200, 0.14),
+    0 22px 44px -18px rgba(0, 0, 0, 0.9);
+}
+
+/* ---------- Pocket Paperbacks: thin, flat, bright ---------- */
+
+:root[data-variant='pocket'],
+.bb-shelf[data-variant='pocket'] {
+  --bb-paper: #f3f1ea;
+  --bb-accent: #1d4ed8;
+  --bb-accent-strong: #173fae;
+  --bb-accent-ink: #f8fafc;
+  --bb-focus: #b5301a;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-cloth--ink {
+  --cloth: #23252b;
+  --cloth-ink: #f6f3ea;
+  --cloth-art: #ff7a59;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-cloth--bone {
+  --cloth: #f1e6c8;
+  --cloth-ink: #23252b;
+  --cloth-art: #1d4ed8;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-cloth--rust {
+  --cloth: #ef5b3a;
+  --cloth-ink: #fff6ea;
+  --cloth-art: #23252b;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-cloth--moss {
+  --cloth: #2f9e6b;
+  --cloth-ink: #f4fff7;
+  --cloth-art: #133b2a;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-cloth--plum {
+  --cloth: #7b3fa0;
+  --cloth-ink: #fbf2ff;
+  --cloth-art: #ffd166;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-cloth--ochre {
+  --cloth: #ffc531;
+  --cloth-ink: #23252b;
+  --cloth-art: #c2371c;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-cloth--slate {
+  --cloth: #8fa6b8;
+  --cloth-ink: #14202b;
+  --cloth-art: #f6f3ea;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-cloth--teal {
+  --cloth: #1d4ed8;
+  --cloth-ink: #f1f5ff;
+  --cloth-art: #ffc531;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-book__spine {
+  border-radius: 1px;
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0) 12%);
+  gap: calc(var(--bb-spine-w) * 0.2);
+}
+
+.bb-shelf[data-variant='pocket'] .bb-spine__rule {
+  display: none;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-spine__title {
+  font-family: var(--bb-font-mono);
+  font-size: max(10px, calc(var(--bb-spine-w) * 0.31));
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-spine__sigil {
+  width: 100%;
+  height: calc(var(--bb-spine-w) * 0.5);
+  margin-bottom: calc(var(--bb-spine-w) * -0.2);
+  rotate: none;
+}
+
+.bb-shelf[data-variant='pocket'] .bb-cover {
+  border-radius: 1px 2px 2px 1px;
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0) 4%);
+}
+
+.bb-shelf[data-variant='pocket'] .bb-shelf__floor {
+  height: 10px;
+  background: linear-gradient(rgba(26, 24, 21, 0.3), rgba(26, 24, 21, 0));
+}
