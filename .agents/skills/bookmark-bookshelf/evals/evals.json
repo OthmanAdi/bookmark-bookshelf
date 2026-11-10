@@ -1,0 +1,47 @@
+{
+  "skill": "bookmark-bookshelf",
+  "note": "Scenarios for checking that an agent can follow the skill. Each expected_output is a list of objectively checkable statements. Results of the runs made for release candidate 0.1.0-rc.1 are in docs/SKILL-TRIALS.md.",
+  "evals": [
+    {
+      "id": "partial-shelf-motion",
+      "prompt": "I have an empty Vite + TypeScript project in this folder. Add a draggable 3D shelf of book spines for these eight essays (titles in essays.json). No storage and no reader: clicking the centred book should just show its title in a status line. Use the Bookmark Bookshelf modules from <repo path>.",
+      "files": ["essays.json"],
+      "expected_output": [
+        "Only src/shelf, src/motion and the token stylesheet were copied; no src/store, src/reader or src/app folder exists in the project.",
+        "No file under the copied shelf folder imports from the copied motion folder or the reverse.",
+        "npx tsc --noEmit exits 0 and npx vite build exits 0.",
+        "In a browser the page shows exactly eight .bb-book__control buttons.",
+        "A real mouse drag across .bb-shelf__scene changes data-focus-id on .bb-shelf.",
+        "ArrowRight on the focused volume changes data-focus-id.",
+        "Activating the centred volume writes its title into the status line and creates no .bb-reader element.",
+        "The agent's report says which checks it ran and which it did not."
+      ]
+    },
+    {
+      "id": "full-composition",
+      "prompt": "Build the whole Bookmark Bookshelf into the empty Vite + TypeScript project in this folder: shelf, drag, local storage and the reader with resume, seeded with three bookmarks of my own (links.json, one of them without reading text). Use the modules from <repo path>.",
+      "files": ["links.json"],
+      "expected_output": [
+        "src/shelf, src/motion, src/store and src/reader were copied unchanged, and the four meet only in one composition file.",
+        "npx tsc --noEmit exits 0 and npx vite build exits 0.",
+        "The page shows three volumes with the titles from links.json.",
+        "Opening a volume with reading text shows the text; after scrolling and a reload the reader is open on the same volume at the same scroll position within 80 px.",
+        "The volume without reading text shows an Open original link with rel containing noopener and a field to paste text.",
+        "Escape closes the reader and focus returns to that volume's .bb-book__control.",
+        "No copied module file was edited to make another module's import work."
+      ]
+    },
+    {
+      "id": "partial-reader",
+      "prompt": "Our docs site (plain HTML and one script, no bundler) needs a distraction-free reading view for a long changelog entry that remembers where the reader stopped. Use the reader from <repo path>.",
+      "files": [],
+      "expected_output": [
+        "Only the reader folder and the token stylesheet were taken.",
+        "Because there is no bundler, the CSS import line was removed from the reader entry and the stylesheet is linked from the page, or a build step was added and the agent said so.",
+        "The reading position is saved somewhere the agent names and is restored after a reload.",
+        "The page offers a plain link to the original.",
+        "No innerHTML was introduced."
+      ]
+    }
+  ]
+}
