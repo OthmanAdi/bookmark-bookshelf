@@ -1,9 +1,5 @@
 /* App shell: bar, shelf tabs, list view, dialogs, toasts. */
 
-html.bb-reading {
-  overflow: hidden;
-}
-
 .bb-app {
   overflow-x: clip;
 }

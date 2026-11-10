@@ -155,17 +155,38 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const sceneBox = scene.getBoundingClientRect();
     const originX = sceneBox.left + sceneBox.width / 2;
     const floorY = sceneBox.bottom - FLOOR_ROOM;
-    const scale = stage.width / geometry.coverWidth;
     // At a full turn the cover's left edge is on the pivot and its plane sits half a spine in front of it.
     // Pulling the pivot back by that much puts the cover exactly on the z = 0 plane, where perspective does not resize it.
     const targetX = stage.x - originX;
     const targetY = stage.y + stage.height - floorY;
-    const targetZ = -(geometry.spineWidth / 2) * scale;
+    const targetZ = -(geometry.spineWidth / 2);
     const mix = (from: number, to: number): number => from + (to - from) * e;
     return (
       `translate3d(${mix(x, targetX)}px, ${mix(-lift, targetY)}px, ${mix(z, targetZ)}px) ` +
-      `rotateZ(${mix(lean, 0)}deg) rotateY(${-geometry.focusAngle}deg) scale3d(${mix(1, scale)}, ${mix(1, scale)}, ${mix(1, scale)})`
+      `rotateZ(${mix(lean, 0)}deg) rotateY(${-geometry.focusAngle}deg)`
     );
+  }
+
+  /**
+   * The flying cover grows by layout, not by a scale transform: its box takes the size of the stage step by
+   * step, so its type and drawing are laid out at every size exactly as the cover beside the reader will be.
+   * When it lands, the two are the same pixels and the swap cannot be seen. `--bb-cover-k` keeps shadow,
+   * corners and hairlines in proportion on the way.
+   */
+  function sizeFlyingCover(face: HTMLElement, e: number): void {
+    if (!stage) return;
+    const width = geometry.coverWidth + (stage.width - geometry.coverWidth) * e;
+    const height = geometry.bookHeight + (stage.height - geometry.bookHeight) * e;
+    face.style.width = `${width}px`;
+    face.style.height = `${height}px`;
+    face.style.setProperty('--bb-cover-k', String(width / geometry.coverWidth));
+  }
+
+  function restFlyingCover(face: HTMLElement): void {
+    if (!face.style.width) return;
+    face.style.width = '';
+    face.style.height = '';
+    face.style.removeProperty('--bb-cover-k');
   }
 
   function render(): void {
@@ -214,10 +235,12 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       if (flying && slotPose.slot === openSlot) {
         style.transform = flightTransform(pose.open, slotPose.x, slotPose.lift, slotPose.z, slotPose.lean);
         style.zIndex = '3';
+        if (node.cover) sizeFlyingCover(node.cover, pose.open);
         // With `swap` the volume gives way to the page first and comes back into view already in flight.
         style.visibility = variant.motion.swap && pose.open < SWAP_UNTIL ? 'hidden' : '';
       } else {
         style.visibility = '';
+        if (node.cover) restFlyingCover(node.cover);
         const away = flying && openSlot !== null ? Math.sign(slotPose.slot - openSlot) * pose.open * slide : 0;
         style.transform =
           `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ` +
@@ -370,6 +393,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       refresh();
     },
     pitch: () => restPitch(geometry),
+    coverSize: () => ({ width: geometry.coverWidth, height: geometry.bookHeight }),
     coverBox() {
       const cover = nodes.get(centre)?.cover;
       if (!cover) return null;

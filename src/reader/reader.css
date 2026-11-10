@@ -109,8 +109,11 @@
 .bb-reader__cover-slot {
   position: relative;
   width: 100%;
+  /* The proportion given by the host, unless a look sets --bb-reader-cover-aspect. */
+  aspect-ratio: var(--bb-reader-cover-aspect, var(--bb-reader-cover-aspect-given, 0.62));
   border-radius: var(--bb-r-1);
-  box-shadow: 0 0.75rem 1.5rem -0.75rem var(--bb-rule-strong);
+  /* A host whose cover brings its own shadow sets --bb-reader-cover-shadow to none. */
+  box-shadow: var(--bb-reader-cover-shadow, 0 0.75rem 1.5rem -0.75rem var(--bb-rule-strong));
 }
 
 /* The cover brings its own layout (it may be a flex or grid box), so only size it here. */
@@ -124,13 +127,15 @@
 }
 
 @media (min-width: 900px) {
+  /* Every measure of the desktop layout is a token with a default, so a look can place the cover exactly. */
   .bb-reader__layout {
     display: grid;
-    /* 285px beside the text on a desktop screen. A host can set --bb-reader-cover to change it. */
-    grid-template-columns: minmax(0, 1fr) var(--bb-reader-cover, 17.8125rem);
-    column-gap: var(--bb-s-8);
+    grid-template-columns: minmax(0, var(--bb-reader-text, 1fr)) var(--bb-reader-cover, 17.8125rem);
+    column-gap: var(--bb-reader-gap, var(--bb-s-8));
+    justify-content: var(--bb-reader-justify, normal);
     align-items: start;
-    padding: var(--bb-s-7) var(--bb-s-6) var(--bb-s-9);
+    max-width: var(--bb-reader-max, 76rem);
+    padding: var(--bb-reader-pad-top, var(--bb-s-7)) var(--bb-reader-pad-inline, var(--bb-s-6)) var(--bb-s-9);
   }
 
   .bb-reader__layout--bare {
@@ -141,8 +146,13 @@
     order: 0;
     align-self: start;
     position: sticky;
-    top: calc(var(--bb-reader-bar) + var(--bb-s-6));
+    top: var(--bb-reader-cover-top, calc(var(--bb-reader-bar) + var(--bb-s-6)));
     width: auto;
+  }
+
+  /* On a short window the cover gives up height before it leaves the screen. */
+  .bb-reader__cover-slot {
+    max-height: calc(100dvh - var(--bb-reader-cover-top, 5.5rem) - 1rem);
   }
 }
 

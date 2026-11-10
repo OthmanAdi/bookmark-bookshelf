@@ -103,7 +103,7 @@ describe('structure', () => {
     const reader = mount({ cover, coverAspect: 0.5 });
     const slot = query<HTMLElement>('.bb-reader__cover-slot');
     expect(slot.contains(cover)).toBe(true);
-    expect(slot.style.aspectRatio.startsWith('0.5')).toBe(true);
+    expect(slot.style.getPropertyValue('--bb-reader-cover-aspect-given').startsWith('0.5')).toBe(true);
     expect(reader.coverSlotRect()).toEqual({ x: 0, y: 0, width: 0, height: 0 });
   });
 

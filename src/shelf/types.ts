@@ -126,6 +126,8 @@ export interface ShelfHandle {
   readonly loop: boolean;
   /** Distance in px between two neighbouring resting volumes, at the current scale. */
   pitch(): number;
+  /** Layout size of a cover on the shelf at the current scale, before any turn or lean. */
+  coverSize(): { width: number; height: number };
   /** Viewport box of the centred volume's cover right now. Null when there are no items. */
   coverBox(): Box | null;
   /** Moves keyboard focus to the centred volume. */

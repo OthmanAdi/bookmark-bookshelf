@@ -1,0 +1,19 @@
+/*
+ * The little page CSS the composition itself needs. Imported by bookshelf.ts, so a host that copies the
+ * composition gets it without copying the app shell.
+ */
+
+/* No page scrolling behind the open reader. */
+html.bb-reading {
+  overflow: hidden;
+}
+
+/* Spines run off both edges of the page. */
+body {
+  overflow-x: clip;
+}
+
+/* The cover placed beside the reader is a shelf cover with its own shadow: the slot adds none. */
+.bb-reader__cover-slot {
+  --bb-reader-cover-shadow: none;
+}

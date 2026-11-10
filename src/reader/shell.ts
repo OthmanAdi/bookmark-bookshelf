@@ -43,7 +43,8 @@ function buildCover(dom: Document, cover: HTMLElement | null, aspect: number | u
   const aside = el(dom, 'aside', 'bb-reader__cover');
   const slot = el(dom, 'div', 'bb-reader__cover-slot');
   const ratio = aspect && Number.isFinite(aspect) && aspect > 0 ? aspect : DEFAULT_COVER_ASPECT;
-  slot.style.aspectRatio = String(ratio);
+  // A custom property instead of a direct style, so a look can override the proportion with a token.
+  slot.style.setProperty('--bb-reader-cover-aspect-given', String(ratio));
   if (cover) slot.appendChild(cover);
   aside.appendChild(slot);
   return { aside, slot };

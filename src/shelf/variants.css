@@ -69,6 +69,25 @@
   rotate: 180deg;
 }
 
+/*
+ * Desktop only: the opened page as measured. In a 1280px window the cover is 285 by 547px with its left
+ * edge at 840 and its top at 104, and the text column starts 42px from the left. Phones and narrow
+ * windows keep the compact one-column reader, and the other looks keep the reader's own defaults.
+ */
+@media (min-width: 900px) {
+  :root[data-variant='paper'] {
+    --bb-reader-cover: 17.8125rem;
+    --bb-reader-cover-aspect: 0.521;
+    --bb-reader-text: 40.875rem;
+    --bb-reader-gap: clamp(2rem, 11.25vw, 9rem);
+    --bb-reader-justify: start;
+    --bb-reader-max: 80rem;
+    --bb-reader-pad-inline: 2.625rem;
+    --bb-reader-cover-top: 6.5rem;
+    --bb-reader-pad-top: calc(6.5rem - var(--bb-reader-bar, 3.5rem));
+  }
+}
+
 /* Desktop only: tall enough that spines reach about 340px in a 720px-high window. Phones keep the compact scene. */
 @media (min-width: 40.0625rem) {
   .bb-shelf[data-variant='paper'] {

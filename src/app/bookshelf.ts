@@ -1,3 +1,4 @@
+import './bookshelf.css';
 import { createShelfMotion, prefersReducedMotion, type ShelfMotion } from '../motion';
 import { mountReader, type ReaderDoc, type ReaderHandle } from '../reader';
 import { createCover, mountShelf, type Box, type ShelfHandle, type ShelfItem } from '../shelf';
@@ -179,12 +180,13 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
 
     const item = toShelfItem(bookmark, 0);
     const geometry = shelf.variant.geometry;
+    // Same catalogue mark as the volume on the shelf, so the hand-off after the flight changes nothing.
+    const cover = createCover(item, String(bookmarks.findIndex((entry) => entry.id === id) + 1).padStart(2, '0'));
     readerId = id;
     reader = mountReader(options.readerHost, {
       doc: toReaderDoc(bookmark),
       progress: store.progress(id),
-      // Same catalogue mark as the volume on the shelf, so the hand-off after the flight changes nothing.
-      cover: createCover(item, String(bookmarks.findIndex((entry) => entry.id === id) + 1).padStart(2, '0')),
+      cover,
       coverAspect: geometry.coverWidth / geometry.bookHeight,
       onProgress: (position) => store.setProgress(id, position),
       onClose: () => void close(),
@@ -199,7 +201,12 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     const immediate = openOptions.immediate === true;
     const flying = !immediate && !motion.state.reduced;
     flightFrom = flying ? shelf.coverBox() : null;
-    shelf.setStage(flying ? reader.coverSlotRect() : null);
+    const slot = reader.coverSlotRect();
+    // Tell the reader's cover how much larger it is than a cover on the shelf: its shadow, corners and
+    // hairlines then match the flying volume exactly and the swap at the end of the flight is invisible.
+    const shelfCover = shelf.coverSize();
+    if (slot && shelfCover.width > 0) cover.style.setProperty('--bb-cover-k', String(slot.width / shelfCover.width));
+    shelf.setStage(flying ? slot : null);
     // While the book is in the air the reader's own cover stays hidden; they swap when it lands.
     reader.setCoverVisible(!flying);
     setBackgroundInert(true);
