@@ -40,18 +40,25 @@ function siteMeta(): Plugin {
 }
 
 /**
- * A built site is a distribution of its own, so the project licence and notices travel with it:
- * the three files are copied from the repository root into the root of `dist/`, byte for byte.
+ * A built site is a distribution of its own, so the project licence and notices travel with it.
+ * LICENSE, NOTICE and PROVENANCE.md are copied from the repository root into the root of `dist/`, byte for byte.
+ * THIRD_PARTY_NOTICES.md is copied with one adjustment: in the repository its two licence links point into
+ * `public/licenses/`, and in a built site those files sit in `licenses/`, so the two link targets are rewritten.
+ * Nothing else in it changes.
  */
 function shipNotices(): Plugin {
-  const files = ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md'];
+  const verbatim = ['LICENSE', 'NOTICE', 'PROVENANCE.md'];
   return {
     name: 'bookmark-bookshelf-ship-notices',
     apply: 'build',
     generateBundle() {
-      for (const fileName of files) {
+      for (const fileName of verbatim) {
         this.emitFile({ type: 'asset', fileName, source: readFileSync(resolve(root, fileName)) });
       }
+      const notices = readFileSync(resolve(root, 'THIRD_PARTY_NOTICES.md'), 'utf8');
+      const relinked = notices.replaceAll('](public/licenses/', '](licenses/');
+      if (relinked === notices) this.error('THIRD_PARTY_NOTICES.md no longer links into public/licenses/: review shipNotices.');
+      this.emitFile({ type: 'asset', fileName: 'THIRD_PARTY_NOTICES.md', source: relinked });
     },
   };
 }
