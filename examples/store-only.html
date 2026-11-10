@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Store only · Bookmark Bookshelf example</title>
+    <style>
+      .example {
+        display: grid;
+        gap: 1.5rem;
+        padding: 2rem 1.5rem 3rem;
+        max-width: 48rem;
+      }
+      .example h1 {
+        font-size: 1.5rem;
+      }
+      .example__note {
+        max-width: 60ch;
+        color: var(--bb-ink-soft);
+      }
+      .example__form {
+        display: grid;
+        gap: 0.75rem;
+      }
+      .example__form label {
+        display: grid;
+        gap: 0.25rem;
+      }
+      .example__form input {
+        min-height: 2.5rem;
+        padding: 0 0.75rem;
+        border: 1px solid var(--bb-rule-strong);
+        border-radius: 2px;
+        background: var(--bb-sheet);
+      }
+      .example__buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+      .example__error {
+        margin: 0;
+        color: var(--bb-accent-strong);
+      }
+      .example__error:empty {
+        display: none;
+      }
+      .example__list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 0.5rem;
+      }
+      .example__list li {
+        overflow-wrap: anywhere;
+      }
+      .example__list small {
+        display: block;
+        color: var(--bb-ink-soft);
+      }
+      #json {
+        margin: 0;
+        padding: 0.75rem;
+        max-height: 20rem;
+        overflow: auto;
+        border: 1px solid var(--bb-rule);
+        background: var(--bb-sheet);
+        font-family: var(--bb-font-mono);
+        font-size: var(--bb-text-small);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="example">
+      <h1>Store only</h1>
+      <p class="example__note">
+        One module, no shelf and no reader. The store keeps bookmarks in memory here, so a reload starts clean. Add a
+        link, try an address that is not http or https, and watch the exported library update as the store changes.
+      </p>
+      <form id="add-form" class="example__form" novalidate>
+        <label>
+          <span class="bb-label">Link</span>
+          <input name="url" type="text" inputmode="url" autocomplete="off" placeholder="https://example.org/article" />
+        </label>
+        <label>
+          <span class="bb-label">Title, optional</span>
+          <input name="title" type="text" autocomplete="off" />
+        </label>
+        <p id="error" class="example__error" role="alert"></p>
+        <div class="example__buttons">
+          <button type="submit" class="bb-button bb-button--solid">Add bookmark</button>
+          <button id="remove-last" type="button" class="bb-button">Remove last</button>
+        </div>
+      </form>
+      <ul id="list" class="example__list" aria-label="Bookmarks"></ul>
+      <pre id="json" aria-label="Exported library"></pre>
+      <p class="example__note"><a href="../index.html">Back to the homepage</a></p>
+    </main>
+    <script type="module" src="./store-only.ts"></script>
+  </body>
+</html>
