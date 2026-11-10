@@ -13,6 +13,30 @@ npx vite build                   # production build
 
 Vitest needs `environment: 'happy-dom'` for the shelf, motion gesture and reader tests. Store tests run in any environment.
 
+Minimal configuration for a project that has none:
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vitest/config';
+export default defineConfig({ test: { environment: 'happy-dom', include: ['src/**/*.test.ts'] } });
+```
+
+```ts
+// playwright.config.ts
+import { defineConfig, devices } from '@playwright/test';
+export default defineConfig({
+  testDir: 'tests',
+  use: { baseURL: 'http://127.0.0.1:5173' },
+  webServer: { command: 'npx vite --port 5173 --strictPort', url: 'http://127.0.0.1:5173', reuseExistingServer: true },
+  projects: [
+    { name: 'desktop', use: { viewport: { width: 1280, height: 720 } } },
+    { name: 'mobile', use: { ...devices['Pixel 7'] } },
+  ],
+});
+```
+
+Keep unit tests (`src/**/*.test.ts`) and browser tests (`tests/`) in separate folders so neither runner picks up the other's files. Browsers: `npx playwright install chromium`.
+
 ## Hooks to assert on
 
 Prefer state attributes to timeouts.
@@ -24,7 +48,9 @@ Prefer state attributes to timeouts.
 | `.bb-shelf` | `data-variant`, `data-empty` | variant name, `0` or `1` |
 | `.bb-shelf` | `data-settled` | set by your composition from `motion.state.settled`; the reference composition writes `1` at rest |
 | `li.bb-book` | `data-id`, `data-index`, `data-slot`, `.is-centre`, `aria-hidden` on copies | |
-| `button.bb-book__control` | one per item; the centred one has `tabindex="0"` | |
+| `button.bb-book__control` | one per item; the centred one has `tabindex="0"`. It is invisible and has `pointer-events: none`: focus it or press keys on it, never click it | |
+| `.bb-book.is-centre .bb-book__cover` | the face to click or tap to open the centred volume | |
+| `.bb-book[data-index="3"] .bb-book__spine` | the face to click to bring another volume to the centre | |
 | `.bb-reader` | `data-open` | `0`, `1` |
 | `.bb-reader__sheet` | `scrollTop` | reading position |
 | `.bb-reader__body [data-block]` | block index | |
@@ -61,7 +87,7 @@ for (let step = 1; step <= 16; step++) {
 await touch('touchEnd');
 ```
 
-Two cases matter and both must pass: a horizontal drag that starts on the centred cover moves the row; a vertical drag that starts on the row scrolls the page and leaves `data-focus-id` unchanged.
+Two cases matter and both must pass: a horizontal drag that starts on the centred cover moves the row; a vertical drag that starts on the row scrolls the page and leaves `data-focus-id` unchanged. The second case needs a page taller than the viewport: if yours is short, add content below the shelf or use a smaller viewport height for that test, then assert that `window.scrollY` grew.
 
 ## Keyboard
 

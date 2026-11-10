@@ -34,10 +34,11 @@ Modules never import each other. If an import between two module folders appears
 ## 2. Bring the files in
 
 1. Copy each chosen folder from `src/` unchanged, tests included (`*.test.ts`), into the host's source tree.
-2. Copy `src/styles/tokens.css` and load it once. The modules read `--bb-*` custom properties and hard-code no colour, font or spacing. To restyle, override tokens; do not edit module CSS.
+2. Copy `src/styles/tokens.css` and load it once. The modules read `--bb-*` custom properties and hard-code no colour, font or spacing. To restyle, override tokens; do not edit module CSS. Tokens only define values: the page ground, body font and resets live in `src/styles/base.css`. In an empty project copy that file too (it imports `tokens.css` and `fonts.css`; drop the fonts import if you skip step 3), or set `background: var(--bb-paper); color: var(--bb-ink); font-family: var(--bb-font-serif)` on `body` yourself.
 3. Fonts are optional. `src/styles/fonts.css` bundles Newsreader and IBM Plex Mono (SIL OFL 1.1). If you ship them, ship the licence texts in `public/licenses/` too. Without them the token stacks fall back to system fonts.
 4. `shelf.ts` and `reader.ts` import their CSS (`import './shelf.css'`). That needs a bundler that handles CSS imports (Vite, webpack, Parcel, esbuild with a CSS loader). Without one, delete those import lines and link the CSS files from the page.
 5. TypeScript: the code is written for `strict`, `noUncheckedIndexedAccess` and `verbatimModuleSyntax`, with `moduleResolution: "bundler"`. It compiles under looser settings as well.
+6. Tooling for an empty project: `npm i -D vite typescript vitest happy-dom @playwright/test`, Node `^22.12.0 || ^24.0.0 || >=26.0.0`. `references/checks.md` has the minimal Vitest and Playwright configuration.
 
 Framework hosts (React, Vue, Svelte): every module is `mount(element, options)` returning a handle with `destroy()`. Mount in the framework's "after first render" hook and destroy in its cleanup. Adapters are in `references/composition.md`.
 
@@ -52,7 +53,10 @@ import { mountShelf } from './shelf';
 const shelf = mountShelf(host, { items, label: 'My shelf' });
 const motion = createShelfMotion({ count: items.length, loop: shelf.loop, reducedMotion: prefersReducedMotion });
 
-motion.subscribe((state) => shelf.setPose({ position: state.position, open: 0 }));
+motion.subscribe((state) => {
+  shelf.setPose({ position: state.position, open: 0 });
+  shelf.element.dataset.settled = state.settled ? '1' : '0'; // lets tests wait for rest
+});
 motion.attach(shelf.surface, { pxPerItem: () => shelf.pitch() });
 
 shelf.on((intent) => {
@@ -64,6 +68,8 @@ shelf.on((intent) => {
 ```
 
 `items` is an array of `{ id, title, source?, cloth?, pattern?, seed?, progress? }`. Runnable versions of every combination are in `examples/`.
+
+Looping: the default look repeats the row endlessly, so with fewer items than fit across the screen (roughly `viewport width / 68px`) every title appears more than once. That is intended for a full shelf. For a short list pass `loop: false` to `mountShelf` and to `createShelfMotion`: the row then has two ends.
 
 ## 4. Rules that keep it working
 
