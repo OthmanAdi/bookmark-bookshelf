@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
@@ -38,8 +39,25 @@ function siteMeta(): Plugin {
   };
 }
 
+/**
+ * A built site is a distribution of its own, so the project licence and notices travel with it:
+ * the three files are copied from the repository root into the root of `dist/`, byte for byte.
+ */
+function shipNotices(): Plugin {
+  const files = ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md'];
+  return {
+    name: 'bookmark-bookshelf-ship-notices',
+    apply: 'build',
+    generateBundle() {
+      for (const fileName of files) {
+        this.emitFile({ type: 'asset', fileName, source: readFileSync(resolve(root, fileName)) });
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [siteMeta()],
+  plugins: [siteMeta(), shipNotices()],
   // Relative asset URLs so the built site works from any folder or sub-path.
   base: './',
   server: { host: '127.0.0.1', port: 5173, strictPort: false },

@@ -65,7 +65,7 @@ The skill checks the source path for the module folders and the package version 
 
 They meet in one file, [`src/app/bookshelf.ts`](src/app/bookshelf.ts). Contracts, wiring recipes and checks are in the skill's [`references/`](.agents/skills/bookmark-bookshelf/references).
 
-Zero runtime dependencies. A production build of the app is about 59 kB of JavaScript before compression (23 kB gzipped), not counting the sample texts, measured from `npm run build`.
+Zero runtime dependencies. A production build of the app is about 62 kB of JavaScript before compression (24 kB gzipped), not counting the sample texts, measured from `npm run build`.
 
 ## Why keep it around
 
