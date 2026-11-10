@@ -22,7 +22,7 @@ The modules are not inside this skill folder. They live in a checkout of the Boo
 2. **Supplied path.** If the skill was copied somewhere else (the skills folder of an agent), the person has to give the path of a checkout: the *source path*. If the request does not contain one, ask for it. Do not guess a download address and do not fetch anything.
 3. **Verify before copying.** In the source root:
    - `package.json` has `"name": "bookmark-bookshelf"`. Note its `version`.
-   - These markers exist: `src/shelf/index.ts`, `src/motion/index.ts`, `src/store/index.ts`, `src/reader/index.ts`, `src/app/bookshelf.ts`, `src/styles/tokens.css`.
+   - These markers exist: `src/shelf/index.ts`, `src/motion/index.ts`, `src/store/index.ts`, `src/reader/index.ts`, `src/app/bookshelf.ts`, `src/app/bookshelf.css`, `src/styles/tokens.css`.
    - If it is a git checkout, note `git -C <root> rev-parse --short HEAD`.
 
    If a marker is missing, stop and say which one. This skill describes version `0.1.x`; for another version, read the `types.ts` of each module before trusting the reference files here.
@@ -41,9 +41,11 @@ Ask what the person needs, then take only that.
 | A reading view with resume | `reader` | `tokens.css`, the `.bb-button`, `.bb-label` and `.bb-visually-hidden` rules from `src/styles/base.css` |
 | A bookmark library without UI | `store` | nothing |
 | Drag, flick and snap for some other row | `motion` | nothing |
-| The whole product | all four, `src/app/bookshelf.ts` | `src/styles/*`, `src/data/sample-library.ts` if samples are wanted |
+| The whole product | all four, `src/app/bookshelf.ts` and `src/app/bookshelf.css` | `src/styles/*`, `src/data/sample-library.ts` if samples are wanted |
 
 Modules never import each other. If an import between two module folders appears, the integration is wrong: the meeting point belongs in the host's own composition file (see `src/app/bookshelf.ts`).
+
+The whole product is six things, and the list is easy to get one short: the four module folders, `src/app/bookshelf.ts`, and its stylesheet `src/app/bookshelf.css`. The script imports the stylesheet, so a build without it fails with a missing-file error instead of producing a shelf that scrolls behind the reader. Copy the two files as a pair.
 
 ## 2. Bring the files in
 
@@ -116,7 +118,7 @@ Run what applies; `references/checks.md` has the commands, the DOM hooks to asse
 | shelf + motion | a real mouse drag changes `data-focus-id` and ends with `data-settled="1"`; a vertical touch drag scrolls the page |
 | reader | Escape calls `onClose`; reload restores `scrollTop`; a `<script>` in the text shows as text |
 | store | `javascript:` URL is rejected; export then import round-trips; a second `createStore` on the same storage sees the data |
-| all four | open a volume, scroll, reload: the same volume is open at the same place; close: focus is back on that volume |
+| all four | the setup smoke check in `references/checks.md` passes; open a volume, scroll, reload: the same volume is open at the same place; close: focus is back on that volume |
 
 Report what you ran and what you did not. A build that passes type checking has not been shown to drag.
 

@@ -37,6 +37,28 @@ export default defineConfig({
 
 Keep unit tests (`src/**/*.test.ts`) and browser tests (`tests/`) in separate folders so neither runner picks up the other's files. Browsers: `npx playwright install chromium`.
 
+## Full composition: setup smoke check
+
+Run this right after copying, before writing any host code. It catches a missed file while the cause is still obvious.
+
+```bash
+for f in src/shelf/index.ts src/motion/index.ts src/store/index.ts src/reader/index.ts \
+         src/app/bookshelf.ts src/app/bookshelf.css src/styles/tokens.css; do
+  test -f "$f" || echo "MISSING $f"
+done
+grep -c "import './bookshelf.css'" src/app/bookshelf.ts   # expect 1
+npx tsc --noEmit && npx vite build
+grep -l "bb-reading" dist/assets/*.css                    # expect one file: the composition stylesheet was bundled
+```
+
+Adjust the paths if the host keeps sources somewhere other than `src/`, but keep `bookshelf.ts` and `bookshelf.css` in the same folder. Then, in the browser with a volume open:
+
+```ts
+document.documentElement.classList.contains('bb-reading')                              // true
+getComputedStyle(document.documentElement).overflowY                                   // 'hidden'
+getComputedStyle(document.querySelector('.bb-reader__cover-slot')!).boxShadow          // 'none'
+```
+
 ## Hooks to assert on
 
 Prefer state attributes to timeouts.

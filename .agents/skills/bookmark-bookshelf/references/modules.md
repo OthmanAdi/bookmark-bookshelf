@@ -35,6 +35,7 @@ Handle
 | `setVariant(name)` | Switch look and geometry. Follow with `motion.setLoop(shelf.loop)` and `motion.setTiming(shelf.variant.motion)`. |
 | `pitch()` | Px between two resting volumes at the current scale. Hand it to the motion module. |
 | `coverBox()` | Viewport box of the centred cover, the origin of the reader sheet. |
+| `coverSize()` | Layout width and height of a cover on the shelf at the current scale. |
 | `focusCurrent()` | Put keyboard focus on the centred volume, for example after closing a reader. |
 | `on(listener)` | Intents, see below. Returns an unsubscribe function. |
 | `surface` | Element to attach gestures to. |

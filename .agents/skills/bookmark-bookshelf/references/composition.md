@@ -75,7 +75,7 @@ For tests or a preview that must not touch real data: `createStore({ storage: cr
 
 `src/app/bookshelf.ts` is the reference composition (about 300 lines). Copy it and adapt it. Record the commit of this repository you copied from, so a later update can be diffed.
 
-Host page: three elements and two CSS rules are all it needs.
+Host page: three elements are all it needs.
 
 ```html
 <div id="page">          <!-- everything that should go inert while reading -->
@@ -84,10 +84,7 @@ Host page: three elements and two CSS rules are all it needs.
 <div id="reader"></div>  <!-- outside #page -->
 ```
 
-```css
-html.bb-reading { overflow: hidden; }   /* no page scroll behind the reader */
-body { overflow-x: clip; }              /* spines run off both edges */
-```
+Copy `src/app/bookshelf.css` together with `bookshelf.ts` (the script imports it). It holds the three page rules the composition needs: no page scroll behind the open reader, no sideways page scroll from spines that run off the edges, and no extra shadow around the cover beside the reader.
 
 ```ts
 const store = createStore();
@@ -122,6 +119,7 @@ What `bookshelf.ts` does, in order:
 5. `open(id)`:
    - mount the reader with `cover: createCover(item)` and `coverAspect: coverWidth / bookHeight`;
    - `flightFrom = shelf.coverBox()`, `shelf.setStage(reader.coverSlotRect())`, `reader.setCoverVisible(false)`;
+   - set `--bb-cover-k` on the cover element to `slot.width / shelf.coverSize().width`, so its shadow, corners and hairlines match the flying volume;
    - make the page behind `inert`, write `session.openId`;
    - `await motion.setOpen(true)`, then `reader.setCoverVisible(true)` and `reader.focus()`.
    The flying book and the reader's own cover land on the same pixels, so the swap is invisible.
@@ -131,7 +129,9 @@ What `bookshelf.ts` does, in order:
 
 With reduced motion there is no flight: pass `null` as the `from` box so the reader fades, and do not set a stage.
 
-Page CSS the composition expects: the shelf root must be able to draw outside its box vertically (it uses `overflow-x: clip` only), and `html.bb-reading { overflow: hidden }` stops the page scrolling behind the reader.
+Page CSS the composition expects is in `src/app/bookshelf.css`. One more thing to respect in your own layout: the shelf root must be able to draw outside its box vertically (it uses `overflow-x: clip` only), because the opening volume flies beyond the row.
+
+The opened page can be laid out by tokens, and a look may set them. Paper Row does, on desktop widths only: `--bb-reader-cover` (cover width), `--bb-reader-cover-aspect`, `--bb-reader-text` (text column), `--bb-reader-gap`, `--bb-reader-justify`, `--bb-reader-max`, `--bb-reader-pad-inline`, `--bb-reader-pad-top`, `--bb-reader-cover-top`. The stage can have other proportions than the volume: the shelf scales the flying cover to the stage width and lets the cover face grow to the stage height, so the content is laid out, not stretched.
 
 ## Framework hosts
 

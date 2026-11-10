@@ -41,3 +41,7 @@ From trial 2: seeding a store from a plain list of links was not explained, and 
 - One run per scenario, one model, no baseline run without the skill. The trials show that the skill is sufficient for these two requests, not how much it helps.
 - The fixes made after the trials were not re-trialled. Neither were later changes to the skill: the source-root check, per-look motion timing and the touch tap handling were added after both trials.
 - A third scenario in `evals/evals.json` (the reader alone on a page without a bundler) has not been run.
+
+## Setup smoke check after the trials
+
+The composition later gained a companion stylesheet, `src/app/bookshelf.css`, which `bookshelf.ts` imports. To make sure a copy made from the skill cannot miss it, the setup smoke check now in `references/checks.md` was run by hand on a clean folder on 2026-11-10: the six parts were copied as the skill lists them, a three-line host was added, and type check and build passed with the stylesheet bundled. With `bookshelf.css` deleted the build stopped with a missing-file error, which is the intended behaviour. This was a mechanical check by the author, not a third agent trial.
