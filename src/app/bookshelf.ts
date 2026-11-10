@@ -199,6 +199,8 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     if (!reader || readerId !== id) return;
     reader.setReveal(1);
     reader.setCoverVisible(true);
+    // The stored percent may come from another screen size. Replace it with what this layout actually shows.
+    if (store.progress(id)) store.setProgress(id, reader.progress());
     if (openOptions.editCopy) {
       // An item without text already shows the paste field; one with text needs the edit button pressed.
       const field = reader.element.querySelector<HTMLTextAreaElement>('.bb-reader__paste-field');
