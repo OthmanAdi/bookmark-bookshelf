@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shelf and motion only · Bookmark Bookshelf example</title>
+    <style>
+      .example {
+        display: grid;
+        gap: 1.5rem;
+        padding: 2rem 0 3rem;
+      }
+      .example__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0 1.5rem;
+      }
+      .example__head h1 {
+        font-size: 1.5rem;
+      }
+      .example__note {
+        max-width: 60ch;
+        padding: 0 1.5rem;
+        color: var(--bb-ink-soft);
+      }
+      #log {
+        min-height: 1.5em;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="example">
+      <div class="example__head">
+        <h1>Shelf and motion only</h1>
+        <label class="bb-label">
+          Variant
+          <select id="variant"></select>
+        </label>
+      </div>
+      <p class="example__note">
+        Two modules, no store and no reader. Drag the row, flick it, use the arrow keys, or pick a spine. Picking the
+        centred volume reports it below.
+      </p>
+      <div id="shelf"></div>
+      <p id="log" class="bb-label" role="status" aria-live="polite"></p>
+      <p class="example__note"><a href="../index.html">Back to the homepage</a></p>
+    </main>
+    <script type="module" src="./shelf-only.ts"></script>
+  </body>
+</html>
