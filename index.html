@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Bookmark Bookshelf keeps saved links as volumes on a shelf you can drag, open and read. It runs in your browser and nothing leaves it."
+    />
+    <meta name="referrer" content="no-referrer" />
+    <title>Bookmark Bookshelf</title>
+  </head>
+  <body class="bb-home">
+    <a class="bb-skip" href="#preview">Skip to the shelf</a>
+
+    <div id="page">
+      <header class="bb-home__bar">
+        <a class="bb-wordmark" href="./index.html" aria-current="page">
+          <span class="bb-wordmark__sigil" aria-hidden="true"></span>
+          <span>Bookmark Bookshelf</span>
+        </a>
+        <nav class="bb-home__links" aria-label="Site">
+          <a href="#parts">The parts</a>
+          <a href="#agent">For coding agents</a>
+        </nav>
+      </header>
+
+      <main>
+        <section class="bb-hero" aria-labelledby="hero-title">
+          <h1 id="hero-title" class="bb-hero__title">Give your saved links a spine.</h1>
+          <p class="bb-hero__deck">
+            Bookmark Bookshelf keeps the pages you meant to read as volumes on a shelf. Drag the row, pull one out, and
+            read the copy you saved with it. It runs in your browser and nothing leaves it.
+          </p>
+          <p class="bb-hero__actions">
+            <a class="bb-button bb-button--solid bb-hero__cta" href="./app.html">Open your shelf</a>
+            <a class="bb-hero__more" href="#reader">What the reader does and does not do</a>
+          </p>
+        </section>
+
+        <section id="preview" class="bb-preview" aria-labelledby="preview-title">
+          <div class="bb-preview__head">
+            <h2 id="preview-title" class="bb-preview__title">Try it here</h2>
+            <p class="bb-preview__note">A sample shelf. It forgets everything when you leave this page.</p>
+            <div id="looks" class="bb-looks" role="group" aria-label="Look"></div>
+          </div>
+          <div id="shelf"></div>
+        </section>
+
+        <section id="reader" class="bb-passage" aria-labelledby="reader-title">
+          <h2 id="reader-title" class="bb-passage__title">A reader that says what it is</h2>
+          <div class="bb-passage__body">
+            <p>
+              Most read-later tools promise to pull the article out of any page. From a browser that promise breaks
+              often: sites refuse the request, and doing it properly needs a server. This one makes a smaller promise
+              and keeps it.
+            </p>
+            <ul class="bb-facts">
+              <li>A link saved with a reading copy opens as a page and remembers your place, down to the paragraph.</li>
+              <li>A link saved alone says so. It offers a field to paste the text and a plain link to the original.</li>
+              <li>Nothing is fetched for you, nothing from a site is run, and nothing is sent anywhere.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="parts" class="bb-passage" aria-labelledby="parts-title">
+          <h2 id="parts-title" class="bb-passage__title">Four parts, each usable alone</h2>
+          <div class="bb-passage__body">
+            <dl class="bb-parts">
+              <div>
+                <dt>Shelf</dt>
+                <dd>Draws volumes for a pose and reports what was picked. No clock, no gestures, no storage.</dd>
+              </div>
+              <div>
+                <dt>Motion</dt>
+                <dd>Springs, drag, flick and snap on Pointer Events. It has no idea it is moving books.</dd>
+              </div>
+              <div>
+                <dt>Store</dt>
+                <dd>A versioned library in local storage with validation, migration, import and export.</dd>
+              </div>
+              <div>
+                <dt>Reader</dt>
+                <dd>Renders a saved copy as text nodes only, tracks the position and hands it back.</dd>
+              </div>
+            </dl>
+            <p class="bb-passage__links">
+              Smaller combinations that run on their own:
+              <a href="./examples/shelf-only.html">shelf and motion</a>,
+              <a href="./examples/reader-only.html">reader</a>,
+              <a href="./examples/store-only.html">store</a>.
+            </p>
+          </div>
+        </section>
+
+        <section id="agent" class="bb-passage" aria-labelledby="agent-title">
+          <h2 id="agent-title" class="bb-passage__title">Built to be rebuilt</h2>
+          <div class="bb-passage__body">
+            <p>
+              The repository carries a skill for coding agents. Point an agent at it and ask for the whole shelf or for
+              one part: it gets the contracts, the constraints that keep the 3D row accessible, and the checks that
+              prove the result.
+            </p>
+            <p><code class="bb-path">.agents/skills/bookmark-bookshelf/SKILL.md</code></p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="bb-home__foot">
+        <p>
+          Apache-2.0. Typefaces Newsreader and IBM Plex Mono under the SIL Open Font License 1.1:
+          <a href="./licenses/Newsreader-OFL-1.1.txt">Newsreader licence</a>,
+          <a href="./licenses/IBM-Plex-Mono-OFL-1.1.txt">Plex Mono licence</a>. No tracking, no server.
+        </p>
+        <a class="bb-button bb-home__foot-cta" href="./app.html">Open your shelf</a>
+      </footer>
+    </div>
+
+    <div id="reader-host"></div>
+    <script type="module" src="./src/site/home.ts"></script>
+  </body>
+</html>
