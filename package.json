@@ -1,0 +1,31 @@
+{
+  "name": "bookmark-bookshelf",
+  "version": "0.1.0-rc.1",
+  "private": true,
+  "description": "Saved links as volumes on an interactive 3D shelf, with an honest in-app reader. Four reusable modules: shelf, motion, store, reader.",
+  "license": "Apache-2.0",
+  "author": "OthmanAdi",
+  "type": "module",
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check": "npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@fontsource-variable/newsreader": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@playwright/test": "^1.65.0",
+    "happy-dom": "^21.0.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0"
+  }
+}

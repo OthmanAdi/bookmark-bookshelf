@@ -1,0 +1,64 @@
+/*
+ * Design tokens shared by every module.
+ * Modules read these custom properties and never hard-code colour, type or spacing.
+ * A variant overrides a subset of them on its own root element.
+ */
+:root {
+  /* ground and ink */
+  --bb-paper: #efebe2;
+  --bb-paper-raised: #f6f3ec;
+  --bb-sheet: #fbf9f4;
+  --bb-ink: #1a1815;
+  --bb-ink-soft: #524d46;
+  --bb-ink-faint: #7b756c;
+  --bb-rule: rgba(26, 24, 21, 0.16);
+  --bb-rule-strong: rgba(26, 24, 21, 0.62);
+
+  /* one accent, used for the active state and the reading ribbon */
+  --bb-accent: #b5301a;
+  --bb-accent-strong: #8f2412;
+  --bb-accent-ink: #fff8f1;
+  --bb-focus: #1c5fd4;
+
+  /* type */
+  --bb-font-serif: 'Newsreader Variable', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --bb-font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --bb-text-micro: 0.6875rem; /* 11px labels */
+  --bb-text-small: 0.8125rem;
+  --bb-text-body: 1rem;
+  --bb-text-read: 1.1875rem; /* 19px reading size */
+  --bb-text-title: clamp(1.375rem, 1.1rem + 1vw, 1.75rem);
+  --bb-text-display: clamp(2.25rem, 1.4rem + 3.6vw, 4.25rem);
+  --bb-track-label: 0.09em;
+
+  /* spacing scale */
+  --bb-s-1: 0.25rem;
+  --bb-s-2: 0.5rem;
+  --bb-s-3: 0.75rem;
+  --bb-s-4: 1rem;
+  --bb-s-5: 1.5rem;
+  --bb-s-6: 2rem;
+  --bb-s-7: 3rem;
+  --bb-s-8: 4rem;
+  --bb-s-9: 6rem;
+
+  /* shape */
+  --bb-r-1: 2px;
+  --bb-r-2: 4px;
+  --bb-hairline: 1px;
+
+  /* motion */
+  --bb-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --bb-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --bb-dur-1: 120ms;
+  --bb-dur-2: 220ms;
+  --bb-dur-3: 360ms;
+
+  /* layers */
+  --bb-z-shelf: 1;
+  --bb-z-chrome: 20;
+  --bb-z-reader: 40;
+  --bb-z-flight: 50;
+  --bb-z-dialog: 60;
+  --bb-z-toast: 70;
+}

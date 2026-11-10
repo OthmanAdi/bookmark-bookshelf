@@ -1,0 +1,173 @@
+/* Page-level base shared by the homepage, the app and the examples. */
+@import './tokens.css';
+@import './fonts.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bb-paper);
+  color: var(--bb-ink);
+  font-family: var(--bb-font-serif);
+  font-size: var(--bb-text-body);
+  line-height: 1.5;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+figure,
+blockquote {
+  margin: 0;
+}
+
+ul[role='list'],
+ol[role='list'] {
+  list-style: none;
+  padding: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--bb-focus);
+  outline-offset: 2px;
+}
+
+/* Small tracked capitals used for catalogue-style labels. */
+.bb-label {
+  font-family: var(--bb-font-mono);
+  font-size: var(--bb-text-micro);
+  font-weight: 500;
+  letter-spacing: var(--bb-track-label);
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+
+/* Present for assistive technology and keyboard focus, absent visually. */
+.bb-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.bb-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bb-s-2);
+  min-height: 2.5rem;
+  padding: 0 var(--bb-s-4);
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: var(--bb-r-1);
+  background: transparent;
+  color: var(--bb-ink);
+  font-family: var(--bb-font-mono);
+  font-size: var(--bb-text-micro);
+  font-weight: 500;
+  letter-spacing: var(--bb-track-label);
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transition-property: background-color, color, border-color, scale;
+  transition-duration: var(--bb-dur-1);
+  transition-timing-function: var(--bb-ease-out);
+}
+
+.bb-button:hover {
+  background: var(--bb-ink);
+  border-color: var(--bb-ink);
+  color: var(--bb-paper);
+}
+
+.bb-button:active {
+  scale: 0.96;
+}
+
+.bb-button--solid {
+  background: var(--bb-accent);
+  border-color: var(--bb-accent);
+  color: var(--bb-accent-ink);
+}
+
+.bb-button--solid:hover {
+  background: var(--bb-accent-strong);
+  border-color: var(--bb-accent-strong);
+  color: var(--bb-accent-ink);
+}
+
+.bb-button--quiet {
+  border-color: transparent;
+}
+
+.bb-button[disabled],
+.bb-button[aria-disabled='true'] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .bb-button {
+    border-color: ButtonText;
+  }
+}
