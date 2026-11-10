@@ -21,6 +21,8 @@ const shelfTools = must<HTMLElement>('#shelf-tools');
 const viewToggle = must<HTMLButtonElement>('#view');
 const variantPicker = must<HTMLSelectElement>('#variant');
 
+let lastOpenedId: string | null = null;
+
 const bookshelf = createBookshelf({
   store,
   shelfHost,
@@ -30,6 +32,17 @@ const bookshelf = createBookshelf({
   onFocusChange: (bookmark) => {
     renderActions(bookmark);
     markCurrentShelf(bookmark);
+  },
+  onOpenChange: (bookmark) => {
+    if (bookmark) {
+      lastOpenedId = bookmark.id;
+      return;
+    }
+    // In list view the row that opened the reader may have been redrawn while it was open. Find it again by id.
+    if (store.session().view !== 'list' || document.activeElement !== document.body || !lastOpenedId) return;
+    const rows = listHost.querySelectorAll<HTMLElement>('.bb-list__row');
+    const row = [...rows].find((entry) => entry.dataset.id === lastOpenedId);
+    row?.querySelector<HTMLElement>('.bb-list__title')?.focus({ preventScroll: true });
   },
 });
 

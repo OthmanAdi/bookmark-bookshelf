@@ -81,7 +81,9 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
   let readerId: string | null = null;
   let flightFrom: Box | null = null;
   let lastFocusId: string | null = null;
+  let savedFocusId: string | null = store.session().focusId;
   let savingFromReader = false;
+  let opener: HTMLElement | null = null;
   let destroyed = false;
 
   const listItems = (): ShelfItem[] => {
@@ -122,12 +124,17 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     shelf.setPose({ position: state.position, open: state.open, reduced: state.reduced });
     reader?.setReveal(state.open, state.reduced ? null : flightFrom);
     shelf.element.dataset.settled = state.settled ? '1' : '0';
-    if (!state.settled) return;
+    // Tell the host as soon as another volume reaches the centre, so its actions never describe the previous one.
     const focused = current();
-    if ((focused?.id ?? null) !== lastFocusId) {
-      lastFocusId = focused?.id ?? null;
-      store.setSession({ focusId: lastFocusId });
+    const focusedId = focused?.id ?? null;
+    if (focusedId !== lastFocusId) {
+      lastFocusId = focusedId;
       options.onFocusChange?.(focused);
+    }
+    // Remember it only once the row has come to rest.
+    if (state.settled && focusedId !== savedFocusId) {
+      savedFocusId = focusedId;
+      store.setSession({ focusId: focusedId });
     }
   });
 
@@ -160,6 +167,8 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     if (reader || destroyed) return;
     const bookmark = store.get(id);
     if (!bookmark) return;
+    // Whatever had focus opened the reader (a volume, a list row, a button). Closing gives focus back to it.
+    opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     if (!bookmarks.some((entry) => entry.id === id)) {
       // The volume lives on another shelf: switch to it first.
       store.setSession({ shelfId: bookmark.shelfId });
@@ -235,7 +244,11 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     shelf.setStage(null);
     setBackgroundInert(false);
     refresh();
-    shelf.focusCurrent();
+    const origin = opener;
+    opener = null;
+    const originUsable = origin !== null && origin.isConnected && origin.getClientRects().length > 0 && !shelf.element.contains(origin);
+    if (originUsable) origin.focus({ preventScroll: true });
+    else shelf.focusCurrent();
     options.onOpenChange?.(undefined);
   }
 
