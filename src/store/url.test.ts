@@ -1,0 +1,57 @@
+import { describe, expect, it } from 'vitest';
+import { defaultCover, normalizeUrl } from './index';
+
+describe('normalizeUrl', () => {
+  it.each([
+    ['https://example.com', 'https://example.com/'],
+    ['  http://Example.com/a b?x=1#top  ', 'http://example.com/a%20b?x=1#top'],
+    ['example.com', 'https://example.com/'],
+    ['www.example.com/path', 'https://www.example.com/path'],
+    ['localhost:3000/app', 'https://localhost:3000/app'],
+    ['example.com:8080', 'https://example.com:8080/'],
+    ['HTTPS://EXAMPLE.COM', 'https://example.com/'],
+  ])('accepts %s', (input, expected) => {
+    expect(normalizeUrl(input)).toEqual({ ok: true, value: expected });
+  });
+
+  it.each([
+    '',
+    '   ',
+    'javascript:alert(1)',
+    'JavaScript:alert(1)',
+    'data:text/html,<b>x</b>',
+    'file:///etc/passwd',
+    'ftp://example.com',
+    'mailto:a@example.com',
+    'https://',
+    'exa mple.com',
+  ])('rejects %j with invalid-url', (input) => {
+    const result = normalizeUrl(input);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('invalid-url');
+      expect(result.error.field).toBe('url');
+    }
+  });
+});
+
+describe('defaultCover', () => {
+  it('is deterministic and uses known names', () => {
+    const first = defaultCover('https://example.com/');
+    expect(defaultCover('https://example.com/')).toEqual(first);
+    expect(['ink', 'bone', 'rust', 'moss', 'plum', 'ochre', 'slate', 'teal']).toContain(first.cloth);
+    expect(['arcs', 'bars', 'dots', 'rays', 'tiles', 'waves']).toContain(first.pattern);
+    expect(Number.isInteger(first.seed)).toBe(true);
+    expect(first.seed).toBeGreaterThanOrEqual(0);
+  });
+
+  it('matches the FNV-1a 32-bit reference values', () => {
+    expect(defaultCover('').seed).toBe(0x811c9dc5);
+    expect(defaultCover('a').seed).toBe(0xe40c292c);
+  });
+
+  it('varies with the text', () => {
+    const seeds = new Set(['a.com', 'b.com', 'c.com', 'd.com'].map((text) => defaultCover(text).seed));
+    expect(seeds.size).toBe(4);
+  });
+});
