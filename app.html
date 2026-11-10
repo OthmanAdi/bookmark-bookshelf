@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Your saved links as volumes on a shelf, with a reader for the text you choose to keep." />
+    <meta name="referrer" content="no-referrer" />
+    <title>Your shelf · Bookmark Bookshelf</title>
+  </head>
+  <body class="bb-app">
+    <a class="bb-skip" href="#shelf">Skip to the shelf</a>
+
+    <div id="chrome" class="bb-app__chrome">
+      <header class="bb-app__bar">
+        <a class="bb-wordmark" href="./index.html" aria-label="Bookmark Bookshelf, home">
+          <span class="bb-wordmark__sigil" aria-hidden="true"></span>
+          <span>Bookmark Bookshelf</span>
+        </a>
+        <div class="bb-app__tools">
+          <label class="bb-field-inline">
+            <span class="bb-label">Look</span>
+            <select id="variant" class="bb-select"></select>
+          </label>
+          <button id="view" type="button" class="bb-button" aria-pressed="false">List view</button>
+          <button id="add" type="button" class="bb-button bb-button--solid">Add a link</button>
+        </div>
+      </header>
+
+      <div class="bb-app__shelves">
+        <div id="tabs" class="bb-tabs" role="group" aria-label="Shelves"></div>
+        <div id="shelf-tools" class="bb-app__shelf-tools"></div>
+      </div>
+
+      <main id="main" class="bb-app__main">
+        <h1 class="bb-visually-hidden">Your shelf</h1>
+        <div id="shelf"></div>
+        <div id="list" hidden></div>
+      </main>
+
+      <footer class="bb-app__foot">
+        <p class="bb-app__boundary">
+          <strong>What the reader does and does not do.</strong>
+          It shows text you saved with a link. It never fetches a page for you: most sites block that from a browser,
+          and doing it safely needs a server this app does not have. Every volume keeps a plain link to the original.
+        </p>
+        <div class="bb-app__library">
+          <span id="persistence" class="bb-label"></span>
+          <button id="export" type="button" class="bb-button bb-button--quiet">Export library</button>
+          <button id="import" type="button" class="bb-button bb-button--quiet">Import</button>
+          <button id="samples" type="button" class="bb-button bb-button--quiet">Add sample volumes</button>
+          <input id="import-file" type="file" accept="application/json,.json" hidden />
+        </div>
+      </footer>
+    </div>
+
+    <div id="reader"></div>
+
+    <dialog id="editor" class="bb-dialog" aria-labelledby="editor-title">
+      <form id="editor-form" method="dialog" novalidate>
+        <h2 id="editor-title" class="bb-dialog__title">Add a link</h2>
+        <p id="editor-error" class="bb-dialog__error" role="alert" hidden></p>
+
+        <label class="bb-field">
+          <span class="bb-label">Link</span>
+          <input name="url" type="url" inputmode="url" autocomplete="url" required placeholder="https://example.org/article" />
+        </label>
+        <label class="bb-field">
+          <span class="bb-label">Title</span>
+          <input name="title" type="text" maxlength="300" placeholder="Leave empty to use the site name" />
+        </label>
+        <div class="bb-field-row">
+          <label class="bb-field">
+            <span class="bb-label">Author</span>
+            <input name="author" type="text" maxlength="200" />
+          </label>
+          <label class="bb-field">
+            <span class="bb-label">Shelf</span>
+            <select name="shelfId"></select>
+          </label>
+        </div>
+        <label class="bb-field">
+          <span class="bb-label">Why you saved it</span>
+          <input name="note" type="text" maxlength="5000" />
+        </label>
+        <label class="bb-field">
+          <span class="bb-label">Tags, separated by commas</span>
+          <input name="tags" type="text" />
+        </label>
+        <div class="bb-field-row">
+          <label class="bb-field">
+            <span class="bb-label">Cloth</span>
+            <select name="cloth"></select>
+          </label>
+          <label class="bb-field">
+            <span class="bb-label">Cover pattern</span>
+            <select name="pattern"></select>
+          </label>
+        </div>
+        <label class="bb-field">
+          <span class="bb-label">Reading copy, optional</span>
+          <textarea name="readingText" rows="6" placeholder="Paste the text you want to read here. The app does not fetch it from the link."></textarea>
+          <span class="bb-field__hint">Plain text with simple marks: # headings, - lists, &gt; quotes, **bold**, *italic*.</span>
+        </label>
+
+        <div class="bb-dialog__actions">
+          <button id="editor-delete" type="button" class="bb-button bb-button--quiet" hidden>Remove volume</button>
+          <span class="bb-dialog__spacer"></span>
+          <button id="editor-cancel" type="button" class="bb-button">Cancel</button>
+          <button id="editor-save" type="submit" class="bb-button bb-button--solid">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="prompt" class="bb-dialog bb-dialog--small" aria-labelledby="prompt-title">
+      <form id="prompt-form" method="dialog" novalidate>
+        <h2 id="prompt-title" class="bb-dialog__title"></h2>
+        <p id="prompt-error" class="bb-dialog__error" role="alert" hidden></p>
+        <label class="bb-field">
+          <span id="prompt-label" class="bb-label"></span>
+          <input id="prompt-input" type="text" maxlength="60" />
+        </label>
+        <div class="bb-dialog__actions">
+          <span class="bb-dialog__spacer"></span>
+          <button id="prompt-cancel" type="button" class="bb-button">Cancel</button>
+          <button type="submit" class="bb-button bb-button--solid">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toasts" class="bb-toasts" role="status" aria-live="polite"></div>
+
+    <script type="module" src="./src/app/main.ts"></script>
+  </body>
+</html>
