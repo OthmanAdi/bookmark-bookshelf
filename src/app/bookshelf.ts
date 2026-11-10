@@ -109,6 +109,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     loop: shelf.loop,
     initial: startIndex,
     reducedMotion: prefersReducedMotion,
+    timing: shelf.variant.motion,
   });
 
   const current = (): Bookmark | undefined => bookmarks[motion.state.focus];
@@ -182,7 +183,8 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     reader = mountReader(options.readerHost, {
       doc: toReaderDoc(bookmark),
       progress: store.progress(id),
-      cover: createCover(item),
+      // Same catalogue mark as the volume on the shelf, so the hand-off after the flight changes nothing.
+      cover: createCover(item, String(bookmarks.findIndex((entry) => entry.id === id) + 1).padStart(2, '0')),
       coverAspect: geometry.coverWidth / geometry.bookHeight,
       onProgress: (position) => store.setProgress(id, position),
       onClose: () => void close(),
@@ -300,6 +302,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     setVariant(name) {
       shelf.setVariant(name);
       motion.setLoop(shelf.loop);
+      motion.setTiming(shelf.variant.motion);
       store.setSession({ variant: shelf.variant.name });
       if (themePage) document.documentElement.dataset.variant = shelf.variant.name;
       refresh();

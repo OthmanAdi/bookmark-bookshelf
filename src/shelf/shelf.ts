@@ -9,6 +9,11 @@ const DEG = Math.PI / 180;
 /** Room kept above the books for a leaning or lifted volume, and below for the contact shadow. */
 const HEADROOM = 26;
 const FLOOR_ROOM = 30;
+/** Share of the opening move during which a swapping volume stays hidden. */
+const SWAP_UNTIL = 0.3;
+/** A touch that moves less than this many px and lifts within this many ms is a tap. */
+const TAP_SLOP = 10;
+const TAP_MAX_MS = 700;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 1.5;
 
@@ -209,7 +214,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       if (flying && slotPose.slot === openSlot) {
         style.transform = flightTransform(pose.open, slotPose.x, slotPose.lift, slotPose.z, slotPose.lean);
         style.zIndex = '3';
+        // With `swap` the volume gives way to the page first and comes back into view already in flight.
+        style.visibility = variant.motion.swap && pose.open < SWAP_UNTIL ? 'hidden' : '';
       } else {
+        style.visibility = '';
         const away = flying && openSlot !== null ? Math.sign(slotPose.slot - openSlot) * pose.open * slide : 0;
         style.transform =
           `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ` +
@@ -227,10 +235,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     scene.style.opacity = pose.reduced && opening ? String(1 - pose.open) : '';
   }
 
-  const onClick = (event: MouseEvent): void => {
-    const target = event.target as Element | null;
-    const book = target?.closest<HTMLElement>('.bb-book');
-    if (!book || pose.open > 0) return;
+  function activate(book: HTMLElement): void {
+    if (pose.open > 0) return;
     const slot = Number(book.dataset.slot);
     const index = Number(book.dataset.index);
     const item = items[index];
@@ -238,6 +244,47 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const atRest = Math.abs(pose.position - slot) < 0.25;
     if (slot === centre && atRest) emit({ type: 'open', id: item.id, index });
     else emit({ type: 'focus', id: item.id, index, slot });
+  }
+
+  // Touch taps are recognised here from pointer events instead of waiting for `click`: after a quick swipe
+  // some browsers swallow the next tap's click, and a volume that ignores a tap feels broken.
+  let touchDown: { id: number; x: number; y: number; time: number; book: HTMLElement } | null = null;
+  let handledTapUntil = 0;
+
+  const onPointerDown = (event: PointerEvent): void => {
+    touchDown = null;
+    if (event.pointerType === 'mouse') return;
+    const book = (event.target as Element | null)?.closest<HTMLElement>('.bb-book');
+    if (book) touchDown = { id: event.pointerId, x: event.clientX, y: event.clientY, time: event.timeStamp, book };
+  };
+
+  // A touch that ever leaves the slop radius is a drag for good, even if it comes back to where it started.
+  const onPointerMove = (event: PointerEvent): void => {
+    if (!touchDown || touchDown.id !== event.pointerId) return;
+    if (Math.hypot(event.clientX - touchDown.x, event.clientY - touchDown.y) > TAP_SLOP) touchDown = null;
+  };
+
+  const onPointerUp = (event: PointerEvent): void => {
+    const down = touchDown;
+    touchDown = null;
+    if (!down || down.id !== event.pointerId) return;
+    const moved = Math.hypot(event.clientX - down.x, event.clientY - down.y);
+    if (moved > TAP_SLOP || event.timeStamp - down.time > TAP_MAX_MS) return;
+    handledTapUntil = event.timeStamp + TAP_MAX_MS;
+    activate(down.book);
+  };
+
+  const onPointerCancel = (): void => {
+    touchDown = null;
+  };
+
+  const onClick = (event: MouseEvent): void => {
+    // Skip the browser's own click for a tap that was already handled above: one activation per tap.
+    // A click with detail 0 comes from the keyboard or from script, never from that tap, so it always counts.
+    const fromKeyboard = event.detail === 0;
+    if (!fromKeyboard && event.timeStamp < handledTapUntil) return;
+    const book = (event.target as Element | null)?.closest<HTMLElement>('.bb-book');
+    if (book) activate(book);
   };
 
   const onKeyDown = (event: KeyboardEvent): void => {
@@ -271,6 +318,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   const onNext = (): void => emit({ type: 'step', direction: 1 });
 
   row.addEventListener('click', onClick);
+  scene.addEventListener('pointerdown', onPointerDown);
+  scene.addEventListener('pointermove', onPointerMove);
+  scene.addEventListener('pointerup', onPointerUp);
+  scene.addEventListener('pointercancel', onPointerCancel);
   row.addEventListener('keydown', onKeyDown);
   row.addEventListener('focusin', onFocusIn);
   previous.addEventListener('click', onPrevious);
@@ -336,6 +387,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     destroy() {
       observer?.disconnect();
       row.removeEventListener('click', onClick);
+      scene.removeEventListener('pointerdown', onPointerDown);
+      scene.removeEventListener('pointermove', onPointerMove);
+      scene.removeEventListener('pointerup', onPointerUp);
+      scene.removeEventListener('pointercancel', onPointerCancel);
       row.removeEventListener('keydown', onKeyDown);
       row.removeEventListener('focusin', onFocusIn);
       previous.removeEventListener('click', onPrevious);

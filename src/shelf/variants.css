@@ -112,6 +112,11 @@
     linear-gradient(90deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 34%, rgba(0, 0, 0, 0) 62%, rgba(0, 0, 0, 0.3));
 }
 
+/* Wider spines would set the title too large to fit the shorter volume. */
+.bb-shelf[data-variant='oak'] .bb-spine__title {
+  font-size: max(11px, calc(var(--bb-spine-w) * 0.215));
+}
+
 .bb-shelf[data-variant='oak'] .bb-spine__title,
 .bb-shelf[data-variant='oak'] .bb-spine__mark {
   color: #e7c98a;
