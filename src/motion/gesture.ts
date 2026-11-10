@@ -116,6 +116,9 @@ export function attachDrag(element: HTMLElement, handlers: DragHandlers, options
   const onPointerUp = (event: PointerEvent): void => finish(event, false);
   const onPointerCancel = (event: PointerEvent): void => finish(event, true);
   const onLostCapture = (event: PointerEvent): void => {
+    // On touch the element under the finger captures the pointer implicitly. When this element then takes
+    // capture, that descendant fires lostpointercapture, which bubbles here. Only our own loss ends the drag.
+    if (event.target !== element) return;
     if (dragging) finish(event, true);
   };
 
