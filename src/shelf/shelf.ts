@@ -172,6 +172,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       nodes.clear();
       captionTitle.textContent = '';
       captionMeta.textContent = '';
+      // An empty shelf has no centred volume.
+      centre = Number.NaN;
+      root.dataset.focus = '';
+      root.dataset.focusId = '';
       return;
     }
 

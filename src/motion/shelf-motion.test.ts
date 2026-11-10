@@ -1,0 +1,310 @@
+import { describe, expect, it, vi } from 'vitest';
+import { createManualClock } from './clock';
+import { createShelfMotion, type ShelfMotionOptions } from './shelf-motion';
+
+function setup(options: Partial<ShelfMotionOptions> = {}) {
+  const clock = createManualClock();
+  const motion = createShelfMotion({ count: 12, clock, ...options });
+  return { clock, motion };
+}
+
+/** Tracks whether a promise has resolved without awaiting it. */
+function watch(promise: Promise<void>): { done: () => boolean } {
+  let resolved = false;
+  void promise.then(() => {
+    resolved = true;
+  });
+  return { done: () => resolved };
+}
+
+const flush = (): Promise<void> => Promise.resolve();
+
+describe('goTo and step', () => {
+  it('starts settled on the initial index', () => {
+    const { motion } = setup({ initial: 4 });
+    expect(motion.state).toMatchObject({ position: 4, target: 4, focus: 4, settled: true, open: 0 });
+  });
+
+  it('goTo settles on the target and sets settled', () => {
+    const { clock, motion } = setup();
+    motion.goTo(5);
+    expect(motion.state.settled).toBe(false);
+    expect(motion.state.target).toBe(5);
+    clock.advance(2000);
+    expect(motion.state.position).toBe(5);
+    expect(motion.state.velocity).toBe(0);
+    expect(motion.state.settled).toBe(true);
+  });
+
+  it('rounds a fractional index to a whole target', () => {
+    const { motion } = setup();
+    motion.goTo(2.6);
+    expect(motion.state.target).toBe(3);
+  });
+
+  it('step moves the target by one in either direction', () => {
+    const { clock, motion } = setup({ initial: 3 });
+    motion.step(1);
+    expect(motion.state.target).toBe(4);
+    motion.step(-1);
+    motion.step(-1);
+    expect(motion.state.target).toBe(2);
+    clock.advance(2000);
+    expect(motion.state.position).toBe(2);
+  });
+
+  it('loop true keeps the target unbounded and wraps focus', () => {
+    const { clock, motion } = setup({ loop: true });
+    motion.goTo(-1);
+    expect(motion.state.target).toBe(-1);
+    expect(motion.state.focus).toBe(11);
+    clock.advance(2000);
+    expect(motion.state.position).toBe(-1);
+
+    motion.goTo(25);
+    expect(motion.state.target).toBe(25);
+    expect(motion.state.focus).toBe(1);
+  });
+
+  it('loop false clamps the target at both ends', () => {
+    const { clock, motion } = setup({ loop: false });
+    motion.goTo(-4);
+    expect(motion.state.target).toBe(0);
+    motion.goTo(99);
+    expect(motion.state.target).toBe(11);
+    expect(motion.state.focus).toBe(11);
+    motion.step(1);
+    expect(motion.state.target).toBe(11);
+    clock.advance(3000);
+    expect(motion.state.position).toBe(11);
+  });
+
+  it('reducedMotion true makes goTo instant', () => {
+    const { clock, motion } = setup({ reducedMotion: true });
+    motion.goTo(7);
+    expect(motion.state.position).toBe(7);
+    expect(motion.state.settled).toBe(true);
+    expect(motion.state.reduced).toBe(true);
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('reads a reducedMotion function on every move', () => {
+    let reduced = false;
+    const { clock, motion } = setup({ reducedMotion: () => reduced });
+    motion.goTo(2);
+    expect(motion.state.position).toBe(0);
+    clock.advance(2000);
+    reduced = true;
+    motion.goTo(6);
+    expect(motion.state.position).toBe(6);
+  });
+
+  it('goTo with immediate jumps without a frame', () => {
+    const { clock, motion } = setup();
+    motion.goTo(4, { immediate: true });
+    expect(motion.state.position).toBe(4);
+    expect(motion.state.settled).toBe(true);
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('ignores goTo on an empty shelf', () => {
+    const { clock, motion } = setup({ count: 0 });
+    motion.goTo(3);
+    expect(motion.state.target).toBe(0);
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('puts the frame loop to sleep when settled and wakes it on the next move', () => {
+    const { clock, motion } = setup();
+    expect(clock.pending()).toBe(0);
+    motion.goTo(2);
+    expect(clock.pending()).toBe(1);
+    clock.advance(2000);
+    expect(clock.pending()).toBe(0);
+    motion.step(1);
+    expect(clock.pending()).toBe(1);
+  });
+});
+
+describe('setOpen', () => {
+  it('runs for about openDuration, reaches exactly 1 and resolves', async () => {
+    const { clock, motion } = setup({ openDuration: 900 });
+    const opened = watch(motion.setOpen(true));
+    expect(motion.state.openTarget).toBe(1);
+
+    clock.advance(450);
+    expect(motion.state.open).toBeGreaterThan(0.2);
+    expect(motion.state.open).toBeLessThan(0.8);
+
+    clock.advance(400);
+    await flush();
+    expect(opened.done()).toBe(false);
+
+    clock.advance(150);
+    await flush();
+    expect(motion.state.open).toBe(1);
+    expect(opened.done()).toBe(true);
+    expect(motion.state.settled).toBe(true);
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('closes over closeDuration back to exactly 0', async () => {
+    const { clock, motion } = setup({ openDuration: 900, closeDuration: 640 });
+    void motion.setOpen(true);
+    clock.advance(1000);
+    const closed = watch(motion.setOpen(false));
+    clock.advance(600);
+    await flush();
+    expect(closed.done()).toBe(false);
+    clock.advance(100);
+    await flush();
+    expect(motion.state.open).toBe(0);
+    expect(closed.done()).toBe(true);
+  });
+
+  it('resolves the first promise on reversal and heads back', async () => {
+    const { clock, motion } = setup({ openDuration: 900, closeDuration: 640 });
+    const first = watch(motion.setOpen(true));
+    clock.advance(400);
+    const midway = motion.state.open;
+    expect(midway).toBeGreaterThan(0);
+
+    const second = watch(motion.setOpen(false));
+    await flush();
+    expect(first.done()).toBe(true);
+    expect(second.done()).toBe(false);
+
+    clock.advance(100);
+    expect(motion.state.open).toBeLessThan(midway);
+
+    clock.advance(700);
+    await flush();
+    expect(motion.state.open).toBe(0);
+    expect(second.done()).toBe(true);
+  });
+
+  it('immediate is instant and needs no frame', async () => {
+    const { clock, motion } = setup();
+    const opened = watch(motion.setOpen(true, { immediate: true }));
+    expect(motion.state.open).toBe(1);
+    expect(clock.pending()).toBe(0);
+    await flush();
+    expect(opened.done()).toBe(true);
+    await motion.setOpen(false, { immediate: true });
+    expect(motion.state.open).toBe(0);
+  });
+
+  it('resolves at once when already in the requested state', async () => {
+    const { clock, motion } = setup();
+    await motion.setOpen(false);
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('uses a short linear fade when motion is reduced', async () => {
+    const { clock, motion } = setup({ reducedMotion: true });
+    const opened = watch(motion.setOpen(true));
+    clock.advance(75);
+    expect(motion.state.open).toBeGreaterThan(0.4);
+    expect(motion.state.open).toBeLessThan(0.6);
+    clock.advance(100);
+    await flush();
+    expect(motion.state.open).toBe(1);
+    expect(opened.done()).toBe(true);
+  });
+});
+
+describe('subscribe', () => {
+  it('fires immediately and then on frames', () => {
+    const { clock, motion } = setup();
+    const listener = vi.fn();
+    motion.subscribe(listener);
+    expect(listener).toHaveBeenCalledTimes(1);
+    motion.goTo(3);
+    clock.advance(100);
+    expect(listener.mock.calls.length).toBeGreaterThan(3);
+    expect(listener.mock.calls[0]?.[0]).toBe(motion.state);
+  });
+
+  it('stops calling after unsubscribe', () => {
+    const { clock, motion } = setup();
+    const listener = vi.fn();
+    const unsubscribe = motion.subscribe(listener);
+    unsubscribe();
+    motion.goTo(3);
+    clock.advance(100);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('setCount, setLoop and destroy', () => {
+  it('setCount keeps the focused item when the row grows', () => {
+    const { clock, motion } = setup();
+    motion.goTo(5);
+    clock.advance(2000);
+    motion.setCount(20);
+    expect(motion.state).toMatchObject({ target: 5, focus: 5, position: 5, velocity: 0 });
+  });
+
+  it('setCount accepts an explicit focus', () => {
+    const { motion } = setup({ loop: false });
+    motion.setCount(8, 6);
+    expect(motion.state).toMatchObject({ target: 6, position: 6 });
+    motion.setCount(4, 9);
+    expect(motion.state.target).toBe(3);
+  });
+
+  // Defect: setCount wraps the old target with the NEW count, so the focused item changes when the row grows.
+  it('setCount keeps the same item when the looping target was outside the old row', () => {
+    const { motion } = setup({ loop: true });
+    motion.goTo(-1, { immediate: true });
+    expect(motion.state.focus).toBe(11);
+    motion.setCount(20);
+    expect(motion.state.focus).toBe(11);
+  });
+
+  it('setLoop(false) folds an unbounded target into the row and keeps the focused item', () => {
+    const { motion } = setup({ loop: true });
+    motion.goTo(14, { immediate: true });
+    expect(motion.state.focus).toBe(2);
+    motion.setLoop(false);
+    expect(motion.state).toMatchObject({ target: 2, focus: 2, position: 2 });
+    motion.goTo(-3);
+    expect(motion.state.target).toBe(0);
+  });
+
+  it('setLoop(true) keeps the focused item and allows unbounded targets again', () => {
+    const { motion } = setup({ loop: false, initial: 9 });
+    motion.setLoop(true);
+    expect(motion.state.focus).toBe(9);
+    motion.goTo(-2);
+    expect(motion.state.target).toBe(-2);
+  });
+
+  it('destroy stops frames and listeners', () => {
+    const { clock, motion } = setup();
+    const listener = vi.fn();
+    motion.subscribe(listener);
+    motion.goTo(3);
+    expect(clock.pending()).toBe(1);
+    motion.destroy();
+    expect(clock.pending()).toBe(0);
+    clock.advance(500);
+    expect(motion.state.position).toBe(0);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('destroy resolves an open call that is still running', async () => {
+    const { motion } = setup();
+    const opened = watch(motion.setOpen(true));
+    motion.destroy();
+    await flush();
+    expect(opened.done()).toBe(true);
+  });
+
+  it('does not restart the frame loop after destroy', () => {
+    const { clock, motion } = setup();
+    motion.destroy();
+    motion.goTo(3);
+    expect(clock.pending()).toBe(0);
+  });
+});

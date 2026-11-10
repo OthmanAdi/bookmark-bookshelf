@@ -197,8 +197,10 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   }
 
   function setCount(next: number, focus?: number): void {
+    // Read the focused item before the count changes: a looping target only means something for the old row.
+    const kept = state.focus;
     count = Math.max(0, Math.floor(next));
-    const index = clampIndex(focus ?? wrapIndex(state.target, Math.max(count, 1)));
+    const index = clampIndex(focus ?? Math.min(kept, Math.max(count - 1, 0)));
     state.position = index;
     state.velocity = 0;
     setTarget(index);
@@ -321,7 +323,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     setCount,
     setLoop(value) {
       loop = value;
-      setCount(count, wrapIndex(state.target, Math.max(count, 1)));
+      setCount(count, state.focus);
     },
     setOpen,
     attach,
