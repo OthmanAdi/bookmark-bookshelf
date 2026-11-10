@@ -28,6 +28,28 @@ export interface ShelfMotionState {
   reduced: boolean;
 }
 
+/**
+ * Eased travel for programmed moves (arrow keys, arrow buttons, picking a spine).
+ * Duration in ms is `min(max, base + perItem * (items - 1))`, eased in and out.
+ */
+export interface TravelTiming {
+  base: number;
+  perItem: number;
+  max: number;
+}
+
+/** All durations in ms. A plain object so a renderer's variant can carry it without importing this module. */
+export interface MotionTiming {
+  /** Null means programmed moves use the same spring as a released drag. */
+  travel: TravelTiming | null;
+  openDuration: number;
+  closeDuration: number;
+  /** Pause between the trigger and the start of the opening move. `open` reads a tiny positive value meanwhile. */
+  openHold: number;
+}
+
+export const DEFAULT_TIMING: MotionTiming = { travel: null, openDuration: 900, closeDuration: 640, openHold: 0 };
+
 export interface ShelfMotionOptions {
   count: number;
   loop?: boolean;
@@ -36,6 +58,8 @@ export interface ShelfMotionOptions {
   reducedMotion?: boolean | (() => boolean);
   clock?: Clock;
   spring?: SpringConfig;
+  timing?: Partial<MotionTiming>;
+  /** Shorthand for `timing.openDuration` and `timing.closeDuration`. */
   openDuration?: number;
   closeDuration?: number;
 }
@@ -56,6 +80,8 @@ export interface ShelfMotion {
   setCount(count: number, focus?: number): void;
   /** Switches between an endless row and a row with two ends, keeping the centred volume. */
   setLoop(loop: boolean): void;
+  /** Changes travel and open timing, for example when the look changes. Missing fields keep their value. */
+  setTiming(timing: Partial<MotionTiming>): void;
   /** Resolves when the open or close has finished, or was replaced by the opposite call. */
   setOpen(open: boolean, options?: { immediate?: boolean }): Promise<void>;
   /** Wires pointer drag and horizontal wheel on an element. */
@@ -70,13 +96,23 @@ const FLICK_MAX_ITEMS = 6;
 const RUBBER_BAND = 0.35;
 const REDUCED_FADE_MS = 150;
 const WHEEL_SETTLE_MS = 140;
+/** Value of `open` during the hold: enough for a renderer to show that the trigger landed. */
+const STAGED = 0.0001;
+
+interface Travel {
+  from: number;
+  to: number;
+  start: number;
+  span: number;
+}
 
 export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   const clock = options.clock ?? browserClock;
   const spring = options.spring ?? SETTLE_SPRING;
   let loop = options.loop ?? true;
-  const openDuration = options.openDuration ?? 900;
-  const closeDuration = options.closeDuration ?? 640;
+  const timing: MotionTiming = { ...DEFAULT_TIMING, ...options.timing };
+  if (options.openDuration !== undefined) timing.openDuration = options.openDuration;
+  if (options.closeDuration !== undefined) timing.closeDuration = options.closeDuration;
 
   let count = Math.max(0, Math.floor(options.count));
   const start = clampIndex(options.initial ?? 0);
@@ -97,6 +133,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   let frame: number | null = null;
   let lastTime = 0;
   let destroyed = false;
+  let travel: Travel | null = null;
 
   // Open tween bookkeeping. `openRaw` is linear time, `state.open` is eased.
   let openRaw = 0;
@@ -142,37 +179,55 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     for (const resolve of resolvers) resolve();
   }
 
+  function stepTravel(active: Travel, time: number, dt: number): boolean {
+    const t = active.span <= 0 ? 1 : clamp((time - active.start) / active.span, 0, 1);
+    const next = active.from + (active.to - active.from) * easeInOutCubic(t);
+    state.velocity = dt > 0 ? (next - state.position) / dt : 0;
+    state.position = next;
+    if (t < 1) return false;
+    state.position = state.target;
+    state.velocity = 0;
+    travel = null;
+    return true;
+  }
+
+  function stepOpen(time: number): boolean {
+    if (openRaw === state.openTarget) return true;
+    if (time < openStartTime) {
+      // Holding: the trigger has landed, the move has not begun.
+      state.open = Math.max(state.open, STAGED);
+      return false;
+    }
+    const t = openSpan <= 0 ? 1 : clamp((time - openStartTime) / openSpan, 0, 1);
+    openRaw = openFrom + (state.openTarget - openFrom) * t;
+    const ease = state.reduced ? linear : easeInOutCubic;
+    state.open = state.openTarget === 1 ? Math.max(STAGED, ease(openRaw)) : ease(openRaw);
+    if (t < 1) return false;
+    openRaw = state.openTarget;
+    state.open = state.openTarget;
+    resolveOpen();
+    return true;
+  }
+
   function tick(time: number): void {
     frame = null;
     if (destroyed) return;
     const dt = time - lastTime;
     lastTime = time;
 
-    let positionResting = true;
+    let positionResting = false;
     if (!state.dragging) {
-      const body = { value: state.position, velocity: state.velocity };
-      positionResting = stepSpring(body, state.target, dt, spring);
-      state.position = body.value;
-      state.velocity = body.velocity;
-    } else {
-      positionResting = false;
-    }
-
-    let openResting = true;
-    if (openRaw !== state.openTarget) {
-      const elapsed = time - openStartTime;
-      const t = openSpan <= 0 ? 1 : clamp(elapsed / openSpan, 0, 1);
-      openRaw = openFrom + (state.openTarget - openFrom) * t;
-      const ease = state.reduced ? linear : easeInOutCubic;
-      state.open = ease(openRaw);
-      openResting = t >= 1;
-      if (openResting) {
-        openRaw = state.openTarget;
-        state.open = state.openTarget;
-        resolveOpen();
+      if (travel) {
+        positionResting = stepTravel(travel, time, dt);
+      } else {
+        const body = { value: state.position, velocity: state.velocity };
+        positionResting = stepSpring(body, state.target, dt, spring);
+        state.position = body.value;
+        state.velocity = body.velocity;
       }
     }
 
+    const openResting = stepOpen(time);
     state.settled = positionResting && openResting && !state.dragging;
     emit();
     if (!state.settled) frame = clock.request(tick);
@@ -183,11 +238,20 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     state.reduced = readReduced();
     setTarget(index);
     if (goOptions.immediate || state.reduced) {
+      travel = null;
       state.position = state.target;
       state.velocity = 0;
       emit();
       if (openRaw === state.openTarget && !state.dragging) state.settled = true;
       return;
+    }
+    const distance = Math.abs(state.target - state.position);
+    if (timing.travel && distance > 0) {
+      const { base, perItem, max } = timing.travel;
+      const span = Math.min(max, base + perItem * Math.max(0, distance - 1));
+      travel = { from: state.position, to: state.target, start: clock.now(), span };
+    } else {
+      travel = null;
     }
     wake();
   }
@@ -201,6 +265,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     const kept = state.focus;
     count = Math.max(0, Math.floor(next));
     const index = clampIndex(focus ?? Math.min(kept, Math.max(count - 1, 0)));
+    travel = null;
     state.position = index;
     state.velocity = 0;
     setTarget(index);
@@ -222,10 +287,16 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     }
     if (openRaw === target) return Promise.resolve();
 
-    const full = state.reduced ? REDUCED_FADE_MS : open ? openDuration : closeDuration;
+    const full = state.reduced ? REDUCED_FADE_MS : open ? timing.openDuration : timing.closeDuration;
+    const hold = open && openRaw === 0 && !state.reduced ? timing.openHold : 0;
     openFrom = openRaw;
     openSpan = full * Math.abs(target - openRaw);
-    openStartTime = clock.now();
+    openStartTime = clock.now() + hold;
+    if (hold > 0) {
+      // Show at once that the trigger landed, before the move begins.
+      state.open = STAGED;
+      emit();
+    }
     const done = new Promise<void>((resolve) => openResolvers.push(resolve));
     wake();
     return done;
@@ -247,6 +318,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
       element,
       {
         onStart() {
+          travel = null;
           state.dragging = true;
           state.velocity = 0;
           dragOrigin = state.position;
@@ -261,6 +333,8 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
           wake();
         },
         onEnd(velocityX, cancelled) {
+          // A released drag always settles on the spring, whatever the travel timing: it has to feel held.
+          travel = null;
           state.dragging = false;
           const itemsPerMs = -velocityX / pitch();
           const isFlick = !cancelled && Math.abs(velocityX) >= FLICK_SPEED && Math.abs(dragTravel) >= FLICK_MIN_TRAVEL;
@@ -289,6 +363,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
       // Plain vertical wheel belongs to the page.
       if (!event.shiftKey && Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
       event.preventDefault();
+      travel = null;
       state.dragging = true;
       state.position = limitDragPosition(state.position + sideways / pitch());
       state.velocity = 0;
@@ -324,6 +399,9 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     setLoop(value) {
       loop = value;
       setCount(count, state.focus);
+    },
+    setTiming(next) {
+      Object.assign(timing, next);
     },
     setOpen,
     attach,

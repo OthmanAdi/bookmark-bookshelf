@@ -68,12 +68,28 @@ export interface Geometry {
   perspective: number;
 }
 
+/**
+ * How a look moves. Durations in ms. The shelf only reads `swap`; the rest is data for whoever drives
+ * the pose (the object has the shape the motion module's `setTiming` accepts).
+ */
+export interface VariantMotion {
+  /** Eased travel for programmed moves: `min(max, base + perItem * (items - 1))`. Null uses the spring. */
+  travel: { base: number; perItem: number; max: number } | null;
+  openDuration: number;
+  closeDuration: number;
+  /** Pause between the trigger and the opening move. */
+  openHold: number;
+  /** While opening, the volume gives way to the page first and reappears in flight. */
+  swap: boolean;
+}
+
 export interface Variant {
   name: string;
   label: string;
   /** One-line description for pickers and docs. */
   summary: string;
   geometry: Geometry;
+  motion: VariantMotion;
   /** Whether the row repeats endlessly. */
   loop: boolean;
 }

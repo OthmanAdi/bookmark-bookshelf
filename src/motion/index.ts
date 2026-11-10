@@ -20,7 +20,10 @@ export {
 } from './spring';
 export {
   createShelfMotion,
+  DEFAULT_TIMING,
   type AttachOptions,
+  type MotionTiming,
+  type TravelTiming,
   type ShelfMotion,
   type ShelfMotionOptions,
   type ShelfMotionState,

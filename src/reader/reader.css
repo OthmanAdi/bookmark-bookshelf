@@ -126,7 +126,8 @@
 @media (min-width: 900px) {
   .bb-reader__layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) clamp(14rem, 26vw, 22rem);
+    /* 285px beside the text on a desktop screen. A host can set --bb-reader-cover to change it. */
+    grid-template-columns: minmax(0, 1fr) var(--bb-reader-cover, 17.8125rem);
     column-gap: var(--bb-s-8);
     align-items: start;
     padding: var(--bb-s-7) var(--bb-s-6) var(--bb-s-9);

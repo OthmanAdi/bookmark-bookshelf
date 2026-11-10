@@ -38,7 +38,12 @@ const log = document.querySelector<HTMLElement>('#log')!;
 const picker = document.querySelector<HTMLSelectElement>('#variant')!;
 
 const shelf = mountShelf(host, { items, label: 'Demo shelf' });
-const motion = createShelfMotion({ count: items.length, loop: shelf.loop, reducedMotion: prefersReducedMotion });
+const motion = createShelfMotion({
+  count: items.length,
+  loop: shelf.loop,
+  reducedMotion: prefersReducedMotion,
+  timing: shelf.variant.motion,
+});
 
 motion.subscribe((state) => {
   shelf.setPose({ position: state.position, open: 0 });
@@ -61,5 +66,7 @@ for (const variant of listVariants()) {
 }
 picker.addEventListener('change', () => {
   shelf.setVariant(picker.value);
+  motion.setLoop(shelf.loop);
+  motion.setTiming(shelf.variant.motion);
   document.documentElement.dataset.variant = picker.value;
 });

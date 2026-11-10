@@ -1,4 +1,4 @@
-import type { Geometry, Variant } from './types';
+import type { Geometry, Variant, VariantMotion } from './types';
 
 /**
  * Variants change geometry here and look in `variants.css` (scoped by
@@ -20,12 +20,35 @@ const paperGeometry: Geometry = {
   perspective: 2000,
 };
 
+/**
+ * Paper Row follows the measured reference timing: programmed steps ease in and out over 1.65 to 2.05 s
+ * depending on distance, and opening holds for five frames (the volume gives way to the page at once)
+ * before a move of just over one second. Closing takes about 0.6 s. A dragged or flicked row is never slowed down: it tracks the pointer and settles on a spring.
+ */
+const measuredMotion: VariantMotion = {
+  travel: { base: 1650, perItem: 200, max: 2050 },
+  openDuration: 1040,
+  closeDuration: 620,
+  openHold: 165,
+  swap: true,
+};
+
+/** The other looks answer faster: spring travel and a single continuous open. */
+const quickMotion: VariantMotion = {
+  travel: null,
+  openDuration: 900,
+  closeDuration: 640,
+  openHold: 0,
+  swap: false,
+};
+
 export const VARIANTS: Record<string, Variant> = {
   paper: {
     name: 'paper',
     label: 'Paper Row',
     summary: 'One endless row of cloth spines on a paper ground. The default.',
     geometry: paperGeometry,
+    motion: measuredMotion,
     loop: true,
   },
   oak: {
@@ -44,6 +67,7 @@ export const VARIANTS: Record<string, Variant> = {
       focusLift: 0,
       perspective: 1500,
     },
+    motion: quickMotion,
     loop: false,
   },
   night: {
@@ -59,6 +83,7 @@ export const VARIANTS: Record<string, Variant> = {
       focusLift: 14,
       perspective: 1300,
     },
+    motion: quickMotion,
     loop: true,
   },
   pocket: {
@@ -75,6 +100,7 @@ export const VARIANTS: Record<string, Variant> = {
       focusLean: 3,
       perspective: 2400,
     },
+    motion: quickMotion,
     loop: true,
   },
 };

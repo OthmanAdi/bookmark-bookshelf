@@ -132,6 +132,13 @@ export function attachDrag(element: HTMLElement, handlers: DragHandlers, options
   // Native image and text dragging would steal the gesture from a mouse.
   const onDragStart = (event: Event): void => event.preventDefault();
 
+  // Once a touch drag is ours, consume its moves. Otherwise the browser still tracks the gesture, treats a
+  // quick release as a fling, and swallows the next tap anywhere on the page to "stop" that fling.
+  // Vertical gestures never reach this point as drags, so page scrolling is untouched.
+  const onTouchMove = (event: TouchEvent): void => {
+    if (dragging && event.cancelable) event.preventDefault();
+  };
+
   element.addEventListener('pointerdown', onPointerDown);
   element.addEventListener('pointermove', onPointerMove);
   element.addEventListener('pointerup', onPointerUp);
@@ -139,6 +146,7 @@ export function attachDrag(element: HTMLElement, handlers: DragHandlers, options
   element.addEventListener('lostpointercapture', onLostCapture);
   element.addEventListener('click', onClickCapture, true);
   element.addEventListener('dragstart', onDragStart);
+  element.addEventListener('touchmove', onTouchMove, { passive: false });
 
   return () => {
     element.removeEventListener('pointerdown', onPointerDown);
@@ -148,6 +156,7 @@ export function attachDrag(element: HTMLElement, handlers: DragHandlers, options
     element.removeEventListener('lostpointercapture', onLostCapture);
     element.removeEventListener('click', onClickCapture, true);
     element.removeEventListener('dragstart', onDragStart);
+    element.removeEventListener('touchmove', onTouchMove);
     element.style.touchAction = previousTouchAction;
   };
 }
