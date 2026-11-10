@@ -73,7 +73,47 @@ For tests or a preview that must not touch real data: `createStore({ storage: cr
 
 ## All four
 
-`src/app/bookshelf.ts` is the reference composition (about 250 lines). Copy it and adapt it. What it does, in order:
+`src/app/bookshelf.ts` is the reference composition (about 300 lines). Copy it and adapt it. Record the commit of this repository you copied from, so a later update can be diffed.
+
+Host page: three elements and two CSS rules are all it needs.
+
+```html
+<div id="page">          <!-- everything that should go inert while reading -->
+  <div id="shelf"></div>
+</div>
+<div id="reader"></div>  <!-- outside #page -->
+```
+
+```css
+html.bb-reading { overflow: hidden; }   /* no page scroll behind the reader */
+body { overflow-x: clip; }              /* spines run off both edges */
+```
+
+```ts
+const store = createStore();
+const bookshelf = createBookshelf({
+  store,
+  shelfHost: document.querySelector('#shelf')!,
+  readerHost: document.querySelector('#reader')!,
+  background: [document.querySelector('#page')!],
+  onFocusChange: (bookmark) => renderActions(bookmark),
+});
+```
+
+Actions under the centred volume are yours to draw, into `bookshelf.shelf.actions`. The honest minimum: if `bookmark.reading` exists, a "Read" button calling `bookshelf.open(bookmark.id)`; if not, an "Add reading text" button calling `bookshelf.open(bookmark.id, { editCopy: true })` (the reader opens with its paste field focused); and always an "Open original" link with `target="_blank" rel="noopener noreferrer"`. `renderActions` in `src/app/main.ts` is a working example.
+
+Seeding with your own links: the store's `seed` option must be a function returning a complete version 1 library, and it is only written to storage on the first change. For a plain list it is simpler to add through the API, which validates each entry and keeps reading text:
+
+```ts
+const store = createStore();
+if (store.bookmarks().length === 0) {
+  for (const link of links) store.addBookmark({ url: link.url, title: link.title, readingText: link.readingText });
+}
+```
+
+Do not push such a list through `migrateLibrary` or `importLibrary`: the legacy array shape they accept carries only `url`, `title`, `note` and `tags`, so reading text would be dropped.
+
+What `bookshelf.ts` does, in order:
 
 1. Maps store bookmarks to shelf items: `title`, `source` (hostname), `cloth`, `pattern`, `seed`, `progress` (the stored percent).
 2. Mounts the shelf, creates motion with `count`, `loop: shelf.loop`, `initial` from `session.focusId`, `reducedMotion: prefersReducedMotion`.

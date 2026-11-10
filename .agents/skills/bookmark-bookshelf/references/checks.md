@@ -54,6 +54,8 @@ Prefer state attributes to timeouts.
 | `.bb-reader` | `data-open` | `0`, `1` |
 | `.bb-reader__sheet` | `scrollTop` | reading position |
 | `.bb-reader__body [data-block]` | block index | |
+| `.bb-reader__close`, `.bb-reader__open`, `.bb-reader__edit` | close button, "Open original" link, "Edit reading copy" button | |
+| `.bb-reader__paste-field`, `.bb-reader__save` | textarea and save button of the paste panel (present when the document has no text, or after Edit) | |
 
 ## Real mouse drag (Playwright)
 
@@ -70,14 +72,20 @@ await expect(page.locator('.bb-shelf')).toHaveAttribute('data-settled', '1');
 
 Then assert `data-focus-id` changed and no reader appeared (a drag must not count as a click).
 
+With very few items on a looping row, a drag can travel a whole number of laps and land on the volume it started from. Drag by one or two pitches (`box.width * 0.1` is plenty), keep it slow (12 or more steps) so it is not read as a flick, or test with `loop: false`.
+
 ## Real touch drag (Chromium, mobile context with `hasTouch`)
 
 `page.touchscreen` only taps. Use the DevTools protocol so the browser runs its real touch pipeline, including `touch-action` and implicit pointer capture:
 
 ```ts
+type TouchType = 'touchStart' | 'touchMove' | 'touchEnd';
 const cdp = await page.context().newCDPSession(page);
-const touch = (type: string, x?: number, y?: number) =>
-  cdp.send('Input.dispatchTouchEvent', { type, touchPoints: x === undefined ? [] : [{ x, y: y!, id: 1 }] });
+const touch = (type: TouchType, x?: number, y?: number) =>
+  cdp.send('Input.dispatchTouchEvent', {
+    type,
+    touchPoints: x === undefined || y === undefined ? [] : [{ x, y, id: 1 }],
+  });
 
 await touch('touchStart', startX, startY);
 for (let step = 1; step <= 16; step++) {
