@@ -3,12 +3,40 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bookmark Bookshelf: an open-source 3D bookmark manager</title>
     <meta
       name="description"
-      content="Bookmark Bookshelf keeps saved links as volumes on a shelf you can drag, open and read. It runs in your browser and nothing leaves it."
+      content="An interactive 3D bookshelf for your saved links. Drag the row, open a volume, read the copy you kept and resume where you stopped. Local data, open source."
     />
     <meta name="referrer" content="no-referrer" />
-    <title>Bookmark Bookshelf</title>
+    <meta name="theme-color" content="#efebe2" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bookmark Bookshelf" />
+    <meta property="og:title" content="Bookmark Bookshelf: an open-source 3D bookmark manager" />
+    <meta
+      property="og:description"
+      content="Saved links as volumes on a shelf you can drag, open and read. A read-later list that keeps its context, stored only in your browser."
+    />
+    <meta property="og:image" content="./social-preview.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A row of cloth-bound book spines with one volume turned to show its cover." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="./social-preview.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Bookmark Bookshelf",
+        "description": "An open-source 3D bookmark manager: saved links stand as volumes on an interactive bookshelf, with a reader for the text you keep and reading positions that resume.",
+        "applicationCategory": "BrowserApplication",
+        "operatingSystem": "Any modern web browser",
+        "isAccessibleForFree": true,
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
   </head>
   <body class="bb-home">
     <a class="bb-skip" href="#preview">Skip to the shelf</a>
@@ -29,8 +57,9 @@
         <section class="bb-hero" aria-labelledby="hero-title">
           <h1 id="hero-title" class="bb-hero__title">Give your saved links a spine.</h1>
           <p class="bb-hero__deck">
-            Bookmark Bookshelf keeps the pages you meant to read as volumes on a shelf. Drag the row, pull one out, and
-            read the copy you saved with it. It runs in your browser and nothing leaves it.
+            Bookmark Bookshelf is an open-source 3D bookmark manager. The pages you meant to read stand as volumes on
+            a shelf: drag the row, pull one out, and read the copy you saved with it. Your library stays in your
+            browser and nothing leaves it.
           </p>
           <p class="bb-hero__actions">
             <a class="bb-button bb-button--solid bb-hero__cta" href="./app.html">Open your shelf</a>
@@ -97,7 +126,7 @@
           <h2 id="agent-title" class="bb-passage__title">Built to be rebuilt</h2>
           <div class="bb-passage__body">
             <p>
-              The repository carries a skill for coding agents. Point an agent at it and ask for the whole shelf or for
+              The repository carries a reusable skill for coding agents. Point an agent at it and ask for the whole shelf or for
               one part: it gets the contracts, the constraints that keep the 3D row accessible, and the checks that
               prove the result.
             </p>
