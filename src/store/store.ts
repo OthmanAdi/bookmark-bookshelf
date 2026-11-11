@@ -19,7 +19,9 @@ import {
   findBookmark,
   moveBookmarkIn,
   removeBookmarkFrom,
+  removeBookmarksFrom,
   restoreBookmarkTo,
+  restoreBookmarksTo,
   updateBookmarkIn,
 } from './bookmark-ops';
 import { defaultIdFactory, ownValue } from './ids';
@@ -30,10 +32,10 @@ import { setDoneIn, setNoteIn } from './personal-ops';
 import type { LoadedLibrary } from './persistence';
 import { loadLibrary, saveLibrary, saveSession, storedBytes } from './persistence';
 import { normalizeProgress } from './progress';
-import { clone, cloneResult, ok } from './result';
+import { clone, cloneResult, fail, ok } from './result';
 import { readSession } from './sanitize';
 import { applySessionPatch } from './session-ops';
-import { addShelfTo, removeShelfFrom, renameShelfIn, updateShelfIn } from './shelf-ops';
+import { addShelfTo, removeShelfFrom, renameShelfIn, restoreShelfIn, updateShelfIn } from './shelf-ops';
 import { resolveStorage } from './storage';
 import { normalizeUrl, urlKey } from './url';
 
@@ -232,12 +234,23 @@ export function createStore(options: StoreOptions = {}): Store {
       if (readOnly) return;
       commit(['bookmarks'], () => restoreBookmarkTo(lib, entry), Boolean);
     },
+    removeBookmarks: (ids) => {
+      if (readOnly) return [];
+      const { value, error } = commit(['bookmarks'], () => removeBookmarksFrom(lib, ids), (entries) => entries.length > 0);
+      return error ? [] : clone(value);
+    },
+    restoreBookmarks: (entries) =>
+      mutate(['bookmarks'], () => {
+        const restored = restoreBookmarksTo(lib, entries);
+        return restored > 0 || entries.length === 0 ? ok(undefined) : fail('not-restored', 'Those links are already back.');
+      }),
     moveBookmark: (id, to) => mutate(['bookmarks'], () => moveBookmarkIn(lib, ctx, id, to)),
 
     addShelf: (name): Result<Shelf> => mutate(['shelves'], () => addShelfTo(lib, ctx, name)),
     renameShelf: (id, name): Result<Shelf> => mutate(['shelves'], () => renameShelfIn(lib, id, name)),
     updateShelf: (id, patch): Result<Shelf> => mutate(['shelves'], () => updateShelfIn(lib, id, patch)),
     removeShelf: (id, moveTo) => mutate(['shelves', 'bookmarks'], () => removeShelfFrom(lib, id, moveTo)),
+    restoreShelf: (entry) => mutate(['shelves', 'bookmarks'], () => restoreShelfIn(lib, entry)),
 
     progress: (id): Progress | undefined => {
       const found = ownValue(lib.progress, id);

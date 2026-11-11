@@ -225,6 +225,17 @@ export interface StoreEvent {
   reason: ChangeReason;
 }
 
+/** What it takes to put a removed shelf and its links back where they were. */
+export interface RemovedShelf {
+  shelf: Shelf;
+  /** The shelf its links were moved to. */
+  moveTo: string;
+  /** The links that were on the shelf, with their place on it. */
+  links: Array<{ id: string; order: number }>;
+  /** Whether the shelf was the one being shown. */
+  wasActive: boolean;
+}
+
 export interface StoreOptions {
   /** Defaults to `localStorage` when it works, otherwise an in-memory store. */
   storage?: KeyValueStorage;
@@ -296,6 +307,10 @@ export interface Store {
   /** Removes a volume and returns it with its progress, done mark and note so the caller can offer undo. */
   removeBookmark(id: string): RemovedBookmark | undefined;
   restoreBookmark(entry: RemovedBookmark): void;
+  /** Removes several links in one step. The result is what `restoreBookmarks` takes, in the order asked. */
+  removeBookmarks(ids: string[]): RemovedBookmark[];
+  /** Puts links back where they were on their shelves. A link whose id is back in use is left out. */
+  restoreBookmarks(entries: RemovedBookmark[]): Result<void>;
   /** Moves a volume to another shelf and/or to an index inside the shelf. */
   moveBookmark(id: string, to: { shelfId?: string; index?: number }): Result<Bookmark>;
 
@@ -303,8 +318,13 @@ export interface Store {
   renameShelf(id: string, name: string): Result<Shelf>;
   /** Changes the name, description, language, author or due date of a shelf in one step. */
   updateShelf(id: string, patch: ShelfPatch): Result<Shelf>;
-  /** Removes a shelf. Its volumes move to `moveTo`, or to the first remaining shelf. */
-  removeShelf(id: string, moveTo?: string): Result<void>;
+  /**
+   * Removes a shelf. Its links move to the end of `moveTo`, or of the first remaining shelf. The result is
+   * what `restoreShelf` takes to undo it.
+   */
+  removeShelf(id: string, moveTo?: string): Result<RemovedShelf>;
+  /** Puts a removed shelf back at its old place and its links back on it, in their old order. */
+  restoreShelf(entry: RemovedShelf): Result<void>;
 
   progress(id: string): Progress | undefined;
   setProgress(id: string, value: { block: number; ratio: number; percent: number }): void;

@@ -132,6 +132,26 @@ export function removeBookmarkFrom(lib: LibraryV2, id: string): RemovedBookmark 
   return removed;
 }
 
+/** Removes several links; each entry keeps the place the link had before any of them went. */
+export function removeBookmarksFrom(lib: LibraryV2, ids: readonly string[]): RemovedBookmark[] {
+  const places = new Map(lib.bookmarks.map((bookmark) => [bookmark.id, bookmark.order]));
+  const removed: RemovedBookmark[] = [];
+  for (const id of new Set(ids)) {
+    const entry = removeBookmarkFrom(lib, id);
+    const place = places.get(id);
+    if (!entry || place === undefined) continue;
+    entry.bookmark.order = place;
+    removed.push(entry);
+  }
+  return removed;
+}
+
+/** Puts removed links back, lowest place first so each lands where it was. Returns how many came back. */
+export function restoreBookmarksTo(lib: LibraryV2, entries: readonly RemovedBookmark[]): number {
+  const ordered = [...entries].sort((a, b) => a.bookmark.order - b.bookmark.order);
+  return ordered.reduce((count, entry) => count + (restoreBookmarkTo(lib, entry) ? 1 : 0), 0);
+}
+
 /** Puts a removed volume and what was personal to it back at the old position. Ignored if the id is taken. */
 export function restoreBookmarkTo(lib: LibraryV2, entry: RemovedBookmark): boolean {
   if (findBookmark(lib, entry.bookmark.id)) return false;
