@@ -1,10 +1,18 @@
 {
   "name": "bookmark-bookshelf",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0",
   "private": true,
   "description": "Saved links as volumes on an interactive 3D shelf, with an honest in-app reader. Four reusable modules: shelf, motion, store, reader.",
   "license": "Apache-2.0",
   "author": "OthmanAdi",
+  "homepage": "https://othmanadi.github.io/bookmark-bookshelf/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OthmanAdi/bookmark-bookshelf.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OthmanAdi/bookmark-bookshelf/issues"
+  },
   "type": "module",
   "engines": {
     "node": "^22.12.0 || ^24.0.0 || >=26.0.0"

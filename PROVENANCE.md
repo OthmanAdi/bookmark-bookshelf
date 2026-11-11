@@ -1,6 +1,6 @@
 # Provenance
 
-What is in this repository, where it came from, and what it is licensed under. Written for release candidate 0.1.0-rc.1.
+What is in this repository, where it came from, and what it is licensed under. Written for release 0.1.0.
 
 ## Original work
 

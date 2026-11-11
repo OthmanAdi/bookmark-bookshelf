@@ -1,6 +1,6 @@
 # Skill trials
 
-Two trials of `.agents/skills/bookmark-bookshelf/` were run on 2026-11-10 for release candidate 0.1.0-rc.1. In each, a separate coding agent (Claude Sonnet) received only a user-style request, the path of the skill and read access to this repository. It worked in an empty folder, could not edit this repository, and kept notes on every place the skill was unclear.
+Two trials of `.agents/skills/bookmark-bookshelf/` were run on 2026-11-10 on release candidate 0.1.0-rc.1, the build that became release 0.1.0. In each, a separate coding agent (Claude Sonnet) received only a user-style request, the path of the skill and read access to this repository. It worked in an empty folder, could not edit this repository, and kept notes on every place the skill was unclear.
 
 ## Trial 1: part of the product (shelf and motion)
 
@@ -30,7 +30,7 @@ Request: build shelf, drag, local storage and the reader with resume into an emp
 
 ## What the trials changed
 
-Both agents reported gaps in the skill text, and each list was fixed before this candidate was cut.
+Both agents reported gaps in the skill text, and each list was fixed before the release.
 
 From trial 1: the keyboard control is invisible and must not be clicked in tests; the short wiring example did not set the `data-settled` hook; the vertical touch check needs a page taller than the screen; a list of development dependencies and minimal test configuration was missing; `tokens.css` alone leaves a page unstyled; a short list on a looping row shows every title more than once.
 

@@ -14,7 +14,8 @@ const root = import.meta.dirname;
  *
  *   SITE_ORIGIN=https://example.org npm run build
  *
- * Then the homepage and the app get a canonical link and absolute Open Graph URLs. Example pages stay noindex.
+ * Then the homepage and the app get a canonical link and absolute Open Graph URLs, the homepage's
+ * structured data gets its `url`, and `robots.txt` and `sitemap.xml` are written. Example pages stay noindex.
  */
 function siteMeta(): Plugin {
   const origin = (process.env.SITE_ORIGIN ?? '').trim().replace(/\/+$/, '');
@@ -29,12 +30,28 @@ function siteMeta(): Plugin {
       }
       const url = `${origin}/${page === 'index.html' ? '' : page}`;
       return {
-        html: html.replaceAll('content="./social-preview.png"', `content="${origin}/social-preview.png"`),
+        html: html
+          .replaceAll('content="./social-preview.png"', `content="${origin}/social-preview.png"`)
+          .replace('"@type": "SoftwareApplication",', `"@type": "SoftwareApplication",\n        "url": "${origin}/",`),
         tags: [
           { tag: 'link', attrs: { rel: 'canonical', href: url }, injectTo: 'head' },
           { tag: 'meta', attrs: { property: 'og:url', content: url }, injectTo: 'head' },
         ],
       };
+    },
+    generateBundle() {
+      if (!approved) return;
+      const pages = [`${origin}/`, `${origin}/app.html`];
+      const sitemap =
+        '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+        pages.map((page) => `  <url><loc>${page}</loc></url>\n`).join('') +
+        '</urlset>\n';
+      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemap });
+      this.emitFile({
+        type: 'asset',
+        fileName: 'robots.txt',
+        source: `User-agent: *\nAllow: /\n\nSitemap: ${origin}/sitemap.xml\n`,
+      });
     },
   };
 }

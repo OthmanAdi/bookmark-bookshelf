@@ -2,15 +2,19 @@
 
 Bookmark Bookshelf is an open-source 3D bookmark manager. Your saved links stand as volumes on an interactive bookshelf that you can drag, open and read.
 
-Saved links pile up in a flat list and lose their context. Here each link becomes a cloth-bound volume with a title on its spine. Drag the row, bring one to the centre, open it, and read the copy you saved with it. Close it and the shelf remembers the paragraph you stopped at.
+[Open the live demo](https://othmanadi.github.io/bookmark-bookshelf/) or go straight to [the app](https://othmanadi.github.io/bookmark-bookshelf/app.html). You do not need an account, and your library stays in your browser.
 
 ![The shelf being dragged, a volume opened, read and closed again](docs/media/shelf-demo.gif)
 
 *Recorded from the running app. The round pointer marker was added for the recording. Everything else is the product.*
 
-You can try it now without an account or a server.
+Saved links pile up in a flat list and lose their context. Here each link becomes a cloth-bound volume with a title on its spine. Drag the row, bring one to the centre, open it, and read the copy you saved with it. Close it and the shelf remembers the paragraph you stopped at.
+
+Run it on your own machine with four commands.
 
 ```bash
+git clone https://github.com/OthmanAdi/bookmark-bookshelf.git
+cd bookmark-bookshelf
 npm install
 npm run dev
 ```
@@ -21,7 +25,7 @@ Then open `http://127.0.0.1:5173/` for the homepage or `http://127.0.0.1:5173/ap
 
 ### To use it
 
-Run the two commands above and choose "Add a link". Paste the link, and if you want to read it in the app, paste the text too. Everything is stored in your browser's local storage. "Export library" in the footer gives you a JSON file you can keep or move to another browser.
+Open [the app](https://othmanadi.github.io/bookmark-bookshelf/app.html), or run it locally with the commands above, and choose "Add a link". Paste the link, and if you want to read it in the app, paste the text too. Everything is stored in your browser's local storage. "Export library" in the footer gives you a JSON file you can keep or move to another browser.
 
 ### To take one part into your own project
 
@@ -101,7 +105,7 @@ The reader shows text you saved with a link. It never fetches a page for you, be
 | `npm run test:e2e` | 81 browser tests (Playwright on desktop Chromium, phone-sized Chromium with touch, and a WebKit smoke run). Run `npx playwright install chromium webkit` once first |
 | `npm run check` | Type check, unit tests and build |
 
-The build is a folder of static files with relative URLs, so it can be served from any path. It is marked `noindex` until you build it with an approved address. Running `SITE_ORIGIN=https://your.domain npm run build` adds the canonical link and absolute sharing URLs.
+The build is a folder of static files with relative URLs, so it can be served from any path. The live site at https://othmanadi.github.io/bookmark-bookshelf/ is built and deployed by the workflow in [`.github/workflows/pages.yml`](.github/workflows/pages.yml), which sets `SITE_ORIGIN` to that address. With `SITE_ORIGIN` set, the build adds the canonical link, absolute sharing URLs, `robots.txt` and `sitemap.xml`. Without it, every page is marked `noindex`, so a copy deployed somewhere else does not compete with the original until you give it its own address.
 
 ## Limits
 

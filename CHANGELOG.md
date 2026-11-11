@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.1.0-rc.1 (release candidate, not published)
+## 0.1.0 (2026-11-11)
 
-This is the first candidate, so everything is new.
+This is the first public release, so everything is new.
 
 ### Added
 
@@ -15,7 +15,7 @@ This is the first candidate, so everything is new.
 - The homepage has a live sample shelf on an in-memory store.
 - Three examples run parts on their own. They cover the shelf with motion, the reader, and the store.
 - A skill for coding agents is in `.agents/skills/bookmark-bookshelf/`, with contracts, wiring recipes and checks.
-- The candidate has 420 unit tests and 81 browser tests. The browser tests run on desktop Chromium, phone-sized Chromium with real touch input, and a WebKit smoke run.
+- The release has 420 unit tests and 81 browser tests. The browser tests run on desktop Chromium, phone-sized Chromium with real touch input, and a WebKit smoke run.
 
 ### Known limits
 

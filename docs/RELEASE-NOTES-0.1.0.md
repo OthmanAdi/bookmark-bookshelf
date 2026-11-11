@@ -1,10 +1,12 @@
-# Bookmark Bookshelf 0.1.0-rc.1
+# Bookmark Bookshelf 0.1.0
 
-This is a release candidate. It has not been published.
+This is the first public release.
 
 Bookmark Bookshelf is an open-source 3D bookmark manager. Saved links stand as volumes on an interactive bookshelf. You drag the row, open a volume, read the copy you saved with it, and come back later to the same paragraph.
 
-## What is in this candidate
+The live demo is at https://othmanadi.github.io/bookmark-bookshelf/ and the source is at https://github.com/OthmanAdi/bookmark-bookshelf.
+
+## What is in this release
 
 - A working app (`app.html`) for adding, editing, organising and reading saved links. Data stays in the browser's local storage, with export and import.
 - A homepage (`index.html`) with a live sample shelf.
@@ -15,7 +17,11 @@ Bookmark Bookshelf is an open-source 3D bookmark manager. Saved links stand as v
 
 ## Try it
 
+Open the [live demo](https://othmanadi.github.io/bookmark-bookshelf/), or run it locally.
+
 ```bash
+git clone https://github.com/OthmanAdi/bookmark-bookshelf.git
+cd bookmark-bookshelf
 npm install
 npm run dev
 ```
