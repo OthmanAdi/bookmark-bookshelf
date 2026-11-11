@@ -37,6 +37,10 @@ const SHADE_STEP = 0.002;
  * from one measured spine, and a letter cut at the end of a title is worse than a title a little smaller.
  */
 const TITLE_ROOM = 0.97;
+/** Space a pasted label keeps around its title along the spine, in spine widths, at each end. */
+const LABEL_INSET = 0.16;
+/** Below this spine width in px the number at the head would fall under 9 px, so it is left off. */
+const NARROW_SPINE = 40;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
 const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
@@ -158,11 +162,16 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
    */
   function fitSpine(node: BookNode): void {
     const size = sizeOf(node.slot);
-    const length = (size.bookHeight - spineParts * size.spineWidth) * TITLE_ROOM;
+    const label = node.treatment === 'label' ? 2 * LABEL_INSET * size.spineWidth : 0;
+    const length = (size.bookHeight - spineParts * size.spineWidth) * TITLE_ROOM - label;
     letterSpine(node, fitTitle(node.item.title, { length, breadth: size.spineWidth }, titleFont));
+    // Too narrow for a number at the head to stay at a readable size: leave it off rather than shrink it.
+    node.element.toggleAttribute('data-narrow', size.spineWidth < NARROW_SPINE);
   }
 
   function readLettering(): void {
+    // A look asks for the number at the head of each spine through a custom property.
+    root.dataset.mark = getComputedStyle(root).getPropertyValue('--bb-spine-mark').trim() === '1' ? '1' : '0';
     const node = nodes.get(centre) ?? nodes.values().next().value;
     if (!node || !node.title.isConnected) return;
     const style = getComputedStyle(node.title);

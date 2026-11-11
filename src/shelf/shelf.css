@@ -194,13 +194,28 @@
   z-index: -1;
 }
 
+/* The number at the head is printed only where a look asks for it (`--bb-spine-mark: 1`), and never under 9 px. */
 .bb-spine__mark {
+  display: none;
   font-family: var(--bb-font-mono);
-  font-size: max(8px, calc(var(--bb-spine-w) * 0.17));
+  font-size: max(9px, calc(var(--bb-spine-w) * 0.17));
   font-weight: 500;
   letter-spacing: 0.06em;
   line-height: 1;
   opacity: 0.86;
+}
+
+.bb-shelf[data-mark='1'] .bb-spine__mark {
+  display: block;
+}
+
+.bb-book[data-narrow] .bb-spine__mark {
+  visibility: hidden;
+}
+
+/* Bands at head and tail belong to one series of spines; the others keep the space so every title has the same room. */
+.bb-book__spine:not([data-treatment='bands']) .bb-spine__rule {
+  visibility: hidden;
 }
 
 .bb-spine__rule {
@@ -232,16 +247,69 @@
   line-height: 1.02;
 }
 
-.bb-spine__title.is-clipped {
+.bb-spine__title.is-clipped,
+.bb-spine__title.is-clipped .bb-spine__label {
   text-overflow: ellipsis;
 }
 
-.bb-spine__sigil {
+/* A paper label pasted on the cloth, hugging the title. Its own ink, whatever the look letters spines in. */
+.bb-spine__label {
+  display: inline-block;
+  max-inline-size: 100%;
+  padding-inline: calc(var(--bb-spine-w) * 0.16);
+  padding-block: calc(var(--bb-spine-w) * 0.08);
+  border-radius: 1px;
+  background: #efe6d2;
+  box-shadow:
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.25),
+    0 0.5px 0 rgba(0, 0, 0, 0.2);
+  color: #2a2620;
+  text-shadow: none;
+  white-space: pre;
+  overflow: hidden;
+}
+
+/* The imprint device: the site's initial knocked out of a small shape in the cloth's second colour. */
+.bb-spine__device {
+  position: relative;
   flex: none;
-  width: calc(var(--bb-spine-w) * 0.2);
-  height: calc(var(--bb-spine-w) * 0.2);
+  display: grid;
+  place-items: center;
+  width: max(14px, calc(var(--bb-spine-w) * 0.44));
+  aspect-ratio: 1;
+  color: var(--cloth);
+}
+
+.bb-spine__device::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: var(--cloth-art);
+}
+
+.bb-spine__device[data-shape='square']::before {
+  inset: 8%;
+  border-radius: 1px;
+}
+
+.bb-spine__device[data-shape='lozenge']::before {
+  inset: 15%;
+  border-radius: 1px;
   rotate: 45deg;
+}
+
+.bb-spine__device[data-shape='shield']::before {
+  inset: 4% 10%;
+  border-radius: 1px 1px 50% 50% / 1px 1px 42% 42%;
+}
+
+.bb-spine__initial {
+  position: relative;
+  font-family: var(--bb-font-serif);
+  font-size: max(9px, calc(var(--bb-spine-w) * 0.26));
+  font-weight: 600;
+  line-height: 1;
 }
 
 /* Reading ribbon: a tab of accent colour standing above the head of a volume in progress. */

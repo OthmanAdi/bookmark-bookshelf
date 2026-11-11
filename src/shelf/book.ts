@@ -1,4 +1,5 @@
 import { createCover } from './cover-art';
+import { imprintOf, seriesOf } from './imprint';
 import type { TitleFit } from './title-fit';
 import { resolveCloth } from './variants';
 import type { ShelfItem } from './types';
@@ -16,6 +17,9 @@ export interface BookNode {
   item: ShelfItem;
   /** The lettering on the spine; the shelf fits it to the spine's size. */
   title: HTMLElement;
+  /** Where the title's text goes: the title itself, or the paper label pasted on it. */
+  words: HTMLElement;
+  treatment: SpineTreatment;
   spineShade: HTMLElement;
   /** The front board. The printed cover is laid on it. */
   cover: HTMLElement;
@@ -29,6 +33,15 @@ export interface BookNode {
   shades: [number, number, number];
   control: HTMLButtonElement | null;
 }
+
+/**
+ * How a spine is dressed, the same for every volume from one site so that a site's volumes read as a
+ * series: a band at head and tail, a paper label pasted on, or plain cloth with only the imprint.
+ */
+export type SpineTreatment = 'bands' | 'label' | 'plain';
+const TREATMENTS: readonly SpineTreatment[] = ['bands', 'label', 'plain'];
+/** Shapes of the imprint device at the tail of a spine, one per site. */
+const DEVICES = ['circle', 'square', 'lozenge', 'shield'] as const;
 
 function span(className: string, text?: string): HTMLSpanElement {
   const element = document.createElement('span');
@@ -51,14 +64,23 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   const body = span('bb-book__body');
   body.setAttribute('aria-hidden', 'true');
 
+  const treatment = TREATMENTS[seriesOf(item.source, TREATMENTS.length)] ?? 'bands';
   const spine = span('bb-book__spine');
+  spine.dataset.treatment = treatment;
   spine.appendChild(span('bb-spine__mark', markFor(item, index)));
   spine.appendChild(span('bb-spine__rule'));
-  const title = span('bb-spine__title', item.title);
+  const title = span('bb-spine__title');
   if (item.lang) title.lang = item.lang;
+  const words = treatment === 'label' ? span('bb-spine__label') : title;
+  if (words !== title) title.appendChild(words);
+  words.textContent = item.title;
   spine.appendChild(title);
   spine.appendChild(span('bb-spine__rule'));
-  spine.appendChild(span('bb-spine__sigil'));
+  // The publisher's device in place of an ornament: the site's initial in the site's own shape.
+  const device = span('bb-spine__device');
+  device.dataset.shape = DEVICES[seriesOf(item.source, DEVICES.length)] ?? 'circle';
+  device.appendChild(span('bb-spine__initial', imprintOf(item.source).initial));
+  spine.appendChild(device);
   const spineShade = span('bb-book__shade');
   spine.appendChild(spineShade);
   body.appendChild(spine);
@@ -81,7 +103,7 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   body.append(cover, back);
 
   element.appendChild(body);
-  return { element, slot, index, item, title, spineShade, cover, coverShade, back, backShade, print: null, turn: 0, shades: [-1, -1, -1], control: null };
+  return { element, slot, index, item, title, words, treatment, spineShade, cover, coverShade, back, backShade, print: null, turn: 0, shades: [-1, -1, -1], control: null };
 }
 
 /**
@@ -118,7 +140,7 @@ export function describe(item: ShelfItem, index: number, count: number): string 
 /** Letters the spine with a fitted title: its size, and a line break when it is set on two lines. */
 export function letterSpine(node: BookNode, fit: TitleFit): void {
   const text = fit.lines.join('\n');
-  if (node.title.textContent !== text) node.title.textContent = text;
+  if (node.words.textContent !== text) node.words.textContent = text;
   node.title.style.fontSize = `${fit.size.toFixed(2)}px`;
   node.title.dataset.lines = String(fit.lines.length);
   node.title.classList.toggle('is-clipped', fit.clipped);

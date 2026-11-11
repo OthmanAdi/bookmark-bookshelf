@@ -94,6 +94,33 @@ describe('mountShelf rendering', () => {
     }
   });
 
+  it('dresses the spines of one site alike and marks each with the site initial', () => {
+    const items = makeItems(9).map((item, index) => ({ ...item, source: index % 3 === 0 ? 'docs.example.org' : item.source }));
+    const { shelf } = mount({ items });
+    const spine = (slot: number): HTMLElement => bySlot(shelf, slot).querySelector<HTMLElement>('.bb-book__spine')!;
+    expect(spine(0).dataset.treatment).toBe(spine(3).dataset.treatment);
+    expect(spine(3).dataset.treatment).toBe(spine(6).dataset.treatment);
+    const device = (slot: number) => bySlot(shelf, slot).querySelector<HTMLElement>('.bb-spine__device')!;
+    expect(device(0).dataset.shape).toBe(device(3).dataset.shape);
+    expect(device(0).textContent).toBe('E');
+    expect(shelf.element.querySelector('.bb-spine__sigil')).toBeNull();
+  });
+
+  it('pastes a label holding the title on spines dressed with one', () => {
+    const items = Array.from({ length: 30 }, (_, index) => ({ id: `id-${index}`, title: `Title ${index}`, source: `site${index}.example` }));
+    const { shelf } = mount({ items });
+    const labelled = [...shelf.element.querySelectorAll<HTMLElement>('.bb-book__spine[data-treatment="label"]')];
+    expect(labelled.length).toBeGreaterThan(0);
+    for (const spine of labelled) {
+      expect(spine.querySelector('.bb-spine__title > .bb-spine__label')?.textContent).toMatch(/^Title \d+$/);
+    }
+  });
+
+  it('leaves the number off the head of spines unless the look asks for it', () => {
+    const { shelf } = mount();
+    expect(shelf.element.dataset.mark).toBe('0');
+  });
+
   it('gives every volume a front and a back board', () => {
     const { shelf } = mount({ items: makeItems(40) });
     for (const book of books(shelf)) {
