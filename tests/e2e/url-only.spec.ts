@@ -126,15 +126,7 @@ test.describe('a link with no text', () => {
     await expectReaderOpen(page);
     await expect(pasteField(page)).toBeFocused();
     await expect(readerBody(page).getByRole('heading', { name: 'No text saved yet' })).toBeVisible();
-  });
-
-  test('an example with no text does not claim to show an example text', async ({ page }) => {
-    test.fixme(true, 'The reader says "Example text written for this app" above "No text saved yet" for an example that has no text.');
-    await openApp(page);
-    await page.goto(`/app.html#link=${LINK_ONLY_EXAMPLE.id}`);
-    await page.reload();
-    await expectReaderOpen(page);
-    await expect(readerBody(page).getByRole('heading', { name: 'No text saved yet' })).toBeVisible();
+    // Nothing was written for this link, so no line speaks of an example text.
     await expect(readerOf(page).getByText('Example text written for this app.')).toHaveCount(0);
   });
 });
