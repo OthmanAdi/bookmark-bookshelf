@@ -7,10 +7,13 @@ import {
   isExampleShelfId,
   sampleLibrary,
 } from './sample-library';
+import { SAMPLE_TEXTS } from './sample-texts';
 
 const NOW = new Date('2026-11-10T12:00:00.000Z');
 const CLOTHS = ['ink', 'bone', 'rust', 'moss', 'plum', 'ochre', 'slate', 'teal'];
 const PATTERNS = ['arcs', 'bars', 'dots', 'rays', 'tiles', 'waves'];
+
+const wordCount = (text: string): number => text.split(/\s+/).filter(Boolean).length;
 
 describe('sampleLibrary', () => {
   const lib = sampleLibrary(NOW);
@@ -124,6 +127,27 @@ describe('sampleLibrary', () => {
       const next = lib.bookmarks[i + 1];
       if (next) expect(next.cover.cloth).not.toBe(b.cover.cloth);
     });
+  });
+
+  it('gives four links a text of 250 to 1,300 words, and every text belongs to a link', () => {
+    const withText = lib.bookmarks.filter((b) => b.reading !== undefined);
+    expect(withText).toHaveLength(4);
+    for (const b of withText) {
+      expect(b.reading?.format).toBe('markdown-lite');
+      expect(b.reading?.savedAt).toBe(b.addedAt);
+      const words = wordCount(b.reading?.text ?? '');
+      expect(words).toBeGreaterThanOrEqual(250);
+      expect(words).toBeLessThanOrEqual(1300);
+    }
+    expect(Object.keys(SAMPLE_TEXTS).sort()).toEqual(withText.map((b) => b.id).sort());
+  });
+
+  it('writes texts the reader shows as written: no angle brackets, no links to other pages', () => {
+    for (const b of lib.bookmarks) {
+      if (!b.reading) continue;
+      expect(b.reading.text.includes('<')).toBe(false);
+      for (const link of b.reading.text.matchAll(/\[[^\]]+\]\((https?:\/\/[^)]+)\)/g)) expect(link[1]).toBe(b.url);
+    }
   });
 
   it('dates every link before now, each at a different time', () => {

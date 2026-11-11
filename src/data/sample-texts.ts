@@ -1,331 +1,129 @@
 /**
- * Reading copies for the sample library, keyed by bookmark id.
- * Every text is original prose written for this project (markdown-lite subset).
- * Backticks are escaped because the strings are template literals.
+ * Texts for the example links, keyed by link id. Each is original writing for this app in the markdown-lite
+ * subset the reader understands, never an excerpt of the linked page. Backticks are escaped because the strings
+ * are template literals.
  */
 export const SAMPLE_TEXTS: Record<string, string> = {
-  'bm-tsundoku': `These notes are about the pile beside the bed, the one that grows faster than it shrinks. There is a Japanese word for the habit of acquiring books and letting them wait, *tsundoku*, and it is a useful word because it names the habit without scolding anyone for it. The [linked reference entry](https://en.wikipedia.org/wiki/Tsundoku) covers the term itself. What follows is my own reckoning with the pile, written for a reader who owns more books than they have read and would like to feel calm about it.
+  'example-what-is-a-url': `A web address has at most five parts, and they always come in the same order: scheme, authority, path, query, fragment. Labelling them on an example is the most likely test question.
 
-## What the pile is made of
+## The example I practise on
 
-Look at a stack of unread books and you will see several different objects. Some are purchases made in a hurry of enthusiasm, after a recommendation or a good week. Some are gifts that arrived with a kind inscription and no particular appetite behind them. Some are books you meant to read for a reason that has since expired, such as a course you dropped or a trip you postponed. Others came from a sale, where the price seemed to settle the question of whether you wanted them.
+\`https://library.example.org:8443/catalogue/search?q=maps&page=2#results\`
 
-Each of these has a different story, and treating them as one problem makes the pile feel larger than it is.
+Scheme \`https\`. Authority \`library.example.org:8443\`, which is a host and then a port. Path \`/catalogue/search\`. Query \`q=maps&page=2\`, everything after the question mark. Fragment \`results\`, everything after the hash sign.
 
-It helps to sort the pile once, on paper, without moving a single book. Write down each title and one honest word for how it got there: impulse, gift, duty or plan. The exercise takes about ten minutes and the result is usually calmer than expected. Most piles contain a handful of books you truly want to read soon and a larger group that you are keeping out of loyalty to a past self.
+## Scheme
 
-## Why unread books are worth something
+Everything before the first colon. It says how to fetch the thing. On the web that is nearly always \`https\` or \`http\`, and the s means the connection is encrypted. Other schemes exist: \`mailto:\` opens a new email instead of loading a page. Upper or lower case makes no difference, but everyone writes it in lower case.
 
-A shelf of unread books is a store of possibility. The book you have not opened yet still holds every reading you might give it. Once you have read it, the book becomes one particular experience, good or disappointing, and the other readings fall away. There is a quiet pleasure in owning the possibility, and the pleasure is legitimate as long as it does not harden into a debt.
+## Authority (host, sometimes a port)
 
-> A pile is a list of promises, and promises can be renegotiated.
+It starts after the two slashes. Usually it is only a host name such as \`www.example.com\`, which I read from right to left: \`com\` is the top-level domain, \`example\` is the name someone registered under it, and \`www\` is a subdomain the owner chose. Case doesn’t matter in the host either.
 
-The trouble starts when the pile begins to issue reproaches. A book that was bought with delight can acquire a faint tone of accusation after a year on the same spot. That tone is worth noticing, because it tells you the book has stopped being a possibility and become an obligation. Obligations deserve a decision. Left alone they fade, and the fading is the unpleasant part: the book stays in the room and keeps asking for attention it will not receive.
+A port appears only when the server listens on an unusual one. Without it the browser uses the default for the scheme, 443 for https and 80 for http, so \`https://example.com\` and \`https://example.com:443\` are the same address. Good trick question, write it down.
 
-## A sorting method that fits in an afternoon
+The authority can also start with a user name and an @ sign. In \`https://bank.example@evil.example\` the host is \`evil.example\`, and \`bank.example\` is only the user name. Some browsers ask before they follow an address like that.
 
-The method below is plain and has worked for me. It needs a table, some patience and a willingness to be brief with each book. An app can hold the results afterward, but a sheet of paper does the job as well.
+## Path
 
-1. Take every unread book off its shelf and put the whole group on one table.
-2. Pick up each book and read its first page. Allow a minute per book at most.
-3. Place it in one of four groups: read now, read later, lend or give away, let go.
-4. Put the read-now group where you will see it every day, and shelve the rest out of the way.
+From the first single slash after the host up to the \`?\` or \`#\`. It looks like folders on a computer, and sometimes it is, but the server decides what it means. The path can be case sensitive, so \`/Maps\` and \`/maps\` might be different pages, or one of them might not exist.
 
-The first page does most of the work. A book you want to continue announces itself within a few paragraphs, and a book that leaves you indifferent says so just as clearly. Trust that signal over the reasons you had at the time of purchase, because those reasons belonged to a different week.
+## Query
 
-Giving a book away is a way of finishing with it, and it passes the possibility on to someone who may enjoy it more.
+Starts at \`?\`. Most sites put pairs like \`key=value\` in it, joined with \`&\`, and that is how a search form sends what you typed. The pairs are a convention. The standard only says the query runs from the \`?\` to the \`#\` or the end.
 
-## Making reading easier to start
+## Fragment
 
-Starting is the hard part for most of the books in a pile, so shrink the cost of starting. Keep one book in the bag and one beside the chair. Make the smallest unit of reading small enough to finish: ten pages, one chapter, a single essay from a collection. A small unit that you complete beats a large intention that you postpone, and completing it makes the next one easier.
+The part after \`#\` points to a place inside the page, usually a heading. The browser keeps it to itself and never sends it to the server. That’s why jumping to another \`#section\` on the same page doesn’t reload anything.
 
-Place matters as well. A book that lives on the kitchen table gets opened at breakfast. The same book on a high shelf waits for an occasion that rarely comes. If a title matters to you, give it a visible position and let the others sit behind it.
+## Characters that get encoded
 
-Digital piles behave the same way, and they are easier to ignore because they take no room. A list of saved articles can grow without any visible pressure, so it needs its own small limit. Some readers cap the list at a fixed number and agree with themselves that a new item enters only when an old one leaves.
-## Living with a pile that stays
+Some characters can’t appear as they are, so they’re written as \`%\` followed by two hexadecimal digits. A space becomes \`%20\`. In search queries a \`+\` often stands for a space too, which comes from the way forms are encoded. An address full of percent signs usually works fine.
 
-After sorting, some books will remain unread for years, and that is acceptable. A working library has a slow edge, the part that holds things you will want someday or might never reach. The aim is for that edge to be chosen, with a boundary you can describe in a sentence.
+## URL or URI
 
-Keep a short note about why each remaining book is there. A line such as *bought for the chapter on maps* gives your later self a reason to open the book or a reason to release it. Without the note, the book carries only the vague weight of having been acquired.
+A URI is any string that identifies something. A URL is a URI that also says where to find it. So every URL is a URI, and a book’s ISBN written as \`urn:isbn:\` plus the number is a URI that isn’t a URL. In the test, “URL” is fine everywhere except in a question about exactly this.
 
-A pile can also work as a map of curiosity. Looking over what you collected in the last year shows which subjects pulled at you, often more honestly than a list of what you finished. Used that way, the pile gives you information about yourself, and information is easier to live with than guilt.
+## Relative addresses
 
----
+A link inside a page can leave out the start. On \`https://example.com/atlas/index.html\`, a link to \`images/map.png\` goes to \`https://example.com/atlas/images/map.png\`. With a slash in front, \`/images/map.png\` starts again from the host and goes to \`https://example.com/images/map.png\`.
 
-Here is the routine I keep, written down so that it can be checked against what I actually do:
+## To ask in class
 
-- Once a month, take the oldest book from the pile and read its first page again.
-- Decide in the same sitting whether it stays or goes, and if it stays, say when you will read it.
-- Record the decision in one line next to the title.
-- Buy a new book only after finishing or releasing one.
-
-The routine needs only occasional attention, a few minutes at a time, from someone willing to be honest about what they want to read. Over a season the pile settles into a size you can name, and the books left in it are there on purpose.
+Do any sites still need the \`www\`? Every one I tried works without it.
 `,
 
-  'bm-commonplace-book': `A commonplace book is a notebook where a reader copies out passages worth keeping and writes remarks beside them. [The linked entry](https://en.wikipedia.org/wiki/Commonplace_book) covers where the practice came from. These notes are about how it can work for someone reading on a screen today.
+  'example-web-storage-api': `\`localStorage\` keeps strings under string keys, per origin, until something deletes them. \`sessionStorage\` has the same methods but belongs to one tab: a reload keeps it, closing the tab ends it, and a second tab gets its own.
 
-## What goes in
+Origin means scheme, host and port together. \`https://example.com\` and \`http://example.com\` don’t share storage, and neither do \`example.com\` and \`www.example.com\`.
 
-- Sentences you would like to find again, copied exactly and marked as copies.
-- Questions a book raised and left open.
-- Short summaries in your own words, written soon after reading.
-- Connections between two things you met in different places.
-- A line saying where each entry came from, so it can be checked later.
+Four calls cover nearly everything: \`setItem(key, value)\`, \`getItem(key)\`, \`removeItem(key)\` and \`clear()\`. \`getItem\` returns \`null\` for a key that was never set. To walk everything, \`length\` gives the count and \`key(index)\` the name at each position.
 
-## Why copying helps
+When a person has blocked site data, even reading \`window.localStorage\` throws a \`SecurityError\`, so the first access belongs in a \`try\` as well. Web workers have no Web Storage at all; it exists only on the window.
 
-Copying a passage by hand or by typing slows you down to the speed at which the sentence was written. You notice its rhythm, its word choices and the point where it turns. A summary written afterward shows whether you understood it. If the summary will not come, you have learned something useful about the reading.
+Values are always strings. \`setItem('count', 5)\` comes back as \`'5'\`. For anything structured, \`JSON.stringify\` going in and \`JSON.parse\` coming out, with the parse inside \`try\`, since an older version of the page may have written something else under the same key.
 
-## Keeping it findable
+Every call is synchronous and blocks the page while it runs. Keep values small. Don’t write on every keystroke; wait until the typing pauses.
 
-A notebook grows faster than memory, so give it a way to be searched. Put a short heading on each entry and use a small, stable set of tags. Resist inventing a new tag for every entry, since a tag used once cannot help you find anything.
+Space is a few megabytes per origin in current browsers. When it runs out, \`setItem\` throws a \`QuotaExceededError\`. Catch it and tell the person the save failed.
 
-Review is where the habit pays off. Reading back through a month of entries shows which ideas keep returning, and those are usually the ones worth building on.
+When one tab changes \`localStorage\`, the \`storage\` event fires in the other open tabs of the same origin. The tab that made the change gets no event. That is enough to keep two open tabs in step.
 
-> A good entry is one that your future self can use without remembering the day it was written.
+Private windows get their own storage, and the browser throws it away when the last private window closes. Clearing a site’s data in the browser settings deletes it as well. Keep anything that matters somewhere else too.
+
+No secrets either. Every script on the page can read every key, including scripts the page loads from other sites. A login token is safer in a cookie marked \`HttpOnly\`, which scripts can’t read at all.
+
+To look inside, open the developer tools: Application, then Local storage in Chrome, or the Storage tab in Firefox. Entries can be edited and deleted there by hand, which is the quickest way to see what a page does with an empty or broken value.
+
+Quick check in the console: \`localStorage.setItem('hello', 'world')\`, reload, then \`localStorage.getItem('hello')\`. Try the same in a private window, close every private window, open a new one, and the key is gone.
 `,
 
-  'bm-marginalia': `Marginalia are the notes readers leave in the margins of a book. The [linked entry](https://en.wikipedia.org/wiki/Marginalia) describes the wider history. My interest here is practical: how to mark a page so that the marks help on a second reading.
+  'example-commonplace-book': `I copy sentences into a notebook by hand, and over the last two years I have come to think the copying matters more than the notebook. That is an awkward thing to believe while reading apps offer to collect every highlight for me and email a few back each week. I tried one of those services for most of a year. I opened the emails less and less, and by the end I was deleting them unread.
 
-## A small vocabulary of marks
+The notebook is a school exercise book with squared paper, the kind with a plain card cover that goes soft at the corners. I write the date, then the sentence, then where it came from. Under it I sometimes add a line of my own, and sometimes nothing. The pages are numbered at the top in pencil, and the last six are kept free for an index: a word and a page number.
 
-Keep the set small enough to remember without a legend, and write the legend on the endpaper anyway.
+A highlight costs nothing. One drag of a finger and the line turns yellow, and the reading carries on as if nothing had happened. Because it cost nothing I highlighted generously, and a year of it produced several thousand lines that I had marked and never thought about again. A copied sentence costs about a minute, more if it is long or my hand is tired. That price does the sorting for me. Before I start writing I have to decide that this sentence is worth a minute, and most sentences are not, even good ones. The notebook ends up holding perhaps one line for every fifty I would once have highlighted, and I can say why each one is there.
 
-- A vertical line beside a paragraph means the passage matters.
-- A question mark means the claim needs checking.
-- An underline sits under a single phrase and never under a whole sentence.
-- A number in a circle links two passages that answer each other.
+Copying also slows the reading down to the speed of a pen, and at that speed I see things I missed. A comma I had read straight past turns out to be holding the whole sentence up. A word I took for a loose synonym turns out to be the exact one. More often than I like to admit, I get halfway through copying something and realise it is less good than I thought: the rhythm carried me along, and the claim underneath is ordinary. Those half-copied lines stay in the book with a line through them. I used to tear such pages out. Now I think they are some of the most useful entries, because they show me what kind of sentence fools me.
 
-## Writing words in the margin
+Here is one that survived:
 
-Words are slower than symbols, so reserve them for reactions that would otherwise be lost. Write a one-word verdict such as *disagree* together with the reason, or note which other book the passage recalls. A margin note should be short enough to read at a glance and specific enough to make sense a year later.
+> Newspapers are produced with rapidity, to be read with rapidity.
 
-## Pencil or pen
+Arnold Bennett wrote it in a short book about how to use the hours that work leaves over, and he meant it as a reason to keep the morning train for something slower than the news. I copied it into my phone on a train, in the middle of scrolling through the news, and into the book that evening. Underneath I wrote the date and “the same goes for most of what I read on this phone”. I still think that is true, and I still read the news on the train. The entry has not changed the habit, though I notice the habit more.
 
-Pencil can be erased, which makes it forgiving on a first reading. Pen commits you to a position, and some readers find that it sharpens their attention. Whichever you choose, avoid marking so much that the page turns gray. When everything is emphasized, nothing can be found again.
+The obvious objection is that a paper notebook cannot be searched. That is true, and I mind it less than I expected. I rarely need to find a particular sentence. When I do, I usually remember roughly when I read it, the dates get me close, and the index at the back does the rest. Copying also helps me remember. A sentence I have written out by hand is one I can often recite a month later, and I could not recite a single one of my old highlights.
 
-## Digital margins
+Most of what I copy now comes from a screen, and on paper the difference disappears. A line from an unsigned web page and a line from a famous essay look the same in my handwriting, and I read them back with the same eyes. More than once the unsigned one has held up better. I like that the book has no way of knowing which sentences came with a reputation.
 
-An annotation tool gives you search and export, and it costs you the physical memory of where on the page a note sat. If you read on a screen, keep the same small vocabulary of marks so your notes stay consistent from one text to the next.
+I keep the book in the order I read, with no headings and no sections for topics. I tried topics once, with a page each for work, for cooking, for the garden and for whatever did not fit, and I spent more time deciding where a sentence belonged than thinking about what it said. A chronological book looks messy. It also keeps a line about grief next to a line about bread because I read them in the same week, and sometimes the two of them start a conversation I would never have arranged on purpose.
+
+Once a year, usually in the slow days between Christmas and the new year, I read the whole book from the first page. The early entries embarrass me a little. Some of what I copied two years ago now seems obvious, and a few lines I copied with real excitement I no longer understand at all. That embarrassment is the best record I have of how my reading has changed. A list of finished books only tells me what I got through, while the notebook keeps the places where I stopped.
+
+A few practical habits have settled in. I copy exactly, including punctuation I would not have chosen, and put my own words underneath, never mixed in. I note the source well enough to find it again, which for a book means the page and for anything online means the full address, written out, because a title on its own is often not enough to find a page a few years later. And I write in pen, so that I can’t tidy the book later into something I wish I had read.
+
+The current book has ninety-six pages and I am on page seventy-one. The next one is already in the drawer, the same squared kind, because the squares keep my lines straight on the train.
 `,
 
-  'bm-link-rot': `Link rot is what happens when a saved address stops leading to what you saved. The page may have moved, been rewritten or disappeared. The [linked entry](https://en.wikipedia.org/wiki/Link_rot) describes the phenomenon in general. This note is a defensive routine for a personal collection of links.
+  'example-paper-size': `Before a worksheet goes to the copier:
 
-## Why a link alone is a weak record
+1. Check which page size the file was made in. A4 is 210 × 297 mm. US Letter is 8.5 × 11 inches, about 216 × 279 mm.
+2. If it came from someone in the US or Canada, assume Letter until I have looked.
+3. An A4 file printed on Letter without scaling loses about 18 mm at the bottom. A Letter file on A4 is about 6 mm too wide. Either way, tick “fit to printable area” or the copier’s nearest setting.
+4. Keep at least 10 mm of margin all round, because the office printer can’t print to the edge.
+5. Count the sheets before starting: pages × students, plus three spares.
 
-A link is a pointer, and a pointer is only as good as the thing it points at. The author of the page controls that thing, usually without knowing that you depend on it. Years later the address may still respond while the content has changed, which is harder to notice than an error page.
+Scaling on the copier:
 
-## What to save beside the address
+- A4 to A5, or A3 to A4: 71%.
+- A5 to A4, or A4 to A3: 141%.
+- Every A size is the one above it cut in half across the long side, and the sides keep the ratio 1 to √2. Halving the area divides each side by √2, which is where the 71% comes from.
 
-1. The title as you saw it.
-2. The name of the author or site, if there is one.
-3. The date you saved it.
-4. A sentence on why you saved it.
-5. A reading copy of the part you needed, in your own words.
+Booklets and halves:
 
-The first four make the item findable by other means when the address fails. The fifth keeps the useful part alive.
-
-## Habits that help
-
-- Prefer addresses that look intended to last, with few moving parts.
-- Revisit your most important links on a schedule and mark the ones that fail.
-- Keep your own notes as the primary record, with the link as a citation.
-- Search for the title when an address fails, since the page may live somewhere else now.
-
-A collection built this way degrades gracefully. When an address dies, you still know what it was and why you wanted it.
-`,
-
-  'bm-pointer-events': `Pointer events give a page one vocabulary for mouse, pen and touch. Before them, a drag handler often needed separate code for each kind of input. With them, the same handler can serve all of the kinds at once. The [linked reference](https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events) lists every event and property. These are my working notes.
-
-## The core events
-
-- \`pointerdown\` fires when a button is pressed or a finger touches the surface.
-- \`pointermove\` fires as the pointer travels while it is over the element or captured by it.
-- \`pointerup\` fires on release.
-- \`pointercancel\` fires when the browser takes the gesture away, for example to scroll the page.
-
-The last one is easy to forget. A drag that never receives its \`pointerup\` leaves the interface stuck in a half-finished state, so treat \`pointercancel\` as an ending and run the same cleanup.
-
-## A drag in four steps
-
-1. On \`pointerdown\`, remember the starting position and call \`setPointerCapture\` with the event's \`pointerId\`.
-2. On \`pointermove\`, compare the current position to the start and update the element.
-3. On \`pointerup\`, commit the result and release the capture.
-4. On \`pointercancel\`, put everything back as it was.
-
-Capture matters because it keeps the events coming to your element even when the pointer slides outside its edges. Without it, a quick flick can leave the drag behind.
-
-## Telling touch from the rest
-
-The \`pointerType\` property reports \`mouse\`, \`pen\` or \`touch\`. Use it sparingly, since most code does not need to care. A reasonable use is a larger hit area for touch.
-
-When several fingers are down at once, each has its own \`pointerId\`, and one of them is marked \`isPrimary\`. Track pointers by id in a small map if you support gestures that need two.
-
-## Letting the browser scroll
-
-By default a touch drag on a scrolling page is claimed for scrolling, which cancels your gesture. The CSS property \`touch-action\` tells the browser which gestures it may handle. Setting it to \`none\` on a draggable surface hands the gesture to your code. Set it only where you need it, because it also removes the page's own scrolling over that element.
-
-> A gesture handler is finished only when every way of ending it has been handled.
-`,
-
-  'bm-transform-style': `Three-dimensional effects on a web page come from a few properties working together. The [linked reference](https://developer.mozilla.org/en-US/docs/Web/CSS/transform-style) documents \`transform-style\`. These notes put it in context.
-
-## The three pieces
-
-- \`perspective\` on a parent gives its children a vanishing point, so things farther along the depth axis look smaller.
-- \`transform\` on a child rotates or moves it in space, for example with \`rotateY(30deg)\`.
-- \`transform-style: preserve-3d\` on the parent tells the browser to keep its children in a shared three-dimensional space and to skip the flattening step.
-
-Without that last declaration, each child is drawn flat into its parent first, and the depth you were building disappears. This is the most common reason a 3D layout looks like a flat rotation.
-
-## Things that flatten the scene
-
-Some properties on an element force it to render as a single flat image, which undoes \`preserve-3d\` for its children. Overflow clipping and opacity below one are the usual causes, and filters can do it as well. If a nested scene collapses, look at the ancestors for one of these.
-
-## Faces and their backs
-
-A rotated element shows its back when turned far enough. \`backface-visibility: hidden\` hides that side, which lets a card carry a different face on each side when two elements are stacked back to back.
-
-## Practical advice
-
-Keep the scene shallow. A few elements with modest rotation read as depth, while many layers invite blur and cost performance. Animate \`transform\` and \`opacity\` only. Test on a mid-range phone, since a laptop forgives what a phone does not.
-`,
-
-  'bm-reduced-motion': `Some people find large movement on screen uncomfortable, and their systems let them say so. The \`prefers-reduced-motion\` media feature passes that setting to your CSS. The [linked article](https://web.dev/articles/prefers-reduced-motion) explains it in full. This is a short working checklist.
-
-## Reading the setting
-
-Write the motion as the default and switch it off inside a block for \`(prefers-reduced-motion: reduce)\`, or write it only inside a block for \`(prefers-reduced-motion: no-preference)\`. The second form keeps motion off wherever the setting cannot be read. In script, \`window.matchMedia\` gives the same answer and can notify you when the person changes the setting.
-
-## What to change
-
-Reduced motion still allows change. Large travel, parallax, spinning and zooming are the things to replace. Short fades, small color changes and instant jumps remain fine, and they keep the interface understandable.
-
-1. Replace large slides and spins with a quick fade.
-2. Stop looping and autoplaying movement, or give it a pause control.
-3. Keep every state change visible, so a person can tell what happened after the animation is gone.
-4. Check that nothing depends on a transition finishing, because with motion reduced it may be instant.
-
-## Testing
-
-Switch the setting in your operating system, reload, and use the whole interface. Both versions need to work, and the reduced version should feel designed, never merely stripped.
-`,
-
-  'bm-aria-patterns': `A widget is an interface element that a plain page does not provide, such as a tab set or a dialog. The [linked guide](https://www.w3.org/WAI/ARIA/apg/) collects patterns for building them so that keyboard and screen reader users get a predictable experience. These notes record how I use it.
-
-## Start with native elements
-
-Before reaching for a pattern, check whether HTML already has the element. A \`button\` or a \`select\` arrives with keyboard handling and roles built in. A custom widget has to rebuild all of that, and every missing piece is a barrier.
-
-## What a pattern gives you
-
-- The roles and properties the widget needs, such as \`tablist\` and \`aria-selected\`.
-- The keyboard interaction, listed key by key.
-- Notes on focus: where it starts, where it moves and where it returns.
-- An example that can be read as a reference implementation.
-
-## Habits worth keeping
-
-1. Make the widget reachable with Tab, and move inside it with arrow keys when it is a group of related items.
-2. Show focus clearly. A focus ring is information, so style it rather than remove it.
-3. Keep the visible label and the accessible name the same words.
-4. Test with the keyboard alone before testing with anything else.
-
-Patterns describe a goal, and a screen reader's real behavior can still surprise you. Treat the guide as the starting point and verify the result by using it.
-`,
-
-  'bm-web-storage': `The browser offers two small key-value stores, \`localStorage\` and \`sessionStorage\`. The [linked reference](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API) documents the interface. This note is about using them carefully in an app that keeps a person's data.
-
-## What they are
-
-- Values are strings, so structured data goes in as JSON and comes out through a parse step.
-- Each origin has its own space, separate from every other site.
-- \`localStorage\` stays until something clears it. \`sessionStorage\` lasts for one tab's session.
-- Calls are synchronous, so large writes can pause the page.
-
-## Plan for failure
-
-Access can throw. A full quota raises an error on write, and some privacy modes or embedded views block the store entirely. Wrap every read and write in \`try\` and \`catch\`, and keep an in-memory fallback so the app still works for the session even when nothing can be saved. Tell the person when data will not survive a reload.
-
-## Plan for bad data
-
-Anything in storage may be old, edited by hand or written by an earlier version of your code. Parse defensively, check the shape, and store a version number beside the data so a later release can migrate it.
-
-## Other tabs
-
-The \`storage\` event fires in other tabs of the same origin when a value changes, which lets them stay in step. It does not fire in the tab that made the change.
-
-## What to keep out
-
-Secrets belong elsewhere, since any script on the page can read this store. Keep to preferences and the person's own content.
-`,
-
-  'bm-uri-syntax': `Every saved link is a string that follows a grammar. [The specification](https://www.rfc-editor.org/rfc/rfc3986) describes it precisely. This note is a reader's map of the parts.
-
-## An address, piece by piece
-
-Take \`https://example.org/shelf/craft?sort=title#notes\`.
-
-- The scheme is \`https\`, followed by a colon.
-- The authority is \`example.org\`, introduced by two slashes. It can also carry a port or user details.
-- The path is \`/shelf/craft\`, a slash-separated route to a resource.
-- The query is \`sort=title\`, after the question mark.
-- The fragment is \`notes\`, after the hash sign. Browsers keep it to themselves and do not send it to the server.
-
-## Escaping
-
-Characters outside the allowed set are written as a percent sign and two hexadecimal digits. A space becomes \`%20\`. Escaping applies per component, and the same character can be legal in one place and reserved in another.
-
-## Relative references
-
-A link such as \`../notes\` has no scheme or authority. It is resolved against the address of the page that contains it. Resolution is a defined procedure, so build it with code that implements the procedure.
-
-## In practice
-
-Use the \`URL\` constructor to parse and validate input. It throws on a string that is not an address, and it gives you each part as a property. Check the scheme explicitly: an app that stores web links should accept \`http\` and \`https\` and nothing else.
-`,
-
-  'bm-shelfmark': `A shelfmark is a short code that tells you where a book belongs. The [linked entry](https://en.wikipedia.org/wiki/Shelfmark) explains how libraries use them. These notes borrow the idea for a personal collection.
-
-## An address for a physical thing
-
-In a library, a book has to be found by someone who has never seen it. The code on the spine, together with the system that orders the shelves, lets a stranger walk to the right place. Two things must hold: the code is unique to the book, and the order of codes matches the order of the shelves.
-
-## Borrowing the idea
-
-A personal shelf can do the same at a smaller scale.
-
-1. Group books by a reason you will remember, such as subject or project.
-2. Order each group by something stable, for example author or date added.
-3. Write the group and position somewhere you can look up without walking to the shelf.
-
-In an app, the equivalent is a shelf identifier and a position number. Position numbers run from zero in each shelf, and moving a book means renumbering its neighbors.
-
-## When the system breaks
-
-Codes decay when the shelf changes and the labels do not. Review the order whenever you move several books, and fix mismatches then, while the cause is fresh.
-`,
-
-  'bm-bookbinding': `A book is a stack of folded sheets held together and protected. The [linked entry](https://en.wikipedia.org/wiki/Bookbinding) surveys the craft. These notes follow one ordinary hardcover from the inside out, because its parts explain why a book on a shelf looks the way it does.
-
-## The pieces
-
-- **Sections** are sheets folded in half and nested, so each fold makes several pages.
-- **Sewing** passes thread through the folds and joins section to section.
-- **The spine** is the back edge where the sections gather, usually glued and lined.
-- **Boards and cloth** form the cover, with the cloth turned over the edges.
-- **Endpapers** attach the block to the cover and give the first page a clean setting.
-
-## Why the spine matters on a shelf
-
-Most of the time a book is seen from its spine. That narrow strip carries the title, so titles that read well in a short space do real work. A shelf of books reads like a row of small signs, and color and pattern let you find one at a glance before reading a word.
-
-## Hinges and wear
-
-The joint where cover meets spine takes the most stress, because it bends every time the book opens. Opening a new book gently, a few pages at a time from each end, spreads that stress across the binding.
-
-## Why it matters here
-
-An app that draws volumes can borrow this structure. A cover has cloth, a spine has a title, and a pattern adds identity. Each is a small decision that makes a collection easier to scan.
+- An A5 booklet is A4 sheets folded in half. Each sheet holds four pages, two on each side, so the page count has to be a multiple of four. Fill any gap at the end with blank pages or a page for notes.
+- Two A5 handouts on one A4 sheet: print two pages per sheet, then cut it in half so each piece is 148 × 210 mm.
+- A3 is two A4 sheets side by side, which helps when a poster has to be printed in two halves and taped together.
+- A0 is one square metre, and A4 is a sixteenth of it.
 `,
 };
