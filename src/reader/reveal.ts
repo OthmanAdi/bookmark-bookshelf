@@ -1,46 +1,33 @@
-import type { Box } from './types';
-
 export interface RevealFrame {
   /** True when nothing should be visible. */
   closed: boolean;
   /** True when the sheet is fully open and interactive. */
   open: boolean;
-  windowTransform: string;
-  sheetTransform: string;
-  /** Opacity of the sheet content. */
+  /** Opacity of the sheet: a number while it fades, empty when it is fully open. */
   opacity: string;
+  /** True once the text should have entered (on the way in) and false again on the way out. */
+  content: boolean;
 }
+
+/** The sheet fades in over this window of the opening, and out over the same window on closing. */
+export const SHEET_FADE_START = 0.17;
+export const SHEET_FADE_END = 0.6;
+/** The header and the text start to enter once the sheet is nearly opaque. */
+export const CONTENT_START = 0.54;
 
 const clamp01 = (value: number): number => (Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0);
 const round = (value: number): number => Math.round(value * 1000) / 1000;
-const usable = (box: Box | null | undefined): box is Box =>
-  !!box && box.width > 0 && box.height > 0 && [box.x, box.y, box.width, box.height].every(Number.isFinite);
 
 /**
- * Pure maths for the open transition. `progress` is already eased by the caller.
- * The window box grows from `from` to the viewport; the sheet gets the inverse transform
- * so the content keeps its place while the clip grows.
+ * Pure maths for the open transition. `progress` is linear time from 0 (closed) to 1 (open); closing
+ * plays it backwards, so one function serves both directions. With reduced motion the sheet is shown
+ * as soon as the transition starts and the stylesheet cross-fades it.
  */
-export function revealFrame(
-  progress: number,
-  from: Box | null | undefined,
-  viewport: { width: number; height: number },
-): RevealFrame {
+export function revealFrame(progress: number, reduced = false): RevealFrame {
   const p = clamp01(progress);
-  if (p <= 0) return { closed: true, open: false, windowTransform: '', sheetTransform: '', opacity: '' };
-  if (p >= 1) return { closed: false, open: true, windowTransform: '', sheetTransform: '', opacity: '' };
-  if (!usable(from) || viewport.width <= 0 || viewport.height <= 0) {
-    return { closed: false, open: false, windowTransform: '', sheetTransform: '', opacity: String(round(p)) };
-  }
-  const x = from.x * (1 - p);
-  const y = from.y * (1 - p);
-  const scaleX = (from.width + (viewport.width - from.width) * p) / viewport.width;
-  const scaleY = (from.height + (viewport.height - from.height) * p) / viewport.height;
-  return {
-    closed: false,
-    open: false,
-    windowTransform: `translate(${round(x)}px, ${round(y)}px) scale(${round(scaleX)}, ${round(scaleY)})`,
-    sheetTransform: `translate(${round(-x / scaleX)}px, ${round(-y / scaleY)}px) scale(${round(1 / scaleX)}, ${round(1 / scaleY)})`,
-    opacity: String(round(clamp01(p / 0.4))),
-  };
+  if (p <= 0) return { closed: true, open: false, opacity: '0', content: false };
+  if (p >= 1) return { closed: false, open: true, opacity: '', content: true };
+  if (reduced) return { closed: false, open: false, opacity: '1', content: true };
+  const fade = clamp01((p - SHEET_FADE_START) / (SHEET_FADE_END - SHEET_FADE_START));
+  return { closed: false, open: false, opacity: String(round(fade)), content: p >= CONTENT_START };
 }

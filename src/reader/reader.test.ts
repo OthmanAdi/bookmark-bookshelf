@@ -229,27 +229,54 @@ describe('reveal', () => {
     expect(reader.element.style.visibility).toBe('hidden');
   });
 
-  it('uses transforms from a box mid transition and clears them at 1', () => {
+  it('fades the sheet in the middle of the opening and never moves the window', () => {
     const reader = mount();
-    Object.defineProperty(reader.element, 'clientWidth', { value: 1000 });
-    Object.defineProperty(reader.element, 'clientHeight', { value: 800 });
-    reader.setReveal(0.5, { x: 100, y: 50, width: 200, height: 300 });
     const windowEl = query<HTMLElement>('.bb-reader__window');
-    expect(windowEl.style.transform).toContain('translate(50px, 25px)');
-    expect(reader.scroller.style.transform).toContain('scale(');
+    reader.setReveal(0.1);
+    expect(reader.scroller.style.opacity).toBe('0');
+    reader.setReveal(0.385);
+    expect(Number(reader.scroller.style.opacity)).toBeCloseTo(0.5, 2);
+    expect(windowEl.style.transform).toBe('');
+    expect(reader.scroller.style.transform).toBe('');
     expect(reader.element.getAttribute('data-open')).toBe('0');
     expect(reader.element.style.visibility).toBe('visible');
     reader.setReveal(1);
-    expect(windowEl.style.transform).toBe('');
-    expect(reader.scroller.style.transform).toBe('');
     expect(reader.scroller.style.opacity).toBe('');
   });
 
-  it('fades without a source box', () => {
+  it('ignores the old second argument', () => {
     const reader = mount();
-    reader.setReveal(0.5);
-    expect(reader.scroller.style.opacity).toBe('0.5');
+    reader.setReveal(0.5, { x: 100, y: 50, width: 200, height: 300 });
     expect(query<HTMLElement>('.bb-reader__window').style.transform).toBe('');
+    expect(reader.scroller.style.transform).toBe('');
+  });
+
+  it('lets the text enter after the sheet and leave again on the way back', () => {
+    const reader = mount();
+    reader.setReveal(0.4);
+    expect(reader.element.dataset.content).toBe('0');
+    reader.setReveal(0.6);
+    expect(reader.element.dataset.content).toBe('1');
+    expect(reader.element.dataset.enter).toBeUndefined();
+    reader.setReveal(0.3);
+    expect(reader.element.dataset.content).toBe('0');
+  });
+
+  it('shows the text at once when the reader opens without a transition', () => {
+    const reader = mount();
+    reader.setReveal(1);
+    expect(reader.element.dataset.content).toBe('1');
+    expect(reader.element.dataset.enter).toBe('instant');
+  });
+
+  it('gives each part of the document its place in the entrance', () => {
+    mount();
+    const indices = Array.from(host.querySelectorAll<HTMLElement>('.bb-reader__doc > .bb-reader__enter')).map((node) =>
+      node.style.getPropertyValue('--bb-enter-index'),
+    );
+    expect(indices[0]).toBe('0');
+    expect(indices.length).toBeGreaterThan(3);
+    expect(Math.max(...indices.map(Number))).toBeLessThanOrEqual(4);
   });
 });
 

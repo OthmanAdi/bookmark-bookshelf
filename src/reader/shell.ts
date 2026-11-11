@@ -57,10 +57,13 @@ export function buildShell(dom: Document, input: ShellInput): ShellRefs {
   root.setAttribute('aria-modal', 'true');
   root.setAttribute('aria-labelledby', input.titleId);
   root.setAttribute('data-open', '0');
+  root.setAttribute('data-content', '0');
+  root.setAttribute('data-closed', '1');
   root.style.visibility = 'hidden';
 
   const windowEl = el(dom, 'div', 'bb-reader__window');
   const sheet = el(dom, 'div', 'bb-reader__sheet');
+  sheet.style.opacity = '0';
   sheet.tabIndex = -1; // clicks inside land here, so Escape and Tab keep working
   const { bar, closeButton, hostLabel, readout, lineFill } = buildBar(dom, input.labels);
   const layout = el(dom, 'div', 'bb-reader__layout');

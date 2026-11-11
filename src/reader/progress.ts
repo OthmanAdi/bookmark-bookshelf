@@ -60,9 +60,23 @@ export function scrollTopFor(
   return Math.min(Math.max(0, target), maxScroll);
 }
 
+/** Vertical part of a CSS transform that is currently applied, so a rise in progress does not skew a measurement. */
+function translatedY(node: HTMLElement): number {
+  const view = node.ownerDocument.defaultView;
+  if (!view || typeof view.DOMMatrixReadOnly !== 'function') return 0;
+  const { transform } = view.getComputedStyle(node);
+  if (!transform || transform === 'none') return 0;
+  try {
+    const shift = new view.DOMMatrixReadOnly(transform).m42;
+    return Number.isFinite(shift) ? shift : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** Measures the direct `[data-block]` children of `body` relative to the scroller's content. */
 export function measureBlocks(scroller: HTMLElement, body: HTMLElement): BlockBox[] {
-  const origin = scroller.getBoundingClientRect().top - scroller.scrollTop;
+  const origin = scroller.getBoundingClientRect().top - scroller.scrollTop + translatedY(body);
   return Array.from(body.children)
     .filter((child) => child.hasAttribute('data-block'))
     .map((child) => {

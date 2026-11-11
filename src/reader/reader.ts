@@ -19,7 +19,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   const canEdit = typeof options.onSaveText === 'function';
   const cover = options.cover ?? null;
   const shell = buildShell(dom, { titleId, labels, cover, coverAspect: options.coverAspect });
-  const { root, windowEl, sheet, bar } = shell;
+  const { root, sheet, bar } = shell;
 
   let source: ReaderDoc = options.doc;
   let editing = false;
@@ -62,6 +62,10 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   function render(focusTarget: 'field' | 'edit' | null = null, relayout = true): void {
     const parts = buildArticleParts(dom, { source, labels, titleId, canEdit, handlers });
     shell.article.replaceChildren(...parts.nodes);
+    Array.from(shell.article.children).forEach((child, index) => {
+      child.classList.add('bb-reader__enter');
+      (child as HTMLElement).style.setProperty('--bb-enter-index', String(Math.min(index, 4)));
+    });
     body = parts.body;
     editButton = parts.editButton;
     shell.hostLabel.textContent = hostnameOf(source.url);
@@ -100,14 +104,20 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     }
   }
 
-  function applyReveal(progress: number, from?: Box | null): void {
-    const view = dom.defaultView;
-    const viewport = { width: root.clientWidth || view?.innerWidth || 0, height: root.clientHeight || view?.innerHeight || 0 };
-    const frame = revealFrame(progress, from, viewport);
+  const reducedQuery = dom.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null;
+  let lastProgress = 0;
+
+  // The second argument is accepted for older callers and no longer used: the sheet only fades.
+  function applyReveal(progress: number, _from?: Box | null): void {
+    const frame = revealFrame(progress, reducedQuery?.matches === true);
+    // Going from closed straight to open (a restored session) shows the text at once instead of letting it rise.
+    if (frame.open && lastProgress <= 0) root.dataset.enter = 'instant';
+    else if (!frame.open && !frame.closed) delete root.dataset.enter;
+    lastProgress = progress;
     root.dataset.open = frame.open ? '1' : '0';
+    root.dataset.content = frame.content ? '1' : '0';
+    root.dataset.closed = frame.closed ? '1' : '0';
     root.style.visibility = frame.closed ? 'hidden' : 'visible';
-    windowEl.style.transform = frame.windowTransform;
-    sheet.style.transform = frame.sheetTransform;
     sheet.style.opacity = frame.opacity;
   }
 

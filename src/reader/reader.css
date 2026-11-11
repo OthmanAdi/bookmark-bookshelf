@@ -16,12 +16,10 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  transform-origin: 0 0;
 }
 
-.bb-reader[data-open='0'] .bb-reader__window,
 .bb-reader[data-open='0'] .bb-reader__sheet {
-  will-change: transform, opacity;
+  will-change: opacity;
 }
 
 .bb-reader__sheet {
@@ -31,7 +29,6 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--bb-sheet);
-  transform-origin: 0 0;
 }
 
 .bb-reader__sheet:focus {
@@ -84,6 +81,26 @@
   background: var(--bb-accent);
   transform: scaleX(0);
   transform-origin: 0 50%;
+}
+
+/* The header and the text arrive after the sheet is nearly opaque: a short rise, one after another. */
+.bb-reader__enter {
+  transition:
+    opacity var(--bb-dur-2) var(--bb-ease-out),
+    transform var(--bb-dur-2) var(--bb-ease-out);
+}
+
+.bb-reader[data-content='0'] .bb-reader__enter {
+  opacity: 0;
+  transform: translateY(0.5rem);
+}
+
+.bb-reader[data-content='1'] .bb-reader__enter {
+  transition-delay: calc(var(--bb-enter-index, 0) * 50ms);
+}
+
+.bb-reader[data-enter='instant'] .bb-reader__enter {
+  transition: none;
 }
 
 /* Layout: one column with the cover first, two columns from 900px */
@@ -344,5 +361,19 @@
   .bb-reader *::after {
     transition-property: none !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Nothing travels: the sheet cross-fades over a scene that stays put, and the text is simply there. */
+  .bb-reader[data-closed='1'] {
+    transition: visibility 0s linear 120ms;
+  }
+
+  .bb-reader .bb-reader__sheet {
+    transition: opacity 120ms linear !important;
+  }
+
+  .bb-reader[data-content='0'] .bb-reader__enter {
+    opacity: 1;
+    transform: none;
   }
 }

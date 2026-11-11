@@ -82,8 +82,9 @@ export interface ReaderHandle {
   /** Where the cover sits in the open layout, in viewport coordinates. Null without a cover. */
   coverSlotRect(): Box | null;
   /**
-   * Drives the open transition. 0 is closed (nothing visible), 1 is fully open.
-   * `from` is the viewport box the sheet grows out of. Without it the sheet fades.
+   * Drives the open transition with linear time: 0 is closed (nothing visible), 1 is fully open.
+   * The sheet fades in between 0.17 and 0.60 and the text enters after 0.54; closing plays the same
+   * window backwards. `from` is accepted for older callers and ignored.
    */
   setReveal(progress: number, from?: Box | null): void;
   /** Shows or hides the reader's own cover, for a hand-off with a flying book. */
