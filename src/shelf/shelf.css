@@ -867,4 +867,15 @@
     border-color: Highlight;
     box-shadow: 0 0 0 var(--bb-focus-offset) Canvas;
   }
+
+  /* The outline of a volume that was just added is drawn in the text colour, apart from the focus ring. */
+  .bb-book.is-arrived:not(:has(.bb-book__control:focus-visible)) .bb-book__ring {
+    border-color: CanvasText;
+  }
+
+  .bb-shelf__arrow[aria-disabled='true'],
+  .bb-shelf__arrow[aria-disabled='true']:hover {
+    border-color: GrayText;
+    color: GrayText;
+  }
 }
