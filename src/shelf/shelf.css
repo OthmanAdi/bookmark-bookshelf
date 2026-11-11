@@ -354,8 +354,9 @@
   box-shadow: none;
 }
 
-/* The row's instructions are read with each volume's name and never shown. */
-.bb-shelf__hint {
+/* The row's instructions are read with each volume's name, and where an arrow took the row is said: neither is shown. */
+.bb-shelf__hint,
+.bb-shelf__status {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -725,6 +726,22 @@
 
 .bb-shelf__arrow:active {
   scale: 0.96;
+}
+
+/* At an end of the row the arrow that points past it is spent: still there to be found, plainly not to be pressed. */
+.bb-shelf__arrow[aria-disabled='true'] {
+  border-color: var(--bb-rule);
+  color: var(--bb-ink-faint);
+  cursor: default;
+}
+
+.bb-shelf__arrow[aria-disabled='true']:hover {
+  background: transparent;
+  color: var(--bb-ink-faint);
+}
+
+.bb-shelf__arrow[aria-disabled='true']:active {
+  scale: none;
 }
 
 .bb-shelf__arrow--prev {

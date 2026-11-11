@@ -117,6 +117,8 @@ const STAGGER_REACH = 12;
 /** A volume that was just added waits this long before it comes down, so its neighbours have made room, in ms. */
 const ARRIVE_WAIT_MS = 140;
 
+/** After the shelf's own arrow moved the row, the volume it came to rest on is said once this long after the last change, in ms. */
+const SAY_AFTER_MS = 350;
 /** The old caption leaves quickly and the new one arrives a little slower, so the eye lands on it. */
 const CAPTION_OUT_MS = 90;
 const CAPTION_IN_MS = 160;
@@ -283,11 +285,18 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   const hint = el('p', 'bb-shelf__hint', 'Arrow keys move along the shelf, Enter opens.');
   hint.id = `bb-shelf-hint-${++shelfCount}`;
 
+  // Pressing one of the shelf's own arrows moves no focus, so where the row came to rest is said instead.
+  const status = el('p', 'bb-shelf__status');
+  status.setAttribute('aria-live', 'polite');
+  status.setAttribute('aria-atomic', 'true');
+  let sayWhenRested = false;
+  let sayTimer: ReturnType<typeof setTimeout> | null = null;
+
   const actions = el('div', 'bb-shelf__actions');
   const empty = el('p', 'bb-shelf__empty', 'This shelf is empty.');
   empty.hidden = true;
 
-  root.append(scene, nav, caption, actions, empty, hint);
+  root.append(scene, nav, caption, actions, empty, hint, status);
   host.appendChild(root);
 
   const emit = (intent: ShelfIntent): void => {
@@ -624,7 +633,44 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     if (moveFocus) nodes.get(centre)?.control?.focus({ preventScroll: true });
   }
 
+  /**
+   * An arrow that has nowhere to go says so and does nothing. It stays focusable: a button that goes dead
+   * under the finger pressing it would drop keyboard focus on the floor.
+   */
+  function syncArrows(): void {
+    const count = items.length;
+    const ends: Array<[HTMLButtonElement, boolean]> = [
+      [previous, !loop && (count === 0 || centre <= 0)],
+      [next, !loop && (count === 0 || centre >= count - 1)],
+    ];
+    for (const [button, spent] of ends) {
+      if (spent === (button.getAttribute('aria-disabled') === 'true')) continue;
+      if (spent) button.setAttribute('aria-disabled', 'true');
+      else button.removeAttribute('aria-disabled');
+    }
+  }
+
+  /** Says where the row has come to rest, once it has stopped changing, after one of the shelf's arrows moved it. */
+  function sayRest(): void {
+    if (!sayWhenRested) return;
+    if (sayTimer !== null) {
+      timers.delete(sayTimer);
+      clearTimeout(sayTimer);
+    }
+    sayTimer = setTimeout(() => {
+      if (sayTimer !== null) timers.delete(sayTimer);
+      sayTimer = null;
+      sayWhenRested = false;
+      const index = wrap(centre, items.length);
+      const item = items[index];
+      if (item) status.textContent = `${item.title}, ${index + 1} of ${items.length}`;
+    }, SAY_AFTER_MS);
+    timers.add(sayTimer);
+  }
+
   function syncCaption(): void {
+    syncArrows();
+    sayRest();
     const item = items[wrap(centre, items.length)];
     // The note says why the link was kept; without one, where it comes from.
     const note = item?.note?.trim() ?? '';
@@ -768,6 +814,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     if (count === 0) {
       for (const node of nodes.values()) node.element.remove();
       nodes.clear();
+      syncArrows();
       // The scene of an empty shelf is not shown, so nothing is left in it to go out slowly.
       entering = null;
       emptyPool();
@@ -1072,8 +1119,13 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     if (item && slot !== centre) emit({ type: 'focus', id: item.id, index, slot });
   };
 
-  const onPrevious = (): void => emit({ type: 'step', direction: -1 });
-  const onNext = (): void => emit({ type: 'step', direction: 1 });
+  const onArrow = (button: HTMLButtonElement, direction: -1 | 1): void => {
+    if (button.getAttribute('aria-disabled') === 'true') return;
+    sayWhenRested = true;
+    emit({ type: 'step', direction });
+  };
+  const onPrevious = (): void => onArrow(previous, -1);
+  const onNext = (): void => onArrow(next, 1);
 
   row.addEventListener('click', onClick);
   scene.addEventListener('pointerdown', onPointerDown);

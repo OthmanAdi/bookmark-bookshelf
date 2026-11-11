@@ -609,13 +609,64 @@ describe('mountShelf intents', () => {
   });
 
   it('emits step from the arrow buttons', () => {
-    const { shelf, intents } = mount();
+    const { shelf, intents } = mount({ items: makeItems(40) });
     click(shelf.element.querySelector('.bb-shelf__arrow--next')!);
     click(shelf.element.querySelector('.bb-shelf__arrow--prev')!);
     expect(intents).toEqual([
       { type: 'step', direction: 1 },
       { type: 'step', direction: -1 },
     ]);
+  });
+
+  it('spends the arrow that points past an end of the row, and leaves it where the keyboard can find it', () => {
+    const { shelf, intents } = mount();
+    const previous = shelf.element.querySelector<HTMLButtonElement>('.bb-shelf__arrow--prev')!;
+    const next = shelf.element.querySelector<HTMLButtonElement>('.bb-shelf__arrow--next')!;
+    expect(previous.getAttribute('aria-disabled')).toBe('true');
+    expect(next.hasAttribute('aria-disabled')).toBe(false);
+    expect(previous.disabled).toBe(false);
+    click(previous);
+    expect(intents).toEqual([]);
+    shelf.setPose({ position: 2, open: 0 });
+    expect(previous.hasAttribute('aria-disabled')).toBe(false);
+    expect(next.hasAttribute('aria-disabled')).toBe(false);
+    shelf.setPose({ position: 4, open: 0 });
+    expect(next.getAttribute('aria-disabled')).toBe('true');
+    click(next);
+    expect(intents).toEqual([]);
+    // One volume alone: there is nowhere to go either way.
+    shelf.setItems(makeItems(1));
+    expect(previous.getAttribute('aria-disabled')).toBe('true');
+    expect(next.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('never spends an arrow of a row that goes round', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    for (const position of [0, 39, -1]) {
+      shelf.setPose({ position, open: 0 });
+      expect(shelf.element.querySelector('.bb-shelf__arrow[aria-disabled]')).toBeNull();
+    }
+  });
+
+  it('says where the row came to rest after one of its own arrows moved it, and not otherwise', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const { shelf } = mount();
+    const status = shelf.element.querySelector<HTMLElement>('.bb-shelf__status')!;
+    expect(status.getAttribute('aria-live')).toBe('polite');
+    shelf.setPose({ position: 1, open: 0 });
+    vi.advanceTimersByTime(1000);
+    expect(status.textContent).toBe('');
+    click(shelf.element.querySelector('.bb-shelf__arrow--next')!);
+    shelf.setPose({ position: 2, open: 0 });
+    vi.advanceTimersByTime(200);
+    // Pressed again before the row came to rest: only the volume it stops on is said.
+    click(shelf.element.querySelector('.bb-shelf__arrow--next')!);
+    shelf.setPose({ position: 3, open: 0 });
+    vi.advanceTimersByTime(300);
+    expect(status.textContent).toBe('');
+    vi.advanceTimersByTime(100);
+    expect(status.textContent).toBe('Title 3, 4 of 5');
+    vi.useRealTimers();
   });
 
   it('hides the arrows and caption when asked', () => {
