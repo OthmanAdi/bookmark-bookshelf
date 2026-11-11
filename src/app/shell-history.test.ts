@@ -93,6 +93,17 @@ describe('createReaderHistory', () => {
     expect(app.isOpen()).toBe('a');
     expect(app.history.length).toBe(2);
   });
+
+  it('rewrites its one entry when the reader goes on to another link', () => {
+    const app = setup();
+    app.openInPage('a');
+    app.openInPage('b');
+    expect(app.history.length).toBe(2);
+    expect(app.history.state).toEqual({ bbReader: 'b' });
+    app.history.back();
+    expect(app.options.close).toHaveBeenCalledOnce();
+    expect(app.isOpen()).toBeNull();
+  });
 });
 
 describe('pageTitle', () => {
