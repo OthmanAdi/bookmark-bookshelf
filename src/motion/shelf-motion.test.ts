@@ -298,6 +298,103 @@ describe('first frame of an open or close', () => {
   });
 });
 
+describe('opening while the row moves', () => {
+  it('leaves the position and the speed of a moving row alone', () => {
+    const { clock, motion } = setup();
+    motion.goTo(5);
+    clock.advance(150);
+    const { position, velocity } = motion.state;
+    expect(position).toBeGreaterThan(0.5);
+    expect(position).toBeLessThan(5);
+    void motion.setOpen(true);
+    expect(motion.state.position).toBe(position);
+    expect(motion.state.velocity).toBe(velocity);
+    expect(motion.state.target).toBe(5);
+    let previous = position;
+    for (let frame = 0; frame < 20; frame++) {
+      clock.advance(1000 / 60);
+      expect(motion.state.position).toBeGreaterThanOrEqual(previous);
+      previous = motion.state.position;
+    }
+  });
+
+  it('finishes both moves and settles only when the last one is done', async () => {
+    const { clock, motion } = setup({ openDuration: 300 });
+    motion.goTo(5);
+    clock.advance(100);
+    const opened = watch(motion.setOpen(true));
+    clock.advance(320);
+    await flush();
+    expect(motion.state.open).toBe(1);
+    expect(opened.done()).toBe(true);
+    expect(motion.state.settled).toBe(false);
+    clock.advance(2000);
+    expect(motion.state.position).toBe(5);
+    expect(motion.state.settled).toBe(true);
+  });
+
+  it('keeps a goTo that arrives during the opening on the spring', () => {
+    const { clock, motion } = setup({ openDuration: 600 });
+    void motion.setOpen(true);
+    clock.advance(200);
+    motion.goTo(3);
+    clock.advance(100);
+    expect(motion.state.position).toBeGreaterThan(0);
+    expect(motion.state.position).toBeLessThan(3);
+    clock.advance(3000);
+    expect(motion.state.position).toBe(3);
+    expect(motion.state.open).toBe(1);
+  });
+});
+
+describe('reversing an open or a close', () => {
+  const frame = 1000 / 60;
+
+  it('keeps open and openTime continuous when a closing is reversed', () => {
+    const { clock, motion } = setup({ openDuration: 600, closeDuration: 400 });
+    void motion.setOpen(true, { immediate: true });
+    void motion.setOpen(false);
+    clock.advance(200);
+    const open = motion.state.open;
+    const openTime = motion.state.openTime;
+    expect(openTime).toBeLessThan(0.7);
+    void motion.setOpen(true);
+    clock.advance(frame);
+    expect(motion.state.openTime).toBeGreaterThanOrEqual(openTime);
+    expect(motion.state.openTime - openTime).toBeLessThan(0.05);
+    expect(Math.abs(motion.state.open - open)).toBeLessThan(0.1);
+  });
+
+  it('spends the remaining distance, not a whole duration, when reversing', async () => {
+    const { clock, motion } = setup({ openDuration: 600, closeDuration: 400 });
+    void motion.setOpen(true);
+    clock.advance(150);
+    const reached = motion.state.openTime;
+    const closed = watch(motion.setOpen(false));
+    clock.advance(400 * reached - 2 * frame);
+    await flush();
+    expect(closed.done()).toBe(false);
+    clock.advance(4 * frame);
+    await flush();
+    expect(closed.done()).toBe(true);
+    expect(motion.state.open).toBe(0);
+    expect(motion.state.openTime).toBe(0);
+  });
+
+  it('cancels an open that is reversed before its first frame without moving', async () => {
+    const { clock, motion } = setup();
+    const opened = watch(motion.setOpen(true));
+    const closed = watch(motion.setOpen(false));
+    await flush();
+    expect(opened.done()).toBe(true);
+    expect(closed.done()).toBe(true);
+    clock.advance(500);
+    expect(motion.state.open).toBe(0);
+    expect(motion.state.openTime).toBe(0);
+    expect(motion.state.openTarget).toBe(0);
+  });
+});
+
 describe('subscribe', () => {
   it('fires immediately and then on frames', () => {
     const { clock, motion } = setup();
