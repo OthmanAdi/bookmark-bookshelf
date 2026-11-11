@@ -93,11 +93,11 @@ describe('askConfirm', () => {
     preferReducedMotion(true);
     const first = askConfirm({ title: 'Sure?', message: 'This cannot be undone.', confirm: 'Remove' });
     expect(document.activeElement?.textContent).toBe('Cancel');
-    [...document.querySelectorAll('dialog[open] button')].find((entry) => entry.textContent === 'Remove')?.click();
+    [...document.querySelectorAll<HTMLButtonElement>('dialog[open] button')].find((entry) => entry.textContent === 'Remove')?.click();
     expect(await first).toBe(true);
 
     const second = askConfirm({ title: 'Sure?', message: 'Again.', confirm: 'Remove' });
-    [...document.querySelectorAll('dialog[open] button')].find((entry) => entry.textContent === 'Cancel')?.click();
+    [...document.querySelectorAll<HTMLButtonElement>('dialog[open] button')].find((entry) => entry.textContent === 'Cancel')?.click();
     expect(await second).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import { removeExampleLinks } from './flow-examples';
 import { takeLinksOutFlow } from './flow-export';
 import { handInFlow } from './flow-handin';
 import { printShelf } from './flow-print';
+import { shareShelfFlow } from './flow-share';
 import { describeShelfFlow, removeShelfFlow } from './flow-shelf';
 import type { Store } from '../store';
 
@@ -93,7 +94,7 @@ export function createFlows(context: FlowContext): Flows {
     editLink: (id) => editor.edit(id),
     bringLinksIn: () => undefined,
     takeLinksOut: () => takeLinksOutFlow(store),
-    shareShelf: () => undefined,
+    shareShelf: (shelfId) => shareShelfFlow(store, shelfId),
     handIn: (shelfId) => handInFlow(store, shelfId),
     printShelf: (shelfId) => printShelf(store, shelfId),
     describeShelf: (shelfId) => describeShelfFlow(context, shelfId),

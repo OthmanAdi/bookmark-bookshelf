@@ -461,6 +461,57 @@
   display: none;
 }
 
+/* ---------- share a shelf ---------- */
+
+.bb-share__heading {
+  margin-top: var(--bb-s-2);
+  font-size: var(--bb-text-body);
+  font-weight: 600;
+}
+
+.bb-share__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bb-s-2);
+}
+
+.bb-share__row[hidden] {
+  display: none;
+}
+
+.bb-share__link {
+  flex: 1 1 14rem;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0 var(--bb-s-3);
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: var(--bb-r-1);
+  background: var(--bb-paper-raised);
+  color: var(--bb-ink);
+  font-family: var(--bb-font-mono);
+  font-size: var(--bb-text-small);
+  text-overflow: ellipsis;
+}
+
+.bb-share__readout {
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.bb-check {
+  display: flex;
+  align-items: center;
+  gap: var(--bb-s-2);
+  min-height: 2.5rem;
+}
+
+.bb-check input {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--bb-accent);
+}
+
 /* ---------- take links out ---------- */
 
 .bb-takeout {
