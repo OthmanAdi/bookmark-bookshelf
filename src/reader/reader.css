@@ -4,6 +4,8 @@
   /* Width of the cover beside the text on a narrow screen, and how much of it the bar thumbnail shows. */
   --bb-reader-cover-w: 5.5rem;
   --bb-reader-thumb-scale: 0.3;
+  /* The one place the line length is set: the text column, the header and the narrow layout all follow it. */
+  --bb-reader-measure: 35rem;
   position: fixed;
   inset: 0;
   z-index: var(--bb-z-reader);
@@ -226,7 +228,7 @@
  */
 .bb-reader {
   --bb-reader-edge: var(--bb-s-4);
-  --bb-reader-frame: calc(var(--bb-reader-measure, 35rem) + 2 * var(--bb-s-4));
+  --bb-reader-frame: calc(var(--bb-reader-measure) + 2 * var(--bb-s-4));
 }
 
 .bb-reader__layout {
