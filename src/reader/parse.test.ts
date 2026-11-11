@@ -17,9 +17,9 @@ describe('block types', () => {
     expect(parseMarkdownLite('#### deep')[0]?.type).toBe('paragraph');
   });
 
-  it('joins consecutive text lines with a space and splits on blank lines', () => {
+  it('splits paragraphs on blank lines and keeps the lines of one paragraph apart', () => {
     expect(parseMarkdownLite('one\ntwo\n\nthree')).toEqual([
-      { type: 'paragraph', inlines: [text('one two')] },
+      { type: 'paragraph', inlines: [text('one'), { t: 'br' }, text('two')] },
       { type: 'paragraph', inlines: [text('three')] },
     ]);
   });
@@ -150,8 +150,8 @@ describe('raw HTML', () => {
 describe('robustness', () => {
   it('normalises CRLF and lone CR', () => {
     expect(parseMarkdownLite('a\r\nb\r\n\r\nc\rd')).toEqual([
-      { type: 'paragraph', inlines: [text('a b')] },
-      { type: 'paragraph', inlines: [text('c d')] },
+      { type: 'paragraph', inlines: [text('a'), { t: 'br' }, text('b')] },
+      { type: 'paragraph', inlines: [text('c'), { t: 'br' }, text('d')] },
     ]);
   });
 
@@ -180,5 +180,64 @@ describe('robustness', () => {
     parseMarkdownLite('**'.repeat(100_000));
     parseMarkdownLite('_a'.repeat(100_000));
     expect(performance.now() - started).toBeLessThan(4000);
+  });
+});
+
+describe('pasted text', () => {
+  const br = { t: 'br' } as const;
+
+  it('keeps a single line break inside a paragraph as a line break', () => {
+    expect(parseMarkdownLite('one\ntwo\n\nthree')).toEqual([
+      { type: 'paragraph', inlines: [text('one'), br, text('two')] },
+      { type: 'paragraph', inlines: [text('three')] },
+    ]);
+  });
+
+  it('keeps breaks around emphasis and inside it', () => {
+    expect(parseMarkdownLite('a **bold\nacross**\nnext')).toEqual([
+      { type: 'paragraph', inlines: [text('a '), { t: 'strong', c: [text('bold'), br, text('across')] }, br, text('next')] },
+    ]);
+  });
+
+  it('reads Windows and old Mac line endings the same way', () => {
+    const lf = parseMarkdownLite('one\ntwo\n\nthree');
+    expect(parseMarkdownLite('one\r\ntwo\r\n\r\nthree')).toEqual(lf);
+    expect(parseMarkdownLite('one\rtwo\r\rthree')).toEqual(lf);
+  });
+
+  it('starts a list at a typographic bullet or a spaced dash', () => {
+    const list = (items: string[]) => ({ type: 'list', ordered: false, items: items.map((item) => [text(item)]) });
+    expect(parseMarkdownLite('\u2022 First\n\u2022 Second\n\u2022Third')).toEqual([list(['First', 'Second', 'Third'])]);
+    expect(parseMarkdownLite('\u00b7 A\n\u25aa B\n\u25e6 C')).toEqual([list(['A', 'B', 'C'])]);
+    expect(parseMarkdownLite('\u2013 one\n\u2014 two')).toEqual([list(['one', 'two'])]);
+  });
+
+  it('ends a paragraph where a bullet line begins', () => {
+    expect(parseMarkdownLite('Intro line\n\u2022 first\n\u2022 second')).toEqual([
+      { type: 'paragraph', inlines: [text('Intro line')] },
+      { type: 'list', ordered: false, items: [[text('first')], [text('second')]] },
+    ]);
+  });
+
+  it('does not take a dash that is part of a word or a line of prose for a bullet', () => {
+    expect(parseMarkdownLite('\u2014and then it rained')[0]?.type).toBe('paragraph');
+    expect(parseMarkdownLite('-3 degrees')[0]?.type).toBe('paragraph');
+  });
+
+  it('collapses three or more blank lines to one paragraph break', () => {
+    const expected = parseMarkdownLite('one\n\ntwo');
+    expect(parseMarkdownLite('one\n\n\n\n\ntwo')).toEqual(expected);
+    expect(parseMarkdownLite('one\n \n\t\n\u00a0\n\ntwo')).toEqual(expected);
+    expect(expected).toHaveLength(2);
+  });
+
+  it('collapses runs of spaces and tabs and trims each line', () => {
+    expect(parseMarkdownLite('  one   two\t\tthree  \n\t four')).toEqual([
+      { type: 'paragraph', inlines: [text('one two three'), br, text('four')] },
+    ]);
+  });
+
+  it('leaves the spacing inside a code block alone', () => {
+    expect(parseMarkdownLite('```\na    b\n\tc\n```')).toEqual([{ type: 'code', text: 'a    b\n\tc' }]);
   });
 });

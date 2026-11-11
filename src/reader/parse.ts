@@ -1,3 +1,4 @@
+import { squash, withBreaks } from './breaks';
 import type { Block, Inline } from './types';
 
 /** Longest input that is parsed. Anything beyond is dropped. */
@@ -136,7 +137,8 @@ const FENCE_END = /^```\s*$/;
 const RULE = /^---+$/;
 const HEADING = /^(#{1,3})\s+(\S.*)$/;
 const QUOTE = /^>\s?(.*)$/;
-const BULLET = /^[-*]\s+(\S.*)$/;
+// Pasted text rarely uses markdown: typographic bullets and dashes start a list as well.
+const BULLET = /^(?:[-*]\s+|[\u2022\u00b7\u25e6\u25aa\u25ab\u2023\u25cf\u25cb]\s*|[\u2013\u2014]\s+)(\S.*)$/;
 const ORDERED = /^\d{1,9}\.\s+(\S.*)$/;
 
 interface Read {
@@ -183,15 +185,16 @@ function readList(lines: string[], start: number, ordered: boolean): Read {
 }
 
 function readParagraph(lines: string[], start: number): Read {
-  const parts = [lineAt(lines, start)];
+  const parts = [squash(lineAt(lines, start))];
   let index = start + 1;
   while (index < lines.length) {
     const line = lineAt(lines, index);
     if (!line || startsBlock(line)) break;
-    parts.push(line);
+    parts.push(squash(line));
     index += 1;
   }
-  return { block: { type: 'paragraph', inlines: parseInlines(parts.join(' ')) }, next: index };
+  // A line break inside a paragraph is the writer's own, so it stays.
+  return { block: { type: 'paragraph', inlines: withBreaks(parseInlines(parts.join('\n'))) }, next: index };
 }
 
 function readBlock(lines: string[], start: number): Read {

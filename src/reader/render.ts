@@ -26,7 +26,12 @@ function claimedHost(label: string): string {
 }
 
 const plainText = (inlines: Inline[]): string =>
-  inlines.map((inline) => (inline.t === 'text' || inline.t === 'code' ? inline.v : plainText(inline.c))).join('');
+  inlines
+    .map((inline) => {
+      if (inline.t === 'text' || inline.t === 'code') return inline.v;
+      return inline.t === 'br' ? ' ' : plainText(inline.c);
+    })
+    .join('');
 
 function appendInlines(parent: Node, inlines: Inline[], dom: Document, text: RenderText): void {
   for (const inline of inlines) parent.appendChild(renderInline(inline, dom, text));
@@ -48,6 +53,8 @@ function renderInline(inline: Inline, dom: Document, text: RenderText): Node {
       return wrapped('strong', inline.c, dom, text);
     case 'code':
       return el(dom, 'code', undefined, inline.v);
+    case 'br':
+      return el(dom, 'br');
     case 'link': {
       // Blocks can be built by hand, so the target is checked again here.
       const href = safeHttpUrl(inline.href);

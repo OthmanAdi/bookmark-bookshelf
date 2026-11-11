@@ -8,6 +8,8 @@ export type Inline =
   | { t: 'em'; c: Inline[] }
   | { t: 'strong'; c: Inline[] }
   | { t: 'code'; v: string }
+  /** A line break the writer put inside a paragraph. */
+  | { t: 'br' }
   | { t: 'link'; href: string; c: Inline[] };
 
 export type Block =

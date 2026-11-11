@@ -32,6 +32,13 @@ describe('renderBlocks', () => {
     expect(host.querySelector('li')?.hasAttribute('data-block')).toBe(false);
   });
 
+  it('renders a line break inside a paragraph', () => {
+    const paragraph = render('one\ntwo').querySelector('p');
+    expect(paragraph?.childNodes).toHaveLength(3);
+    expect(paragraph?.children[0]?.tagName).toBe('BR');
+    expect(paragraph?.textContent).toBe('onetwo');
+  });
+
   it('gives links target and rel', () => {
     const link = render('[site](https://example.com/x)').querySelector('a');
     expect(link?.getAttribute('href')).toBe('https://example.com/x');
