@@ -3,10 +3,10 @@ import { resolveCloth } from './variants';
 import type { ShelfItem } from './types';
 
 /**
- * One volume: a list item holding a spine face, a lazily built cover face and,
- * for the real (non-repeated) copy of an item, one native button that keyboard
- * and screen-reader users operate. Pointer taps land on the faces and are
- * handled by the shelf through delegation.
+ * One volume: a list item holding three faces that always exist (the spine, the front board on its right
+ * and the back board on its left), the printed cover laid on the front board only near the centre and,
+ * for the real (non-repeated) copy of an item, one native button that keyboard and screen-reader users
+ * operate. Pointer taps land on the faces and are handled by the shelf through delegation.
  */
 export interface BookNode {
   element: HTMLLIElement;
@@ -14,8 +14,14 @@ export interface BookNode {
   index: number;
   item: ShelfItem;
   spineShade: HTMLElement;
-  cover: HTMLElement | null;
-  coverShade: HTMLElement | null;
+  /** The front board. The printed cover is laid on it. */
+  cover: HTMLElement;
+  coverShade: HTMLElement;
+  back: HTMLElement;
+  backShade: HTMLElement;
+  print: HTMLElement | null;
+  /** Last `--bb-turn` written, so a volume at rest is not written again on every frame. */
+  turn: number;
   control: HTMLButtonElement | null;
 }
 
@@ -57,28 +63,38 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
     body.appendChild(ribbon);
   }
 
+  // Both boards are plain cloth, so they cost two spans and no decision about when to show them: the
+  // browser culls whichever faces away. Only the printed cover is built on demand.
+  const cover = span('bb-book__cover bb-book__board bb-book__board--front');
+  const coverShade = span('bb-book__shade');
+  cover.appendChild(coverShade);
+  const back = span('bb-book__board bb-book__board--back');
+  const backShade = span('bb-book__shade');
+  back.appendChild(backShade);
+  body.append(cover, back);
+
   element.appendChild(body);
-  return { element, slot, index, item, spineShade, cover: null, coverShade: null, control: null };
+  return { element, slot, index, item, spineShade, cover, coverShade, back, backShade, print: null, turn: 0, control: null };
 }
 
-/** Builds the cover face the first time a volume comes near the centre. */
-export function ensureCover(node: BookNode): void {
-  if (node.cover) return;
-  const face = span('bb-book__cover');
-  face.appendChild(createCover(node.item, markFor(node.item, node.index)));
+/**
+ * Lays the printed cover on the front board. The print only shows as the volume turns toward the viewer,
+ * so a volume that is still at rest looks the same with or without it.
+ */
+export function ensurePrint(node: BookNode): void {
+  if (node.print) return;
+  const print = createCover(node.item, markFor(node.item, node.index));
+  node.cover.insertBefore(print, node.coverShade);
   const seal = span('bb-book__seal', 'Open');
-  face.appendChild(seal);
-  const shade = span('bb-book__shade');
-  face.appendChild(shade);
-  node.element.querySelector('.bb-book__body')?.appendChild(face);
-  node.cover = face;
-  node.coverShade = shade;
+  node.cover.insertBefore(seal, node.coverShade);
+  node.print = print;
 }
 
-export function dropCover(node: BookNode): void {
-  node.cover?.remove();
-  node.cover = null;
-  node.coverShade = null;
+export function dropPrint(node: BookNode): void {
+  if (!node.print) return;
+  node.print.remove();
+  node.cover.querySelector('.bb-book__seal')?.remove();
+  node.print = null;
 }
 
 export function describe(item: ShelfItem, index: number, count: number): string {

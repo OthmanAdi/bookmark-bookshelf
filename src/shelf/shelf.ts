@@ -1,7 +1,7 @@
 import './shelf.css';
 import './cover.css';
 import './variants.css';
-import { createBook, dropCover, ensureCover, setReal, type BookNode } from './book';
+import { createBook, dropPrint, ensurePrint, setReal, type BookNode } from './book';
 import { computeRow, restPitch, scaleGeometry, visibleRange, type SlotPose } from './layout';
 import { resolveVariant } from './variants';
 import type { Geometry, Pose, ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions, Variant } from './types';
@@ -16,6 +16,9 @@ const FLOOR_ROOM = 30;
  */
 const PART = 28;
 const PART_REACH = 4;
+/** The printed cover is laid on a volume closer than this many steps to the centre and dropped beyond the second. */
+const PRINT_NEAR = 1.5;
+const PRINT_FAR = 2.5;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
 const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
@@ -199,9 +202,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       const node = nodes.get(slotPose.slot);
       if (!node) continue;
       if (slotPose.slot === centre) presented = slotPose;
+      // The print is laid on well before the volume starts to turn and kept a while after, so a volume
+      // drifting back and forth at the edge of the band does not build and drop it over and over.
       const distance = Math.abs(slotPose.slot - position);
-      if (distance < 2.4 || slotPose.slot === openSlot) ensureCover(node);
-      else if (distance > 4) dropCover(node);
+      if (distance < PRINT_NEAR || slotPose.slot === openSlot) ensurePrint(node);
+      else if (distance > PRINT_FAR) dropPrint(node);
 
       const offset = parting && openSlot !== null ? slotPose.slot - openSlot : Number.NaN;
       const reach = Math.abs(offset);
@@ -215,7 +220,12 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
 
       const turn = Math.sin(slotPose.angle * DEG);
       node.spineShade.style.opacity = String(Math.min(0.6, turn * 0.6));
-      if (node.coverShade) node.coverShade.style.opacity = String((1 - turn) * 0.55);
+      node.coverShade.style.opacity = String((1 - turn) * 0.55);
+      node.backShade.style.opacity = String(0.3 * (1 - turn));
+      if (slotPose.weight > 0 || node.turn !== 0) {
+        node.turn = slotPose.weight > 0 ? turn : 0;
+        node.element.style.setProperty('--bb-turn', String(node.turn));
+      }
       node.element.classList.toggle('is-turned', slotPose.weight > 0.98);
     }
 

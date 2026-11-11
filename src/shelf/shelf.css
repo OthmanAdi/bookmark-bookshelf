@@ -190,21 +190,44 @@
   clip-path: polygon(0 0, 50% 3px, 100% 0, 100% 100%, 0 100%);
 }
 
-.bb-book__cover {
+/*
+ * The two boards stand on the spine's edges and run back into the shelf. Each faces away from the spine,
+ * so only the one turned toward the viewer is drawn: the front board for volumes left of the eye, the
+ * back board for those right of it.
+ */
+.bb-book__board {
   position: absolute;
   bottom: 0;
-  left: 100%;
   display: block;
   width: var(--bb-cover-w);
   height: 100%;
+  background-color: var(--cloth);
+  backface-visibility: hidden;
+}
+
+.bb-book__board--front {
+  left: 100%;
+  border-radius: 0 2px 2px 0;
   transform-origin: 0 50%;
   transform: rotateY(90deg);
-  backface-visibility: hidden;
+}
+
+.bb-book__board--back {
+  right: 100%;
+  border-radius: 2px 0 0 2px;
+  transform-origin: 100% 50%;
+  transform: rotateY(-90deg);
+}
+
+/* The print shows only as the volume turns toward the viewer, so laying it on or taking it off is never seen. */
+.bb-book__cover > .bb-cover {
+  opacity: clamp(0, calc((var(--bb-turn, 0) - 0.2) * 2.5), 1);
 }
 
 .bb-book__shade {
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   background: #000;
   opacity: 0;
   pointer-events: none;
@@ -382,6 +405,7 @@
 
 @media (forced-colors: active) {
   .bb-book__spine,
+  .bb-book__board,
   .bb-cover {
     border: 1px solid CanvasText;
     forced-color-adjust: none;

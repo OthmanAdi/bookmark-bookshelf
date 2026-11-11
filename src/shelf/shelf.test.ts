@@ -94,10 +94,36 @@ describe('mountShelf rendering', () => {
     }
   });
 
-  it('builds covers for the volumes near the centre only', () => {
+  it('gives every volume a front and a back board', () => {
     const { shelf } = mount({ items: makeItems(40) });
-    expect(bySlot(shelf, 0).querySelector('.bb-book__cover')).not.toBeNull();
-    expect(bySlot(shelf, 1).querySelector('.bb-book__cover')).not.toBeNull();
+    for (const book of books(shelf)) {
+      expect(book.querySelector('.bb-book__board--front')).not.toBeNull();
+      expect(book.querySelector('.bb-book__board--back')).not.toBeNull();
+    }
+  });
+
+  it('prints covers for the volumes near the centre only', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    expect(bySlot(shelf, 0).querySelector('.bb-book__cover .bb-cover')).not.toBeNull();
+    expect(bySlot(shelf, 1).querySelector('.bb-book__cover .bb-cover')).not.toBeNull();
+    expect(bySlot(shelf, 2).querySelector('.bb-cover')).toBeNull();
+    expect(bySlot(shelf, -3).querySelector('.bb-cover')).toBeNull();
+  });
+
+  it('keeps a print until the volume is well past the centre, then drops it', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    shelf.setPose({ position: 2, open: 0 });
+    expect(bySlot(shelf, 0).querySelector('.bb-cover')).not.toBeNull();
+    shelf.setPose({ position: 2.6, open: 0 });
+    expect(bySlot(shelf, 0).querySelector('.bb-cover')).toBeNull();
+  });
+
+  it('writes the turn on turning volumes and clears it once they rest', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    expect(bySlot(shelf, 0).style.getPropertyValue('--bb-turn')).toBe('1');
+    expect(bySlot(shelf, 3).style.getPropertyValue('--bb-turn')).toBe('');
+    shelf.setPose({ position: 1, open: 0 });
+    expect(bySlot(shelf, 0).style.getPropertyValue('--bb-turn')).toBe('0');
   });
 
   it('shows the caption of the centred item', () => {
