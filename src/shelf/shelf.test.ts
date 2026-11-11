@@ -118,6 +118,19 @@ describe('mountShelf rendering', () => {
     expect(bySlot(shelf, 0).querySelector('.bb-cover')).toBeNull();
   });
 
+  it('shades faces from one light and rewrites a shade only when it changes', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    const film = (slot: number, face: string): HTMLElement =>
+      bySlot(shelf, slot).querySelector<HTMLElement>(`${face} .bb-book__shade`)!;
+    expect(Number(film(0, '.bb-book__board--front').style.opacity)).toBeCloseTo(0, 2);
+    expect(Number(film(4, '.bb-book__board--front').style.opacity)).toBeCloseTo(0.56, 2);
+    expect(Number(film(4, '.bb-book__spine').style.opacity)).toBeCloseTo(0, 2);
+    film(4, '.bb-book__spine').style.opacity = '0.5';
+    shelf.setPose({ position: 0.1, open: 0 });
+    expect(film(4, '.bb-book__spine').style.opacity).toBe('0.5');
+    expect(shelf.element.style.getPropertyValue('--bb-light-tint')).toBe('#000');
+  });
+
   it('writes the turn on turning volumes and clears it once they rest', () => {
     const { shelf } = mount({ items: makeItems(40) });
     expect(bySlot(shelf, 0).style.getPropertyValue('--bb-turn')).toBe('1');

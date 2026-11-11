@@ -22,6 +22,8 @@ export interface BookNode {
   print: HTMLElement | null;
   /** Last `--bb-turn` written, so a volume at rest is not written again on every frame. */
   turn: number;
+  /** Last shade written on the spine, the front board and the back board. */
+  shades: [number, number, number];
   control: HTMLButtonElement | null;
 }
 
@@ -74,7 +76,7 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   body.append(cover, back);
 
   element.appendChild(body);
-  return { element, slot, index, item, spineShade, cover, coverShade, back, backShade, print: null, turn: 0, control: null };
+  return { element, slot, index, item, spineShade, cover, coverShade, back, backShade, print: null, turn: 0, shades: [-1, -1, -1], control: null };
 }
 
 /**

@@ -4,6 +4,7 @@
  */
 export { mountShelf } from './shelf';
 export { createCover, createCoverArt } from './cover-art';
+export { DEFAULT_LIGHT, faceShades, type FaceShades } from './light';
 export { computeRow, focusWeight, restPitch, scaleGeometry, slotAdvance, turnedWidth, visibleRange, type SlotPose } from './layout';
 export {
   CLOTHS,
@@ -21,6 +22,7 @@ export type {
   Box,
   CoverPlacement,
   Geometry,
+  Light,
   Pose,
   ShelfHandle,
   ShelfIntent,

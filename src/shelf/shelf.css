@@ -228,7 +228,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: #000;
+  background: var(--bb-light-tint, #000);
   opacity: 0;
   pointer-events: none;
 }

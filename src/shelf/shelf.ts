@@ -3,8 +3,9 @@ import './cover.css';
 import './variants.css';
 import { createBook, dropPrint, ensurePrint, setReal, type BookNode } from './book';
 import { computeRow, restPitch, scaleGeometry, visibleRange, type SlotPose } from './layout';
+import { faceShades, resolveLight } from './light';
 import { resolveVariant } from './variants';
-import type { Geometry, Pose, ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions, Variant } from './types';
+import type { Geometry, Light, Pose, ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions, Variant } from './types';
 
 const DEG = Math.PI / 180;
 /** Room kept above the books for a leaning or lifted volume, and below for the contact shadow. */
@@ -19,6 +20,8 @@ const PART_REACH = 4;
 /** The printed cover is laid on a volume closer than this many steps to the centre and dropped beyond the second. */
 const PRINT_NEAR = 1.5;
 const PRINT_FAR = 2.5;
+/** A change of shade smaller than this cannot be seen. */
+const SHADE_STEP = 0.002;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
 const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
@@ -39,6 +42,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, te
 export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandle {
   let items: ShelfItem[] = options.items.slice();
   let variant: Variant = resolveVariant(options.variant);
+  let light: Light = resolveLight(variant.light);
   let loop = options.loop ?? variant.loop;
   let pose: Pose = options.pose ?? { position: 0, open: 0 };
   let geometry: Geometry = variant.geometry;
@@ -54,6 +58,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   root.setAttribute('aria-label', options.label ?? 'Bookshelf');
   root.dataset.variant = variant.name;
   root.dataset.open = '0';
+  root.style.setProperty('--bb-light-tint', light.tint);
 
   const scene = el('div', 'bb-shelf__scene');
   const backdrop = el('div', 'bb-shelf__backdrop');
@@ -159,6 +164,13 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     }
   }
 
+  /** Most volumes hold still in most frames: write a shade only when it has visibly changed. */
+  function writeShade(node: BookNode, face: 0 | 1 | 2, film: HTMLElement, value: number): void {
+    if (Math.abs(node.shades[face] - value) <= SHADE_STEP) return;
+    node.shades[face] = value;
+    film.style.opacity = value.toFixed(3);
+  }
+
   function render(): void {
     const count = items.length;
     empty.hidden = count > 0;
@@ -218,10 +230,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
         `rotateZ(${slotPose.lean}deg) rotateY(${-slotPose.angle}deg)`;
       style.zIndex = slotPose.weight > 0 ? '2' : '';
 
+      const shades = faceShades(light, slotPose.angle);
+      writeShade(node, 0, node.spineShade, shades.spine);
+      writeShade(node, 1, node.coverShade, shades.front);
+      writeShade(node, 2, node.backShade, shades.back);
       const turn = Math.sin(slotPose.angle * DEG);
-      node.spineShade.style.opacity = String(Math.min(0.6, turn * 0.6));
-      node.coverShade.style.opacity = String((1 - turn) * 0.55);
-      node.backShade.style.opacity = String(0.3 * (1 - turn));
       if (slotPose.weight > 0 || node.turn !== 0) {
         node.turn = slotPose.weight > 0 ? turn : 0;
         node.element.style.setProperty('--bb-turn', String(node.turn));
@@ -356,8 +369,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     },
     setVariant(nextVariant) {
       variant = resolveVariant(nextVariant);
+      light = resolveLight(variant.light);
       loop = options.loop ?? variant.loop;
       root.dataset.variant = variant.name;
+      root.style.setProperty('--bb-light-tint', light.tint);
       for (const node of nodes.values()) node.element.remove();
       nodes.clear();
       centre = Number.NaN;
