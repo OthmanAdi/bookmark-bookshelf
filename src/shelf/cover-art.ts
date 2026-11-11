@@ -32,10 +32,19 @@ function shape(name: string, attributes: Record<string, string | number>): SVGEl
 const round = (value: number): number => Math.round(value * 100) / 100;
 
 /**
- * A painter draws into a box `w` wide and `h` high (in viewBox units, `w` is always 100) and keeps every
- * shape inside it, so the composition is fixed to the plate's own edges and nothing is ever cropped.
+ * What a painter lays down: the key drawing in the first ink and the rest in the second. The two are
+ * printed as two passes, the second slightly out of register, so where they cross they overprint.
  */
-type Painter = (random: () => number, w: number, h: number) => SVGElement[];
+interface Print {
+  first: SVGElement[];
+  second: SVGElement[];
+}
+
+/**
+ * A painter draws into a box `w` wide and `h` high (in viewBox units) and keeps every shape inside it,
+ * so the composition is fixed to the plate's own edges and nothing is ever cropped.
+ */
+type Painter = (random: () => number, w: number, h: number) => Print;
 
 /**
  * An arch standing on the bottom edge: the upper half of a ring centred `legs` above the base, with
@@ -51,7 +60,7 @@ function arch(cx: number, base: number, outer: number, inner: number, legs = 0):
   return `${outside} L${round(cx + i)} ${b} L${round(cx + i)} ${spring} A${i} ${i} 0 0 0 ${round(cx - i)} ${spring} L${round(cx - i)} ${b} Z`;
 }
 
-/** Where a ray leaving the middle of the bottom edge at `angle` (0 to the right, PI/2 straight up) meets the box. */
+/** Where a ray leaving the bottom edge at `x` at `angle` (0 to the right, PI/2 straight up) meets the box. */
 function rayEnd(x: number, w: number, h: number, angle: number): [number, number] {
   const dx = Math.cos(angle);
   const dy = -Math.sin(angle);
@@ -61,6 +70,8 @@ function rayEnd(x: number, w: number, h: number, angle: number): [number, number
   return [x + t * dx, h + t * dy];
 }
 
+const fill = (d: string): SVGElement => shape('path', { d, fill: 'currentColor' });
+
 const painters: Record<PatternName, Painter> = {
   arcs(random, w, h) {
     const cx = w * (0.5 + (random() - 0.5) * 0.24);
@@ -69,31 +80,33 @@ const painters: Record<PatternName, Painter> = {
     const legs = Math.max(0, h - reach);
     const rings = 5 + Math.floor(random() * 3);
     const pitch = reach / (rings + 0.6);
-    const shapes: SVGElement[] = [shape('path', { d: arch(cx, h, pitch * 0.9, 0, legs), fill: 'currentColor' })];
+    const print: Print = { first: [], second: [fill(arch(cx, h, pitch * 0.9, 0, legs))] };
     for (let ring = 1; ring <= rings; ring++) {
       const outer = Math.min(reach, pitch * (ring + 0.6));
-      shapes.push(shape('path', { d: arch(cx, h, outer, outer - pitch * 0.58, legs), fill: 'currentColor' }));
+      print[ring % 2 === 0 ? 'second' : 'first'].push(fill(arch(cx, h, outer, outer - pitch * 0.58, legs)));
     }
-    return shapes;
+    return print;
   },
 
   bars(random, w, h) {
     const count = 9 + Math.floor(random() * 5);
     const slot = w / count;
-    const shapes: SVGElement[] = [];
+    const base = Math.max(0.8, h * 0.012);
+    const print: Print = { first: [], second: [] };
     for (let index = 0; index < count; index++) {
       const height = h * (0.18 + random() * 0.76);
-      shapes.push(
-        shape('rect', {
-          x: round(index * slot + slot * 0.19),
-          y: round(h - height),
-          width: round(slot * 0.62),
-          height: round(height),
-          fill: 'currentColor',
-        }),
-      );
+      const bar = shape('rect', {
+        x: round(index * slot + slot * 0.19),
+        y: round(h - height),
+        width: round(slot * 0.62),
+        height: round(height),
+        fill: 'currentColor',
+      });
+      print[random() > 0.35 ? 'first' : 'second'].push(bar);
     }
-    return shapes;
+    // A base line in the second ink, crossing the foot of every bar.
+    print.second.push(shape('rect', { x: 0, y: round(h - base), width: round(w), height: round(base), fill: 'currentColor' }));
+    return print;
   },
 
   dots(random, w, h) {
@@ -101,38 +114,48 @@ const painters: Record<PatternName, Painter> = {
     const pitch = w / columns;
     const rows = Math.max(1, Math.floor(h / pitch + 0.001));
     const top = (h - rows * pitch) / 2;
-    const focusX = w * (0.15 + random() * 0.7);
-    const focusY = h * (0.15 + random() * 0.7);
     const span = Math.max(w, h) * 1.1;
-    const shapes: SVGElement[] = [];
-    for (let row = 0; row < rows; row++) {
-      for (let column = 0; column < columns; column++) {
-        const x = column * pitch + pitch / 2;
-        const y = top + row * pitch + pitch / 2;
-        const near = Math.max(0, 1 - Math.hypot(x - focusX, y - focusY) / span);
-        const radius = pitch * (0.08 + 0.33 * Math.pow(near, 1.6));
-        shapes.push(shape('circle', { cx: round(x), cy: round(y), r: round(radius), fill: 'currentColor' }));
+    const screen = (x0: number, y0: number, across: number, down: number, scale: number): SVGElement[] => {
+      const focusX = w * (0.15 + random() * 0.7);
+      const focusY = h * (0.15 + random() * 0.7);
+      const dots: SVGElement[] = [];
+      for (let row = 0; row < down; row++) {
+        for (let column = 0; column < across; column++) {
+          const x = x0 + column * pitch;
+          const y = y0 + row * pitch;
+          const near = Math.max(0, 1 - Math.hypot(x - focusX, y - focusY) / span);
+          const radius = pitch * scale * (0.08 + 0.33 * Math.pow(near, 1.6));
+          dots.push(shape('circle', { cx: round(x), cy: round(y), r: round(radius), fill: 'currentColor' }));
+        }
       }
-    }
-    return shapes;
+      return dots;
+    };
+    // Two screens, the second set half a step off the first, as a duotone is printed.
+    return {
+      first: screen(pitch / 2, top + pitch / 2, columns, rows, 1),
+      second: rows > 1 ? screen(pitch, top + pitch, columns - 1, rows - 1, 0.85) : [],
+    };
   },
 
   rays(random, w, h) {
     const x = w * (0.3 + random() * 0.4);
     const count = 13 + Math.floor(random() * 7);
-    const shapes: SVGElement[] = [];
+    const print: Print = { first: [], second: [] };
     for (let index = 0; index < count; index++) {
       const angle = Math.PI * (0.06 + (0.88 * index) / (count - 1));
-      const spread = index % 3 === 0 ? 0.024 : 0.012;
+      const wide = index % 3 === 0;
+      const spread = wide ? 0.024 : 0.012;
       const [ax, ay] = rayEnd(x, w, h, angle - spread);
       const [bx, by] = rayEnd(x, w, h, angle + spread);
-      shapes.push(
-        shape('polygon', { points: `${round(x)},${round(h)} ${round(ax)},${round(ay)} ${round(bx)},${round(by)}`, fill: 'currentColor' }),
-      );
+      const ray = shape('polygon', {
+        points: `${round(x)},${round(h)} ${round(ax)},${round(ay)} ${round(bx)},${round(by)}`,
+        fill: 'currentColor',
+      });
+      print[wide ? 'first' : 'second'].push(ray);
     }
     const sun = Math.min(x, w - x, h) * (0.16 + random() * 0.1);
-    shapes.push(shape('path', { d: arch(x, h, sun, 0), fill: 'currentColor' }));
-    return shapes;
+    print.second.push(fill(arch(x, h, sun, 0)));
+    return print;
   },
 
   tiles(random, w, h) {
@@ -142,7 +165,8 @@ const painters: Record<PatternName, Painter> = {
     const left = (w - columns * size) / 2;
     const top = (h - rows * size) / 2;
     const s = round(size);
-    const shapes: SVGElement[] = [];
+    // One path per ink, so neighbouring quarter discs join without a hairline between them.
+    const paths = { first: '', second: '' };
     for (let row = 0; row < rows; row++) {
       for (let column = 0; column < columns; column++) {
         const x0 = round(left + column * size);
@@ -150,25 +174,30 @@ const painters: Record<PatternName, Painter> = {
         const x1 = round(x0 + s);
         const y1 = round(y0 + s);
         // A quarter disc whose centre is one corner of the cell.
-        const paths = [
+        const quarters = [
           `M${x0} ${y0} L${x1} ${y0} A${s} ${s} 0 0 1 ${x0} ${y1} Z`,
           `M${x1} ${y0} L${x1} ${y1} A${s} ${s} 0 0 1 ${x0} ${y0} Z`,
           `M${x1} ${y1} L${x0} ${y1} A${s} ${s} 0 0 1 ${x1} ${y0} Z`,
           `M${x0} ${y1} L${x0} ${y0} A${s} ${s} 0 0 1 ${x1} ${y1} Z`,
         ];
-        shapes.push(shape('path', { d: paths[Math.floor(random() * 4)] ?? paths[0]!, fill: 'currentColor' }));
+        const quarter = quarters[Math.floor(random() * 4)] ?? quarters[0]!;
+        paths[random() > 0.3 ? 'first' : 'second'] += quarter;
       }
     }
-    return shapes;
+    return {
+      first: paths.first ? [fill(paths.first)] : [],
+      second: paths.second ? [fill(paths.second)] : [],
+    };
   },
 
   waves(random, w, h) {
     const lines = 7 + Math.floor(random() * 3);
     const gap = h / (lines + 1);
     const wavelength = w * (0.22 + random() * 0.22);
-    const shapes: SVGElement[] = [];
+    const print: Print = { first: [], second: [] };
     for (let line = 0; line < lines; line++) {
-      const width = line % 2 === 0 ? 2.8 : 1.4;
+      const heavy = line % 2 === 0;
+      const width = heavy ? 2.8 : 1.4;
       const y = gap * (line + 1);
       const amplitude = Math.min(2.5 + random() * 4.5, gap * 0.4);
       const phase = random() * Math.PI * 2;
@@ -180,7 +209,7 @@ const painters: Record<PatternName, Painter> = {
         const x = from + ((to - from) * step) / steps;
         points.push(`${round(x)},${round(y + amplitude * Math.sin((x / wavelength) * Math.PI * 2 + phase))}`);
       }
-      shapes.push(
+      print[heavy ? 'first' : 'second'].push(
         shape('polyline', {
           points: points.join(' '),
           fill: 'none',
@@ -191,13 +220,26 @@ const painters: Record<PatternName, Painter> = {
         }),
       );
     }
-    return shapes;
+    return print;
   },
 };
 
+/** Room left round the drawing so the second ink, printed slightly off, still lands inside the box. */
+const REGISTER = 0.7;
+
+/** One pass of ink: a group in the stylesheet's colour for that ink, shifted by `offset`. */
+function inkPass(ink: 1 | 2, shapes: SVGElement[], offset: [number, number]): SVGGElement {
+  const group = document.createElementNS(SVG_NS, 'g') as SVGGElement;
+  group.setAttribute('class', `bb-cover__ink bb-cover__ink--${ink}`);
+  group.setAttribute('transform', `translate(${round(REGISTER + offset[0])} ${round(REGISTER + offset[1])})`);
+  for (const element of shapes) group.appendChild(element);
+  return group;
+}
+
 /**
  * The drawing alone, as a decorative SVG. `aspect` is the width of the box it is shown in divided by its
- * height; the drawing is composed for that box and shown whole (`meet`), never cropped to fit.
+ * height; the drawing is composed for that box and shown whole (`meet`), never cropped to fit. It is
+ * printed in two inks, the second a fraction off register, the way a small press prints a jacket.
  */
 export function createCoverArt(pattern: string | undefined, seed = 1, aspect = 1): SVGSVGElement {
   const w = 100;
@@ -209,7 +251,12 @@ export function createCoverArt(pattern: string | undefined, seed = 1, aspect = 1
   svg.setAttribute('focusable', 'false');
   svg.classList.add('bb-cover__art');
   const name = resolvePattern(pattern);
-  for (const element of painters[name](createRandom(seed), w, h)) svg.appendChild(element);
+  const print = painters[name](createRandom(seed), w - 2 * REGISTER, h - 2 * REGISTER);
+  // The register drifts with its own generator, so it never changes the drawing itself.
+  const drift = createRandom(seed ^ 0x5bd1e995);
+  const off = (): number => (drift() - 0.5) * 2 * (REGISTER - 0.1);
+  svg.appendChild(inkPass(1, print.first, [0, 0]));
+  svg.appendChild(inkPass(2, print.second, [off(), off()]));
   return svg;
 }
 

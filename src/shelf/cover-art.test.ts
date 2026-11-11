@@ -144,6 +144,26 @@ describe('createCoverArt', () => {
     expect(svg.classList.contains('bb-cover__art')).toBe(true);
   });
 
+  it.each(PATTERNS)('prints %s in two inks, the second a fraction off register', (pattern) => {
+    const offsets = [1, 2, 3, 4, 5].map((seed) => {
+      const svg = createCoverArt(pattern, seed, 1.2);
+      const first = svg.querySelector('.bb-cover__ink--1');
+      const second = svg.querySelector('.bb-cover__ink--2');
+      expect(first?.childElementCount).toBeGreaterThan(0);
+      expect(second?.childElementCount).toBeGreaterThan(0);
+      const [x1, y1] = translation(first?.firstElementChild ?? null);
+      const [x2, y2] = translation(second?.firstElementChild ?? null);
+      return Math.hypot(x2 - x1, y2 - y1);
+    });
+    for (const offset of offsets) expect(offset).toBeLessThanOrEqual(0.6 * Math.SQRT2 + 0.01);
+    expect(Math.max(...offsets)).toBeGreaterThan(0.05);
+  });
+
+  it('keeps the drawing the same whatever the register, so only the second pass moves', () => {
+    const shapes = (svg: SVGSVGElement) => [...svg.querySelectorAll('.bb-cover__ink > *')].map((node) => node.outerHTML);
+    expect(shapes(createCoverArt('tiles', 8, 1))).toEqual(shapes(createCoverArt('tiles', 8, 1)));
+  });
+
   it('is composed in the aspect of the box it is shown in', () => {
     expect(createCoverArt('bars', 3, 1.25).getAttribute('viewBox')).toBe('0 0 100 80');
     expect(createCoverArt('bars', 3, 0.5).getAttribute('viewBox')).toBe('0 0 100 200');

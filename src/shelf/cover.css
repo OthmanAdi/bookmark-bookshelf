@@ -96,6 +96,20 @@
   display: block;
   width: 100%;
   height: calc(100% - 5cqw);
+  isolation: isolate;
+}
+
+/*
+ * Two inks. The second is mixed from the art and lettering colours and overprints the first, so where
+ * the two passes cross, and where the second lands a fraction off register, it reads as printed.
+ */
+.bb-cover__ink--1 {
+  color: var(--bb-cover-ink-1, var(--cloth-art));
+}
+
+.bb-cover__ink--2 {
+  color: var(--bb-cover-ink-2, color-mix(in srgb, var(--cloth-art) 55%, var(--cloth-ink)));
+  mix-blend-mode: multiply;
 }
 
 .bb-cover__foot {
@@ -195,11 +209,13 @@
 
 /* ---------- band: the drawing printed across the head, the title on plain cloth under it ---------- */
 
+/* The band is a solid of the art colour with the drawing printed over it in the cloth's own colours. */
 .bb-cover[data-layout='band'] .bb-cover__plate {
+  --bb-cover-ink-1: var(--cloth);
+  --bb-cover-ink-2: color-mix(in srgb, var(--cloth) 55%, var(--cloth-art));
   inset: 0 0 53%;
   border-top: 0;
   background: var(--cloth-art);
-  color: var(--cloth);
 }
 
 .bb-cover[data-layout='band'] .bb-cover__head {
