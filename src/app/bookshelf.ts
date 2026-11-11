@@ -18,6 +18,10 @@ export interface BookshelfOptions {
   /** Mirror the variant onto <html> so page colours follow. Default true. */
   themePage?: boolean;
   label?: string;
+  /** False when the host draws its own caption under the row. Default true. */
+  caption?: boolean;
+  /** False when the host draws its own previous and next buttons. Default true. */
+  arrows?: boolean;
   onFocusChange?: (bookmark: Bookmark | undefined) => void;
   onOpenChange?: (bookmark: Bookmark | undefined) => void;
 }
@@ -97,6 +101,8 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     items: listItems(),
     variant: initialVariant,
     label: options.label ?? 'Bookshelf',
+    caption: options.caption,
+    arrows: options.arrows,
   });
   if (themePage) document.documentElement.dataset.variant = shelf.variant.name;
 
