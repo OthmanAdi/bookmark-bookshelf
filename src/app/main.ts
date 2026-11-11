@@ -18,7 +18,7 @@ import { emptyState, READING_NOTE } from './shell-empty';
 import { createReaderHistory, pageTitle, type ReaderHistory } from './shell-history';
 import { createPhoneLayout, PHONE_QUERY } from './shell-phone';
 import { createStageCaption, type LinkView } from './shell-stage';
-import { examplesSentence, firstToRead, renderStatus, statusLine } from './status';
+import { createAnnouncer, examplesSentence, firstToRead, positionSentence, renderStatus, statusLine } from './status';
 import { createShelfTabs } from './shell-tabs';
 import { renderChoices, renderViewMenu, type ViewMode } from './shell-view-menu';
 
@@ -135,7 +135,15 @@ const stage = createStageCaption(
     later: must<HTMLButtonElement>('#action-later'),
   },
   {
-    step: (direction) => bookshelf.motion.step(direction),
+    step: (direction) => {
+      // Against the end of a row with two ends nothing moves, so say why.
+      const count = row.length;
+      const slot = rowSlot(bookshelf.motion.state.position);
+      if (!bookshelf.shelf.loop && count > 0 && slot === (direction < 0 ? 0 : count - 1)) {
+        say(direction < 0 ? 'This is the first link.' : 'This is the last link.');
+      }
+      bookshelf.motion.step(direction);
+    },
     primary: (id, kind) => {
       if (kind === 'add-text') return void bookshelf.open(id, { editCopy: true });
       // Reading again starts from the top, not from the end where the last reading stopped.
@@ -150,6 +158,35 @@ const stage = createStageCaption(
 
 /** Above this speed (links per millisecond) the caption holds still instead of flickering through titles. */
 const FAST = 0.006;
+
+const say = createAnnouncer(must<HTMLElement>('#announcer'));
+/** The link last announced; unset until the row first comes to rest, which is not announced. */
+let announcedId: string | null | undefined;
+
+/** Where in the row the centre is, counted as the person sees the row: 0 is the first link. */
+function rowSlot(position: number): number {
+  const count = row.length;
+  if (count === 0) return -1;
+  const nearest = Math.round(position);
+  return bookshelf.shelf.loop ? ((nearest % count) + count) % count : Math.min(count - 1, Math.max(0, nearest));
+}
+
+/**
+ * Once the row rests on another link, a screen reader hears its title and place. When focus is in the
+ * row it is not needed: focus moving to the volume already says it.
+ */
+function announceRest(bookmark: Bookmark | undefined, slot: number): void {
+  if (bookshelf.isOpen()) return;
+  const id = bookmark?.id ?? null;
+  if (announcedId === undefined || id === announcedId) {
+    announcedId = id;
+    return;
+  }
+  announcedId = id;
+  if (bookmark && !bookshelf.shelf.element.contains(document.activeElement)) {
+    say(positionSentence(bookmark.title, slot, row.length));
+  }
+}
 
 /** Describes the link visibly in the centre (not where the row is heading) and what can be done with it. */
 function syncStage(force = false): void {
@@ -168,7 +205,8 @@ function syncStage(force = false): void {
   if (!state.settled && !force) return;
   // The ends of a row with two ends are found by position, so they hold whatever order the row is in.
   const count = row.length;
-  const slot = Math.min(count - 1, Math.max(0, Math.round(state.position)));
+  const slot = rowSlot(state.position);
+  if (state.settled) announceRest(bookmark, slot);
   // Moving changes the stored order, which is the order shown only on a single shelf in its own order.
   const own = id ? row.findIndex((entry) => entry.id === id) : -1;
   stage.setPlace({

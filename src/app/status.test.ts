@@ -1,5 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
-import { examplesSentence, firstToRead, renderStatus, statusLine } from './status';
+import { createAnnouncer, examplesSentence, firstToRead, positionSentence, renderStatus, statusLine } from './status';
+
+describe('announcements', () => {
+  it('says the title and the place in the row', () => {
+    expect(positionSentence('What is a URL?', 2, 14)).toBe('What is a URL?, 3 of 14');
+  });
+
+  it('clears the region first so the same words are heard again', () => {
+    vi.useFakeTimers();
+    const region = document.createElement('p');
+    const say = createAnnouncer(region);
+    say('Link rot, 2 of 6');
+    expect(region.textContent).toBe('');
+    vi.advanceTimersByTime(60);
+    expect(region.textContent).toBe('Link rot, 2 of 6');
+    say('Link rot, 2 of 6');
+    expect(region.textContent).toBe('');
+    vi.advanceTimersByTime(60);
+    expect(region.textContent).toBe('Link rot, 2 of 6');
+    vi.useRealTimers();
+  });
+});
 
 describe('examplesSentence', () => {
   it('counts the examples that remain', () => {

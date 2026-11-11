@@ -23,6 +23,24 @@ export function statusLine(volumes: readonly StatsVolume[], context: StatusConte
   return next ? { text, next: { id: next.id, title: next.title } } : { text };
 }
 
+/** What a screen reader hears when the row comes to rest on another link: "What is a URL?, 3 of 14". */
+export function positionSentence(title: string, index: number, count: number): string {
+  return `${title}, ${index + 1} of ${count}`;
+}
+
+/** Writes one polite announcement; the same words said twice are still heard twice. */
+export function createAnnouncer(region: HTMLElement): (text: string) => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return (text) => {
+    region.textContent = '';
+    if (timer !== null) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      region.textContent = text;
+    }, 50);
+  };
+}
+
 /** The line shown while any of the bundled examples remain, followed by its Remove examples button. */
 export function examplesSentence(count: number): string {
   return count === 1
