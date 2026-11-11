@@ -96,6 +96,8 @@ const FLICK_SPEED = 0.35; // px per ms
 const FLICK_MIN_TRAVEL = 24; // px
 const FLICK_DECAY_MS = 325;
 const FLICK_MAX_ITEMS = 6;
+/** Every release looks this far ahead before it snaps, so a gentle push never slides back against the hand. */
+const RELEASE_PROJECTION_MS = 180;
 /** How far past the visible volume repeated steps may aim. A held key never queues further than this. */
 const STEP_LEAD_ITEMS = 2;
 const RUBBER_BAND = 0.35;
@@ -354,15 +356,12 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
           state.dragging = false;
           const itemsPerMs = -velocityX / pitch();
           const isFlick = !cancelled && Math.abs(velocityX) >= FLICK_SPEED && Math.abs(dragTravel) >= FLICK_MIN_TRAVEL;
-          let destination = Math.round(state.position);
-          if (isFlick) {
-            const projected = state.position + itemsPerMs * FLICK_DECAY_MS;
-            const direction = itemsPerMs > 0 ? 1 : -1;
-            destination = Math.round(projected);
+          let destination = Math.round(state.position + itemsPerMs * (isFlick ? FLICK_DECAY_MS : RELEASE_PROJECTION_MS));
+          if (isFlick && destination === dragStartTarget) {
             // A flick always moves at least one volume in its direction.
-            if (destination === dragStartTarget) destination = dragStartTarget + direction;
-            destination = clamp(destination, dragStartTarget - FLICK_MAX_ITEMS, dragStartTarget + FLICK_MAX_ITEMS);
+            destination = dragStartTarget + (itemsPerMs > 0 ? 1 : -1);
           }
+          destination = clamp(destination, dragStartTarget - FLICK_MAX_ITEMS, dragStartTarget + FLICK_MAX_ITEMS);
           setTarget(destination);
           state.velocity = cancelled || state.reduced ? 0 : itemsPerMs;
           if (state.reduced) state.position = state.target;

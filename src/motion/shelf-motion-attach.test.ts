@@ -74,6 +74,39 @@ describe('motion.attach drag', () => {
     expect(motion.state.settled).toBe(true);
   });
 
+  it('a gentle release moving forward lands on the next volume instead of sliding back', () => {
+    const { clock, motion, fire } = setup();
+    fire('pointerdown', { x: 500, t: 0 });
+    fire('pointermove', { x: 170, t: 1000 });
+    fire('pointermove', { x: 160, t: 1033 });
+    expect(motion.state.position).toBeCloseTo(3.4, 10);
+    fire('pointerup', { x: 160, t: 1040 });
+    expect(motion.state.target).toBe(4);
+    expect(motion.state.velocity).toBeGreaterThan(0);
+    clock.advance(200);
+    expect(motion.state.position).toBeGreaterThan(3.4);
+    clock.advance(3000);
+    expect(motion.state.position).toBe(4);
+  });
+
+  it('a gentle release moving backward lands on the previous volume', () => {
+    const { motion, fire } = setup({ initial: 5 });
+    fire('pointerdown', { x: 500, t: 0 });
+    fire('pointermove', { x: 530, t: 1000 });
+    fire('pointermove', { x: 540, t: 1033 });
+    expect(motion.state.position).toBeCloseTo(4.6, 10);
+    fire('pointerup', { x: 540, t: 1040 });
+    expect(motion.state.target).toBe(4);
+  });
+
+  it('a release that rested on the pointer still snaps to the nearest volume', () => {
+    const { motion, fire } = setup();
+    fire('pointerdown', { x: 500, t: 0 });
+    fire('pointermove', { x: 160, t: 1000 });
+    fire('pointerup', { x: 160, t: 1500 });
+    expect(motion.state.target).toBe(3);
+  });
+
   it('a fast flick moves at least one volume in its direction', () => {
     const { clock, motion, fire } = setup({ initial: 5 });
     fire('pointerdown', { x: 500, t: 0 });
