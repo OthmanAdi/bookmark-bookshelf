@@ -2,6 +2,8 @@ import './bookshelf.css';
 import { createShelfMotion, prefersReducedMotion, type ShelfMotion } from '../motion';
 import { mountReader, type ReaderDoc, type ReaderHandle } from '../reader';
 import { createCover, mountShelf, type ShelfHandle, type ShelfItem } from '../shelf';
+import { outlineOf } from '../shelf/cover-outline';
+import { hashText, imprintOf } from '../shelf/imprint';
 import type { Bookmark, Store } from '../store';
 import { createFlight, type Flight, type FlightEnd, type FlightStart } from './flight';
 
@@ -52,16 +54,53 @@ export function hostnameOf(url: string): string {
   }
 }
 
-export function toShelfItem(bookmark: Bookmark, percent: number): ShelfItem {
+/** What only the whole library knows about one volume. */
+export interface ShelfItemDetails {
+  /** Catalogue mark: the volume's place in the library by date added, so it never changes with the shelf shown. */
+  mark?: string;
+  done?: boolean;
+  lang?: string;
+}
+
+const STATURES = [0, 0.5, 1] as const;
+
+function countWords(text: string): number {
+  const words = text.trim().match(/\S+/g);
+  return words ? words.length : 0;
+}
+
+/** A link with no text is a slim pamphlet; saving its text fills the volume, more slowly as it grows. */
+function thicknessOf(text: string | undefined): number {
+  const words = text ? countWords(text) : 0;
+  if (words === 0) return 0;
+  return Math.min(1, Math.max(0, Math.log2(words / 100) / 5));
+}
+
+/** Volumes from one site stand at one height, the way a publisher's series does. */
+function statureOf(source: string): number {
+  const { key } = imprintOf(source);
+  return key === '' ? 1 : (STATURES[hashText(key) % STATURES.length] ?? 1);
+}
+
+export function toShelfItem(bookmark: Bookmark, percent: number, details: ShelfItemDetails = {}): ShelfItem {
+  const source = hostnameOf(bookmark.url);
+  const text = bookmark.reading?.text;
   return {
     id: bookmark.id,
     title: bookmark.title,
-    source: hostnameOf(bookmark.url),
+    source,
     author: bookmark.author,
     cloth: bookmark.cover.cloth,
     pattern: bookmark.cover.pattern,
     seed: bookmark.cover.seed,
     progress: percent,
+    thickness: thicknessOf(text),
+    stature: statureOf(source),
+    outline: text ? outlineOf(text) : undefined,
+    note: bookmark.note,
+    mark: details.mark,
+    done: details.done,
+    lang: details.lang,
   };
 }
 
@@ -108,9 +147,34 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
   let opener: HTMLElement | null = null;
   let destroyed = false;
 
+  /** Catalogue marks by date added across the whole library, so a volume keeps its mark on every shelf. */
+  let marks = new Map<string, string>();
+  const refreshMarks = (): void => {
+    const all = store
+      .bookmarks(null)
+      .slice()
+      .sort((one, other) => one.addedAt.localeCompare(other.addedAt) || one.id.localeCompare(other.id));
+    const width = all.length > 99 ? 3 : 2;
+    marks = new Map(all.map((bookmark, index) => [bookmark.id, String(index + 1).padStart(width, '0')]));
+  };
+
+  const itemOf = (bookmark: Bookmark, percent: number): ShelfItem => {
+    const lang = store.shelves().find((shelf) => shelf.id === bookmark.shelfId)?.lang;
+    return toShelfItem(bookmark, percent, { mark: marks.get(bookmark.id), done: store.isDone(bookmark.id), lang });
+  };
+
   const listItems = (): ShelfItem[] => {
     bookmarks = store.bookmarks(store.session().shelfId);
-    return bookmarks.map((bookmark) => toShelfItem(bookmark, store.progress(bookmark.id)?.percent ?? 0));
+    refreshMarks();
+    return bookmarks.map((bookmark) => itemOf(bookmark, store.progress(bookmark.id)?.percent ?? 0));
+  };
+
+  /** The link that follows on the open shelf and is not yet read, when a single shelf is open. */
+  const nextUnread = (id: string): Bookmark | undefined => {
+    if (store.session().shelfId === null) return undefined;
+    const index = bookmarks.findIndex((bookmark) => bookmark.id === id);
+    if (index < 0) return undefined;
+    return bookmarks.slice(index + 1).find((bookmark) => !store.isDone(bookmark.id));
   };
 
   const initialVariant = store.session().variant || KNOWN_VARIANT_FALLBACK;
@@ -218,17 +282,27 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     motion.goTo(target, showOptions);
   }
 
+  const coverAspect = (): number => shelf.variant.geometry.coverWidth / shelf.variant.geometry.bookHeight;
+
   /** Puts one cover in the air between the shelf and the page. Returns false when there is nowhere to fly. */
-  function takeOff(bookmark: Bookmark, mark: string, active: ReaderHandle): boolean {
-    const start: FlightStart | null = shelf.coverPlacement();
+  function takeOff(bookmark: Bookmark, active: ReaderHandle): boolean {
+    const placement = shelf.coverPlacement();
     const end = endOf(active);
-    if (!start || !end) return false;
-    const cover = createCover(toShelfItem(bookmark, 0), mark);
-    const shelfCover = shelf.coverSize();
-    const scale = shelfCover.width > 0 ? end.width / shelfCover.width : 1;
+    if (!placement || !end) return false;
+    // Perspective draws the presented face a little larger than its layout size: start at what is on screen.
+    const start: FlightStart = { ...placement, width: placement.width * placement.scale, height: placement.height * placement.scale };
+    const cover = createCover(itemOf(bookmark, 0), marks.get(bookmark.id), { aspect: coverAspect() });
+    const scale = placement.width > 0 ? end.width / placement.width : 1;
     cover.style.setProperty('--bb-cover-k', String(scale));
-    const spineEdge = Math.abs(Math.sin((start.yaw * Math.PI) / 180)) * shelf.variant.geometry.spineWidth * scale;
-    flight = createFlight({ cover, clothClass: `bb-cloth--${bookmark.cover.cloth}`, start, end, spineEdge });
+    const spineEdge = Math.abs(Math.sin((placement.yaw * Math.PI) / 180)) * shelf.variant.geometry.spineWidth * scale;
+    flight = createFlight({
+      cover,
+      clothClass: `bb-cloth--${bookmark.cover.cloth}`,
+      start,
+      end,
+      spineEdge,
+      sheen: { opacity: placement.sheen, sweep: placement.sweep },
+    });
     flight.set(motion.state.openTime);
     return true;
   }
@@ -247,19 +321,25 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     // A volume that is already in the centre flies from where it is; anything else is brought there first.
     if (current()?.id !== id) show(id, { immediate: true });
 
-    const item = toShelfItem(bookmark, 0);
-    const geometry = shelf.variant.geometry;
-    // Same catalogue mark as the volume on the shelf, so the hand-off after the flight changes nothing.
-    const mark = String(bookmarks.findIndex((entry) => entry.id === id) + 1).padStart(2, '0');
-    const cover = createCover(item, mark);
+    // The same drawing and catalogue mark as the volume on the shelf, so the hand-off after the flight changes nothing.
+    const cover = createCover(itemOf(bookmark, 0), marks.get(id), { aspect: coverAspect() });
+    const following = nextUnread(id);
     readerId = id;
     const active = mountReader(options.readerHost, {
       doc: toReaderDoc(bookmark),
       progress: store.progress(id),
       cover,
-      coverAspect: geometry.coverWidth / geometry.bookHeight,
+      coverAspect: coverAspect(),
       onProgress: (position) => store.setProgress(id, position),
       onClose: () => void close(),
+      myNote: store.note(id),
+      onMyNote: (text) => void store.setNote(id, text),
+      done: store.isDone(id),
+      onDone: (done) => void store.setDone(id, done),
+      next: following ? { title: following.title } : undefined,
+      onNext: following ? () => void close({ immediate: true }).then(() => open(following.id)) : undefined,
+      textScale: store.session().textScale,
+      onTextScale: (scale) => store.setSession({ textScale: scale }),
       onSaveText: (text) => {
         // The reader has already redrawn itself with the new text.
         savingFromReader = true;
@@ -275,7 +355,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     // hairlines then match the flying volume exactly and the hand-off at the end of the flight is invisible.
     const shelfCover = shelf.coverSize();
     if (slot && shelfCover.width > 0) cover.style.setProperty('--bb-cover-k', String(slot.width / shelfCover.width));
-    const flying = !immediate && !motion.state.reduced && takeOff(bookmark, mark, active);
+    const flying = !immediate && !motion.state.reduced && takeOff(bookmark, active);
     // While the volume is in the air the reader's own cover stays hidden; they change places when it lands.
     active.setCoverVisible(!flying);
     setBackgroundInert(true);
@@ -313,8 +393,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
         landFlight();
       } else if (!flight && bookmark) {
         // Fly back from wherever the cover is now: the page may have been scrolled.
-        const mark = String(bookmarks.findIndex((entry) => entry.id === bookmark.id) + 1).padStart(2, '0');
-        coverLeavesOnMove = takeOff(bookmark, mark, active);
+        coverLeavesOnMove = takeOff(bookmark, active);
       }
       store.setSession({ openId: null });
       await motion.setOpen(false, { immediate });
