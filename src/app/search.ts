@@ -31,7 +31,8 @@ export function findLinks(
   limit = RESULT_LIMIT,
 ): SearchResult[] {
   const byId = new Map(links.map((link) => [link.id, link]));
-  return searchVolumes(links, query, { limit }).flatMap((hit) => {
+  // The saved text counts too: a word a person remembers from the page finds the link.
+  return searchVolumes(links, query, { limit, includeText: true }).flatMap((hit) => {
     const link = byId.get(hit.id);
     if (!link) return [];
     return [{ id: link.id, title: link.title, shelf: shelfNames.get(link.shelfId) ?? '', host: hostOf(link.url) }];
