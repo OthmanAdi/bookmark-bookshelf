@@ -59,6 +59,9 @@ const TAP_MAX_MS = 700;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 1.5;
 
+/** Counts mounted shelves, so ids inside each one stay unique on a page with several. */
+let shelfCount = 0;
+
 function wrap(index: number, count: number): number {
   return count <= 0 ? 0 : ((index % count) + count) % count;
 }
@@ -131,11 +134,15 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   caption.append(captionTitle, captionMeta);
   caption.hidden = options.caption === false;
 
+  // How to use the row, read with every volume's name, so the keyboard model never has to be guessed.
+  const hint = el('p', 'bb-shelf__hint', 'Arrow keys move along the shelf, Enter opens.');
+  hint.id = `bb-shelf-hint-${++shelfCount}`;
+
   const actions = el('div', 'bb-shelf__actions');
   const empty = el('p', 'bb-shelf__empty', 'This shelf is empty.');
   empty.hidden = true;
 
-  root.append(scene, nav, caption, actions, empty);
+  root.append(scene, nav, caption, actions, empty, hint);
   host.appendChild(root);
 
   const emit = (intent: ShelfIntent): void => {
@@ -261,7 +268,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   /** Keeps exactly one operable control per item and one tab stop for the whole row. */
   function syncSemantics(moveFocus: boolean): void {
     for (const node of nodes.values()) {
-      setReal(node, isReal(node.slot), items.length);
+      setReal(node, isReal(node.slot), items.length, hint.id);
       if (node.control) node.control.tabIndex = node.slot === centre ? 0 : -1;
       node.element.classList.toggle('is-centre', node.slot === centre);
     }
@@ -296,7 +303,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       const node = createBook(item, index, slot);
       applySize(node);
       fitSpine(node);
-      setReal(node, isReal(slot), items.length);
+      setReal(node, isReal(slot), items.length, hint.id);
       nodes.set(slot, node);
       row.appendChild(node.element);
     }

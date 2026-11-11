@@ -86,6 +86,9 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   const spineShade = span('bb-book__shade');
   spine.appendChild(spineShade);
   body.appendChild(spine);
+  // Focus rings are drawn in the plane of a face, around it, so the 3D turn can never cut them off.
+  // The spine clips its own lettering, so its ring stands beside it in the same plane.
+  body.appendChild(span('bb-book__ring bb-book__ring--spine'));
 
   if (item.done) element.classList.add('is-done');
   const progress = Math.min(1, Math.max(0, item.progress ?? 0));
@@ -105,6 +108,8 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   const backShade = span('bb-book__shade');
   back.appendChild(backShade);
   body.append(cover, back);
+  // A face drops whatever its children paint outside its own box, so the cover's ring is a plane of its own.
+  body.appendChild(span('bb-book__ring bb-book__ring--cover'));
 
   element.appendChild(body);
   return { element, slot, index, item, title, words, treatment, spineShade, cover, coverShade, back, backShade, print: null, turn: 0, shades: [-1, -1, -1], control: null };
@@ -144,7 +149,7 @@ export function ensurePrint(node: BookNode): void {
   if (node.print) return;
   const print = createCover(node.item, markFor(node.item, node.index));
   node.cover.insertBefore(print, node.coverShade);
-  node.cover.appendChild(span('bb-book__sheen'));
+  node.cover.insertBefore(span('bb-book__sheen'), node.coverShade.nextSibling);
   node.print = print;
 }
 
@@ -174,14 +179,18 @@ export function letterSpine(node: BookNode, fit: TitleFit): void {
   node.title.classList.toggle('is-clipped', fit.clipped);
 }
 
-/** Adds or removes the single operable control, depending on whether this copy is the real one. */
-export function setReal(node: BookNode, real: boolean, count: number): void {
+/**
+ * Adds or removes the single operable control, depending on whether this copy is the real one.
+ * `hint` is the id of the text that tells how to use the row.
+ */
+export function setReal(node: BookNode, real: boolean, count: number, hint?: string): void {
   if (real && !node.control) {
     const control = document.createElement('button');
     control.type = 'button';
     control.className = 'bb-book__control';
     control.tabIndex = -1;
     control.setAttribute('aria-label', describe(node.item, node.index, count));
+    if (hint) control.setAttribute('aria-describedby', hint);
     node.element.prepend(control);
     node.control = control;
     node.element.removeAttribute('aria-hidden');

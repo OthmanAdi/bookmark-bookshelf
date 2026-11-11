@@ -183,10 +183,47 @@
   pointer-events: none;
 }
 
-.bb-book:has(.bb-book__control:focus-visible) .bb-book__spine,
-.bb-book:has(.bb-book__control:focus-visible) .bb-book__cover {
-  outline: 3px solid var(--bb-focus);
-  outline-offset: 3px;
+/*
+ * Focus ring: a complete rectangle around the face that shows, drawn as a child of that face so it
+ * turns with it and nothing in the 3D scene can cut it off. The cover once the volume is turned to the
+ * viewer, the spine before. A halo keeps it apart from any cloth or ground it sits on.
+ */
+.bb-book__ring {
+  position: absolute;
+  inset: -6px;
+  display: none;
+  border: 3px solid var(--bb-focus-ring, var(--bb-focus));
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--bb-focus-halo, transparent);
+  pointer-events: none;
+}
+
+/* Laid over the front board, a ring's width larger on every side and a pixel in front of it. */
+.bb-book__ring--cover {
+  inset: auto;
+  left: 100%;
+  bottom: -6px;
+  width: calc(var(--bb-cover-w) + 12px);
+  height: calc(100% + 12px);
+  transform-origin: 0 50%;
+  transform: rotateY(90deg) translateX(-6px) translateZ(1px);
+}
+
+.bb-book:not(.is-turned):has(.bb-book__control:focus-visible) .bb-book__ring--spine,
+.bb-book.is-turned:has(.bb-book__control:focus-visible) .bb-book__ring--cover {
+  display: block;
+}
+
+/* The row's instructions are read with each volume's name and never shown. */
+.bb-shelf__hint {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .bb-book__spine {
@@ -653,5 +690,11 @@
   .bb-book__slip {
     forced-color-adjust: none;
     background: Highlight;
+  }
+
+  .bb-book__ring {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    box-shadow: 0 0 0 2px Canvas;
   }
 }

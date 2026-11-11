@@ -122,6 +122,23 @@ describe('mountShelf rendering', () => {
     expect(book?.classList.contains('is-centre')).toBe(true);
   });
 
+  it('tells how to use the row with every volume', () => {
+    const { shelf } = mount();
+    const hint = shelf.element.querySelector<HTMLElement>('.bb-shelf__hint');
+    expect(hint?.textContent).toBe('Arrow keys move along the shelf, Enter opens.');
+    expect(hint?.id).toMatch(/^bb-shelf-hint-\d+$/);
+    for (const control of controls(shelf)) expect(control.getAttribute('aria-describedby')).toBe(hint?.id);
+    const other = mountShelf(document.body.appendChild(document.createElement('div')), { items: makeItems(2) });
+    expect(other.element.querySelector('.bb-shelf__hint')?.id).not.toBe(hint?.id);
+  });
+
+  it('gives each volume a focus ring on its spine and on its cover', () => {
+    const { shelf } = mount();
+    const centre = bySlot(shelf, 0);
+    expect(centre.querySelector('.bb-book__body > .bb-book__ring--spine')).not.toBeNull();
+    expect(centre.querySelector('.bb-book__body > .bb-book__ring--cover')).not.toBeNull();
+  });
+
   it('labels each control with the title and its place in the row', () => {
     const { shelf } = mount();
     for (const control of controls(shelf)) {
