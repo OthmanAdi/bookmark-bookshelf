@@ -1,7 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 5199;
-const ORIGIN = `http://127.0.0.1:${PORT}`;
+/** Set E2E_BASE_URL to test a site that is already being served, for example a built copy. */
+const EXTERNAL = (process.env.E2E_BASE_URL ?? '').trim().replace(/\/+$/, '');
+const ORIGIN = EXTERNAL || `http://127.0.0.1:${PORT}`;
 
 /** Files that only make sense with a touch screen. The desktop project skips them. */
 const TOUCH_ONLY = /(touch|mobile-reading)\.spec\.ts$/;
@@ -12,12 +14,16 @@ export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: true,
   reporter: [['list']],
-  webServer: {
-    command: `npx vite --port ${PORT} --strictPort`,
-    url: `${ORIGIN}/app.html`,
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  ...(EXTERNAL
+    ? {}
+    : {
+        webServer: {
+          command: `npx vite --port ${PORT} --strictPort`,
+          url: `${ORIGIN}/app.html`,
+          reuseExistingServer: true,
+          timeout: 60_000,
+        },
+      }),
   use: {
     baseURL: ORIGIN,
     trace: 'retain-on-failure',
