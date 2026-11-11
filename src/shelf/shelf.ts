@@ -3,7 +3,7 @@ import './cover.css';
 import './variants.css';
 import { createBook, dropPrint, ensurePrint, setReal, type BookNode } from './book';
 import { computeRow, restPitch, scaleGeometry, visibleRange, type SlotPose } from './layout';
-import { faceShades, resolveLight } from './light';
+import { faceShades, resolveLight, sheenOf, sweepOf } from './light';
 import { resolveVariant } from './variants';
 import type { Geometry, Light, Pose, ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions, Variant } from './types';
 
@@ -240,8 +240,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       writeShade(node, 2, node.backShade, shades.back);
       const turn = Math.sin(slotPose.angle * DEG);
       if (slotPose.weight > 0 || node.turn !== 0) {
-        node.turn = slotPose.weight > 0 ? turn : 0;
+        const turning = slotPose.weight > 0;
+        node.turn = turning ? turn : 0;
         node.element.style.setProperty('--bb-turn', String(node.turn));
+        node.element.style.setProperty('--bb-sheen', turning ? sheenOf(light, slotPose.angle, along).toFixed(4) : '0');
+        node.element.style.setProperty('--bb-sweep', sweepOf(turning ? slotPose.weight : 0).toFixed(4));
       }
       node.element.classList.toggle('is-turned', slotPose.weight > 0.98);
     }
@@ -400,6 +403,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       const half = geometry.spineWidth / 2;
       // Depth of the face's centre: the cover hinges on the spine's edge and turns about the spine's middle.
       const depth = presented.z + half * Math.sin(turn) - (geometry.coverWidth / 2) * Math.cos(turn);
+      const along = light.lamp ? (presented.x + (geometry.coverWidth * Math.sin(turn)) / 2) / geometry.coverWidth : 0;
       return {
         cx: box.left + box.width / 2,
         cy: box.top + box.height / 2,
@@ -408,6 +412,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
         lean: presented.lean,
         yaw: 90 - presented.angle,
         scale: geometry.perspective / Math.max(1, geometry.perspective - depth),
+        sheen: presented.weight > 0 ? sheenOf(light, presented.angle, along) : 0,
+        sweep: sweepOf(presented.weight),
       };
     },
     focusCurrent() {

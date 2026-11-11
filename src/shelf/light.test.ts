@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LAMP, DEFAULT_LIGHT, faceShades, lampReach, resolveLight } from './light';
+import { DEFAULT_LAMP, DEFAULT_LIGHT, faceShades, lampReach, resolveLight, sheenOf, sweepOf } from './light';
 import type { Light } from './types';
 
 describe('faceShades with the default light', () => {
@@ -80,6 +80,33 @@ describe('faceShades under a lamp', () => {
       expect(Math.abs(next.front - previous.front)).toBeLessThan(0.02);
       previous = next;
     }
+  });
+});
+
+describe('sheenOf', () => {
+  it('rises only in the last twenty degrees of the turn and stays faint', () => {
+    expect(sheenOf(DEFAULT_LIGHT, 60)).toBeLessThan(0.004);
+    expect(sheenOf(DEFAULT_LIGHT, 70)).toBeLessThan(0.012);
+    expect(sheenOf(DEFAULT_LIGHT, 84)).toBeGreaterThanOrEqual(0.055);
+    expect(sheenOf(DEFAULT_LIGHT, 90)).toBeLessThanOrEqual(0.1);
+  });
+
+  it('brings the band to rest over the board, entering late in the turn', () => {
+    expect(sweepOf(0)).toBe(0);
+    expect(sweepOf(0.5)).toBe(0);
+    expect(sweepOf(1)).toBeCloseTo(0.625, 9);
+    expect(sweepOf(0.8)).toBeGreaterThan(0);
+    expect(sweepOf(0.8)).toBeLessThan(0.625);
+  });
+
+  it('never brightens by a visible step between two frames of a turn', () => {
+    for (let angle = 0; angle < 90; angle += 1) {
+      expect(Math.abs(sheenOf(DEFAULT_LIGHT, angle + 1) - sheenOf(DEFAULT_LIGHT, angle))).toBeLessThan(0.006);
+    }
+  });
+
+  it('is strongest under a lamp at the centre of the row', () => {
+    expect(sheenOf(DEFAULT_LAMP, 90, 0)).toBeGreaterThan(sheenOf(DEFAULT_LAMP, 90, 2));
   });
 });
 

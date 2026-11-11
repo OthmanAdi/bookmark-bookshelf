@@ -89,6 +89,7 @@ export function ensurePrint(node: BookNode): void {
   node.cover.insertBefore(print, node.coverShade);
   const seal = span('bb-book__seal', 'Open');
   node.cover.insertBefore(seal, node.coverShade);
+  node.cover.appendChild(span('bb-book__sheen'));
   node.print = print;
 }
 
@@ -96,6 +97,7 @@ export function dropPrint(node: BookNode): void {
   if (!node.print) return;
   node.print.remove();
   node.cover.querySelector('.bb-book__seal')?.remove();
+  node.cover.querySelector('.bb-book__sheen')?.remove();
   node.print = null;
 }
 

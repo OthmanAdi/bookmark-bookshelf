@@ -72,6 +72,12 @@ export interface CoverPlacement {
   yaw: number;
   /** How much larger perspective draws the face than its size, because it stands nearer the viewer. */
   scale: number;
+  /**
+   * The highlight on the face right now: its opacity and the place of its band, as `--bb-sheen` and
+   * `--bb-sweep` for an element of class `bb-book__sheen`, so a copy can start with the same light.
+   */
+  sheen: number;
+  sweep: number;
 }
 
 export type ShelfIntent =

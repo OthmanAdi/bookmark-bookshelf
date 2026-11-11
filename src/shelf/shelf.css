@@ -219,6 +219,20 @@
   transform: rotateY(-90deg);
 }
 
+/*
+ * A broad soft highlight crossing the board as it turns toward the viewer, the way cloth catches a light.
+ * The shelf writes its strength and place per frame, only for volumes that are turning.
+ */
+.bb-book__sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 30%, var(--bb-light-sheen, #fffaf0) 50%, transparent 70%)
+    calc(var(--bb-sweep, 0) * 100%) 0 / 260% 100% no-repeat;
+  opacity: var(--bb-sheen, 0);
+  pointer-events: none;
+}
+
 /* The print shows only as the volume turns toward the viewer, so laying it on or taking it off is never seen. */
 .bb-book__cover > .bb-cover {
   opacity: clamp(0, calc((var(--bb-turn, 0) - 0.2) * 2.5), 1);
@@ -413,5 +427,9 @@
 
   .bb-book__seal {
     border: 1px solid CanvasText;
+  }
+
+  .bb-book__sheen {
+    display: none;
   }
 }

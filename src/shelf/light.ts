@@ -42,6 +42,34 @@ function direction(x: number, z: number): [number, number] {
   return [x / length, z / length];
 }
 
+/** Brightest the sheen on a board ever gets, as an opacity of the light's colour. */
+const SHEEN = 0.12;
+/** How tight the highlight is: high enough that it only shows in the last twenty degrees of a turn. */
+const SHEEN_POWER = 14;
+/** Where the band of the sheen comes to rest on a presented board, as a background position. */
+const SWEEP_REST = 0.625;
+
+/**
+ * Background position of the sheen's band for a volume with focus weight `weight`: it enters at the
+ * fore-edge late in the turn and comes to rest over the third of the board nearest the light.
+ */
+export function sweepOf(weight: number): number {
+  const t = Math.min(1, Math.max(0, (weight - 0.55) / 0.45));
+  return SWEEP_REST * t * t * (3 - 2 * t);
+}
+
+/**
+ * Opacity of the soft highlight a cloth board catches as it turns to face the viewer: strong only where
+ * the board's normal is close to half way between the light and the viewer.
+ */
+export function sheenOf(light: Light, angle: number, offset = 0): number {
+  const [lx, lz] = light.lamp ? direction(light.x - offset, light.z) : direction(light.x, light.z);
+  const [hx, hz] = direction(lx, lz + 1);
+  const radians = (angle * Math.PI) / 180;
+  const facing = Math.max(0, Math.cos(radians) * hx + Math.sin(radians) * hz);
+  return SHEEN * lampReach(light, offset) * facing ** SHEEN_POWER;
+}
+
 /**
  * Shade of the three faces of a volume turned by `angle` degrees (0 shows the spine, 90 the cover),
  * standing `offset` cover widths right of the centre of the row. Only a lamp cares where a volume stands:
