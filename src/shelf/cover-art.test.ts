@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COVER_ASPECT, createCover, createCoverArt, LAYOUTS, layoutOf, titleBoxOf } from './cover-art';
+import { COVER_ASPECT, createCover, createCoverArt, createOutlineArt, LAYOUTS, layoutOf, titleBoxOf } from './cover-art';
 import { fitTitle } from './cover-title';
 import { PATTERNS } from './variants';
 import type { ShelfItem } from './types';
@@ -193,6 +193,59 @@ describe('createCoverArt', () => {
   });
 });
 
+describe('createOutlineArt', () => {
+  const rules = (svg: SVGSVGElement) =>
+    [...svg.querySelectorAll('rect')].map((rect) => ({
+      heading: rect.closest('.bb-cover__ink--2') !== null,
+      x: Number(rect.getAttribute('x')),
+      y: Number(rect.getAttribute('y')),
+      width: Number(rect.getAttribute('width')),
+      height: Number(rect.getAttribute('height')),
+    }));
+
+  it('sets one rule per paragraph, in reading order, ragged at the right', () => {
+    const drawn = rules(createOutlineArt([1, 0.5, 0.25], 1.2));
+    expect(drawn).toHaveLength(3);
+    expect(drawn.map((rule) => rule.y)).toEqual([...drawn.map((rule) => rule.y)].sort((a, b) => a - b));
+    expect(drawn[0]!.width).toBeGreaterThan(drawn[1]!.width);
+    expect(drawn[1]!.width).toBeGreaterThan(drawn[2]!.width);
+    expect(drawn[1]!.x).toBeGreaterThan(drawn[0]!.x);
+  });
+
+  it('gives even a short heading a bar a reader would see as a headline', () => {
+    const [stub] = rules(createOutlineArt([-0.04, 1], 1)).filter((rule) => rule.heading);
+    expect(stub!.width).toBeGreaterThan(25);
+  });
+
+  it('sets a heading as a heavier, shorter bar than a full paragraph, in the second ink', () => {
+    const drawn = rules(createOutlineArt([-1, 1], 1));
+    const heading = drawn.find((rule) => rule.heading);
+    const paragraph = drawn.find((rule) => !rule.heading);
+    expect(heading!.y).toBeLessThan(paragraph!.y);
+    expect(heading!.height).toBeGreaterThan(paragraph!.height * 1.5);
+    expect(heading!.width).toBeLessThan(paragraph!.width);
+  });
+
+  it('prints at most eighteen rules', () => {
+    expect(rules(createOutlineArt(Array.from({ length: 40 }, () => 0.7), 1))).toHaveLength(18);
+  });
+
+  it.each([0.6, 1, 1.45])('keeps every rule inside a box %s wide for 1 high', (aspect) => {
+    const svg = createOutlineArt(Array.from({ length: 18 }, (_, index) => (index % 5 === 0 ? -1 : 1)), aspect, 3);
+    const [, , width = 0, height = 0] = (svg.getAttribute('viewBox') ?? '').split(' ').map(Number);
+    const [left, top, right, bottom] = paintedBounds(svg);
+    expect(left).toBeGreaterThanOrEqual(-0.01);
+    expect(top).toBeGreaterThanOrEqual(-0.01);
+    expect(right).toBeLessThanOrEqual(width + 0.01);
+    expect(bottom).toBeLessThanOrEqual(height + 0.01);
+  });
+
+  it('leaves the foot of the plate empty for a short text, as on a short page', () => {
+    const svg = createOutlineArt([1, 0.5], 1);
+    expect(paintedBounds(svg)[3]).toBeLessThan(30);
+  });
+});
+
 describe('createCover', () => {
   it('puts the title, author, imprint and mark in as text', () => {
     const cover = createCover(item({ source: 'www.example.com', author: 'Ada' }), '07');
@@ -296,6 +349,17 @@ describe('createCover', () => {
       expect(long.whole).toBe(true);
       expect(long.fit.size).toBeGreaterThanOrEqual(long.box.min);
     });
+  });
+
+  it('prints the shape of the saved text as the plate when there is one', () => {
+    const outline = [-0.3, 1, 0.4, 0.8];
+    const cover = createCover(item({ outline, pattern: 'dots', source: 'en.wikipedia.org' }));
+    expect(cover.dataset.plate).toBe('outline');
+    const rules = cover.querySelectorAll('.bb-cover__plate rect');
+    expect(rules).toHaveLength(outline.length);
+    expect(createCover(item({ pattern: 'dots' })).dataset.plate).toBe('art');
+    expect(createCover(item({ outline: [] })).dataset.plate).toBe('art');
+    expect(createCover(item({ outline: [Number.NaN] })).dataset.plate).toBe('art');
   });
 
   it('records the resolved pattern and cloth', () => {

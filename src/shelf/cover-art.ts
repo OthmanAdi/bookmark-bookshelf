@@ -2,6 +2,7 @@ import { resolveCloth, resolvePattern, type PatternName } from './variants';
 import type { ShelfItem } from './types';
 import { fitTitle, linesOf, type TitleBox } from './cover-title';
 import { imprintOf, seriesOf } from './imprint';
+import { cleanOutline } from './cover-outline';
 
 /**
  * Procedural cover art. Every cover is drawn from a seed with plain SVG shapes,
@@ -260,6 +261,55 @@ export function createCoverArt(pattern: string | undefined, seed = 1, aspect = 1
   return svg;
 }
 
+/** A page holds about this many paragraphs: fewer leave the foot of the plate empty, as on a short page. */
+const PAGE_LINES = 12;
+
+/**
+ * The plate of a link with saved text: the text's own silhouette, one rule per paragraph, set ragged
+ * right, each paragraph after the first indented as on a printed page. A heading is a heavier, shorter
+ * bar printed in the second ink. `outline` is what `outlineOf` gives for the text.
+ */
+export function createOutlineArt(outline: readonly number[], aspect = 1, seed = 1): SVGSVGElement {
+  const w = 100;
+  const h = round(w / (Number.isFinite(aspect) && aspect > 0 ? Math.min(4, Math.max(0.25, aspect)) : 1));
+  const svg = document.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.classList.add('bb-cover__art');
+
+  const values = cleanOutline(outline);
+  const width = w - 2 * REGISTER;
+  const pitch = (h - 2 * REGISTER) / Math.max(values.length, PAGE_LINES);
+  const indent = width * 0.06;
+  const print: Print = { first: [], second: [] };
+  let afterParagraph = false;
+  values.forEach((value, line) => {
+    const heading = value < 0;
+    const length = Math.abs(value);
+    const thickness = pitch * (heading ? 0.62 : 0.34);
+    const x = !heading && afterParagraph ? indent : 0;
+    // A heading is one line of display type: a heavy bar of 30 to 60 % of the line, never a full one.
+    const extent = heading ? width * (0.3 + 0.3 * Math.min(1, length * 4)) : (width - x) * length;
+    const rule = shape('rect', {
+      x: round(x),
+      y: round(line * pitch + pitch * 0.82 - thickness),
+      width: round(extent),
+      height: round(thickness),
+      fill: 'currentColor',
+    });
+    print[heading ? 'second' : 'first'].push(rule);
+    afterParagraph = !heading;
+  });
+
+  const drift = createRandom(seed ^ 0x5bd1e995);
+  const off = (): number => (drift() - 0.5) * 2 * (REGISTER - 0.1);
+  svg.appendChild(inkPass(1, print.first, [0, 0]));
+  svg.appendChild(inkPass(2, print.second, [off(), off()]));
+  return svg;
+}
+
 /** A BCP 47 tag as the store keeps it. Anything else is left off rather than passed to the page. */
 const LANG = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8}){0,4}$/;
 
@@ -362,7 +412,14 @@ export function createCover(item: ShelfItem, mark?: string, options: CoverOption
 
   const plate = document.createElement('span');
   plate.className = 'bb-cover__plate';
-  plate.appendChild(createCoverArt(item.pattern, item.seed ?? 1, GRID[layout].plate(100 / aspect)));
+  const outline = cleanOutline(item.outline);
+  const plateAspect = GRID[layout].plate(100 / aspect);
+  cover.dataset.plate = outline.length > 0 ? 'outline' : 'art';
+  plate.appendChild(
+    outline.length > 0
+      ? createOutlineArt(outline, plateAspect, item.seed ?? 1)
+      : createCoverArt(item.pattern, item.seed ?? 1, plateAspect),
+  );
   cover.appendChild(plate);
 
   const imprint = imprintOf(item.source).name;
