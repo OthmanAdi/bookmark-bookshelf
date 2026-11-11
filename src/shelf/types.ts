@@ -155,8 +155,16 @@ export interface ShelfOptions {
   items: ShelfItem[];
   /** Variant name or a full variant. Defaults to `paper`. */
   variant?: string | Variant;
-  /** Overrides the variant's loop setting. */
+  /**
+   * Overrides the variant's loop setting. Either way a row only loops when its volumes are wider than
+   * the scene plus two covers; a shorter row has two ends, with a bookend at each.
+   */
   loop?: boolean;
+  /**
+   * Called when the row starts or stops looping after mounting: items were added or removed, the scene
+   * was resized, or the look changed. `ShelfHandle.loop` already has the new value.
+   */
+  onLoopChange?: (loop: boolean) => void;
   /** Accessible name of the shelf region. */
   label?: string;
   /** Show the title caption under the row. Default true. */
@@ -178,6 +186,7 @@ export interface ShelfHandle {
   setPose(pose: Pose): void;
   setVariant(variant: string | Variant): void;
   readonly variant: Variant;
+  /** Whether the row repeats endlessly right now. It changes with the items and the scene's width. */
   readonly loop: boolean;
   /** Mean distance in px between two neighbouring resting volumes, at the current scale. */
   pitch(): number;

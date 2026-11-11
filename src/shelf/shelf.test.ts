@@ -59,11 +59,48 @@ describe('mountShelf rendering', () => {
     expect(shelf.surface.classList.contains('bb-shelf__scene')).toBe(true);
   });
 
-  it('renders more books than items for a looping row, with exactly one control per item', () => {
-    const { shelf } = mount();
+  it('loops a row longer than the scene, and never shows one volume twice', () => {
+    const { shelf } = mount({ items: makeItems(40) });
     expect(shelf.loop).toBe(true);
-    expect(books(shelf).length).toBeGreaterThan(5);
-    expect(controls(shelf)).toHaveLength(5);
+    const indexes = books(shelf).map((book) => book.dataset.index);
+    expect(new Set(indexes).size).toBe(indexes.length);
+    expect(controls(shelf)).toHaveLength(indexes.length);
+    expect(books(shelf).some((book) => Number(book.dataset.slot) < 0)).toBe(true);
+  });
+
+  it('gives a short row two ends with a bookend at each, even in a look that loops', () => {
+    const { shelf } = mount();
+    expect(shelf.variant.loop).toBe(true);
+    expect(shelf.loop).toBe(false);
+    expect(books(shelf)).toHaveLength(5);
+    const ends = [...shelf.element.querySelectorAll<HTMLElement>('.bb-shelf__bookend')];
+    expect(ends).toHaveLength(2);
+    for (const end of ends) {
+      expect(end.hidden).toBe(false);
+      expect(end.getAttribute('aria-hidden')).toBe('true');
+    }
+    const first = Number(/translate3d\(([-\d.e]+)px/.exec(bySlot(shelf, 0).style.transform)?.[1]);
+    const start = Number(/translate3d\(([-\d.e]+)px/.exec(ends[0]!.style.transform)?.[1]);
+    expect(start).toBeLessThan(first);
+  });
+
+  it('starts looping when the row grows past the scene, tells the host, and hides the bookends', () => {
+    const changes: boolean[] = [];
+    const { shelf } = mount({ onLoopChange: (loop) => changes.push(loop) });
+    expect(changes).toEqual([]);
+    shelf.setItems(makeItems(40));
+    expect(changes).toEqual([true]);
+    expect(shelf.loop).toBe(true);
+    for (const end of shelf.element.querySelectorAll<HTMLElement>('.bb-shelf__bookend')) expect(end.hidden).toBe(true);
+    shelf.setItems(makeItems(3));
+    expect(changes).toEqual([true, false]);
+  });
+
+  it('keeps keyboard focus in the row when it starts looping', () => {
+    const { shelf } = mount();
+    controls(shelf).find((control) => control.tabIndex === 0)?.focus();
+    shelf.setItems(makeItems(40));
+    expect(document.activeElement?.classList.contains('bb-book__control')).toBe(true);
   });
 
   it('marks repeated copies aria-hidden and the real ones not', () => {
@@ -253,12 +290,12 @@ describe('mountShelf pose', () => {
   });
 
   it('wraps a looping position past the end', () => {
-    const { shelf } = mount();
-    shelf.setPose({ position: 7, open: 0 });
-    expect(shelf.element.dataset.focus).toBe('2');
+    const { shelf } = mount({ items: makeItems(40) });
+    shelf.setPose({ position: 47, open: 0 });
+    expect(shelf.element.dataset.focus).toBe('7');
     shelf.setPose({ position: -1, open: 0 });
-    expect(shelf.element.dataset.focus).toBe('4');
-    expect(controls(shelf)).toHaveLength(5);
+    expect(shelf.element.dataset.focus).toBe('39');
+    expect(controls(shelf).filter((control) => control.tabIndex === 0)).toHaveLength(1);
   });
 
   it('reports data-open as 0, moving and 1', () => {
@@ -273,7 +310,7 @@ describe('mountShelf pose', () => {
   });
 
   it('leaves the opening volume in place but hidden, and parts its near neighbours', () => {
-    const { shelf } = mount({ items: makeItems(12) });
+    const { shelf } = mount({ items: makeItems(40) });
     const xOf = (slot: number): number => Number(/translate3d\(([-\d.e]+)px/.exec(bySlot(shelf, slot).style.transform)?.[1]);
     const before = [-5, -4, -1, 0, 1, 4, 5].map(xOf);
     shelf.setPose({ position: 0, open: 1 });
@@ -344,10 +381,10 @@ describe('mountShelf intents', () => {
     expect(intents).toEqual([{ type: 'focus', id: 'id-1', index: 1, slot: 1 }]);
   });
 
-  it('emits focus with the unwrapped slot for a repeated copy', () => {
-    const { shelf, intents } = mount();
-    click(bySlot(shelf, 6).querySelector('.bb-book__body')!);
-    expect(intents).toEqual([{ type: 'focus', id: 'id-1', index: 1, slot: 6 }]);
+  it('emits focus with the unwrapped slot for a volume across the seam of a looping row', () => {
+    const { shelf, intents } = mount({ items: makeItems(40) });
+    click(bySlot(shelf, -2).querySelector('.bb-book__body')!);
+    expect(intents).toEqual([{ type: 'focus', id: 'id-38', index: 38, slot: -2 }]);
   });
 
   it('emits focus instead of open while the centre is still travelling', () => {
@@ -454,9 +491,9 @@ describe('mountShelf items, variants and teardown', () => {
   });
 
   it('an explicit loop option overrides the variant', () => {
-    const { shelf } = mount({ variant: 'oak', loop: true });
+    const { shelf } = mount({ variant: 'oak', loop: true, items: makeItems(40) });
     expect(shelf.loop).toBe(true);
-    expect(books(shelf).length).toBeGreaterThan(5);
+    expect(books(shelf).some((book) => Number(book.dataset.slot) < 0)).toBe(true);
   });
 
   it('does not render slots past the ends when the row has two ends', () => {

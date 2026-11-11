@@ -451,6 +451,63 @@
   pointer-events: none;
 }
 
+/*
+ * Bookends close a row that does not loop: a thin plate standing across the row, built like a volume
+ * (an edge facing the viewer and two faces running back), with a curved back so it reads as a bookend.
+ */
+.bb-shelf {
+  --bb-bookend: #4b4842;
+}
+
+.bb-shelf__bookend {
+  position: absolute;
+  left: calc(var(--bb-bookend-w, 6px) / -2);
+  bottom: 0;
+  width: var(--bb-bookend-w, 6px);
+  height: calc(var(--bb-book-h) * 0.62);
+  transform-origin: 50% 100%;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.bb-shelf__bookend[hidden] {
+  display: none;
+}
+
+.bb-bookend__edge,
+.bb-bookend__face {
+  position: absolute;
+  bottom: 0;
+  height: 100%;
+  background-color: var(--bb-bookend);
+  backface-visibility: hidden;
+}
+
+.bb-bookend__edge {
+  left: 0;
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 60%);
+}
+
+.bb-bookend__face {
+  width: calc(var(--bb-cover-w) * 0.55);
+}
+
+.bb-bookend__face--front {
+  left: 100%;
+  border-radius: 0 60% 0 0 / 0 34% 0 0;
+  transform-origin: 0 50%;
+  transform: rotateY(90deg);
+}
+
+.bb-bookend__face--back {
+  right: 100%;
+  border-radius: 60% 0 0 0 / 34% 0 0 0;
+  transform-origin: 100% 50%;
+  transform: rotateY(-90deg);
+}
+
 .bb-book.is-turned {
   cursor: pointer;
 }
@@ -582,6 +639,8 @@
 @media (forced-colors: active) {
   .bb-book__spine,
   .bb-book__board,
+  .bb-bookend__edge,
+  .bb-bookend__face,
   .bb-cover {
     border: 1px solid CanvasText;
     forced-color-adjust: none;

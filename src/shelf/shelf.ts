@@ -1,7 +1,16 @@
 import './shelf.css';
 import './cover.css';
 import './variants.css';
-import { createBook, dropPrint, ensurePrint, letterSpine, setReal, type BookNode } from './book';
+import {
+  createBook,
+  createBookend,
+  dropPrint,
+  ensurePrint,
+  letterSpine,
+  setReal,
+  type BookendNode,
+  type BookNode,
+} from './book';
 import { fitTitle, forgetTitleWidths, type TitleFont } from './title-fit';
 import {
   computeRow,
@@ -41,6 +50,9 @@ const TITLE_ROOM = 0.97;
 const LABEL_INSET = 0.16;
 /** Below this spine width in px the number at the head would fall under 9 px, so it is left off. */
 const NARROW_SPINE = 40;
+/** A bookend's plate is this share of the look's spine width thick, and never thinner than the minimum. */
+const BOOKEND_SHARE = 0.1;
+const BOOKEND_MIN = 4;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
 const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
@@ -78,6 +90,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let spineParts = 1.45;
   const nodes = new Map<number, BookNode>();
   const listeners = new Set<(intent: ShelfIntent) => void>();
+  /** Set once mounting is done, so a host is never called back before it has the handle. */
+  let mounted = false;
+  /** Keyboard focus was in the row when its volumes were rebuilt: put it back on the centre. */
+  let refocus = false;
+  const bookends = { start: createBookend('start'), end: createBookend('end') };
 
   const root = el('section', 'bb-shelf');
   root.setAttribute('aria-label', options.label ?? 'Bookshelf');
@@ -93,6 +110,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   const floor = el('div', 'bb-shelf__floor');
   floor.setAttribute('aria-hidden', 'true');
   scene.append(backdrop, floor, row);
+  row.append(bookends.start.element, bookends.end.element);
 
   const nav = el('div', 'bb-shelf__nav');
   const previous = el('button', 'bb-shelf__arrow bb-shelf__arrow--prev');
@@ -138,8 +156,31 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     root.style.setProperty('--bb-cover-w', `${geometry.coverWidth}px`);
     root.style.setProperty('--bb-floor-y', `${FLOOR_ROOM}px`);
     root.style.setProperty('--bb-gap', `${geometry.gap}px`);
+    root.style.setProperty('--bb-bookend-w', `${bookendWidth()}px`);
     scene.style.perspective = `${geometry.perspective}px`;
     measureSizes();
+    decideLoop();
+  }
+
+  /**
+   * A row repeats only when there is more of it than fits: otherwise the same volume would stand on
+   * screen twice. A shorter row has two ends with a bookend at each.
+   */
+  function decideLoop(): void {
+    const wants = options.loop ?? variant.loop;
+    const length = sizes
+      ? sizes.reduce((sum, size) => sum + size.spineWidth + geometry.gap, 0)
+      : items.length * restPitch(geometry);
+    const next = wants && length > sceneWidth + 2 * geometry.coverWidth;
+    root.dataset.loop = next ? '1' : '0';
+    if (next === loop) return;
+    loop = next;
+    // Slots mean something else in the other kind of row, so every volume is built again.
+    refocus = refocus || row.contains(document.activeElement);
+    for (const node of nodes.values()) node.element.remove();
+    nodes.clear();
+    centre = Number.NaN;
+    if (mounted) options.onLoopChange?.(loop);
   }
 
   /** Works out each volume's own size at the current scale. A shelf whose items carry no size skips it all. */
@@ -262,10 +303,36 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   }
 
   /** Most volumes hold still in most frames: write a shade only when it has visibly changed. */
-  function writeShade(node: BookNode, face: 0 | 1 | 2, film: HTMLElement, value: number): void {
+  function writeShade(node: BookNode | BookendNode, face: 0 | 1 | 2, film: HTMLElement, value: number): void {
     if (Math.abs(node.shades[face] - value) <= SHADE_STEP) return;
     node.shades[face] = value;
     film.style.opacity = value.toFixed(3);
+  }
+
+  /** Stands a bookend against the outer side of the end volume, or hides it where the row has no end in view. */
+  function placeBookend(bookend: BookendNode, x: number | null): void {
+    const element = bookend.element;
+    if (x === null) {
+      if (!element.hidden) element.hidden = true;
+      return;
+    }
+    element.hidden = false;
+    element.style.transform = `translate3d(${x}px, 0, 0)`;
+    const shades = faceShades(light, 0, light.lamp ? x / geometry.coverWidth : 0);
+    writeShade(bookend, 0, bookend.edgeShade, shades.spine);
+    writeShade(bookend, 1, bookend.frontShade, shades.front);
+    writeShade(bookend, 2, bookend.backShade, shades.back);
+  }
+
+  /** Left and right edge of a drawn volume along the row, foot and head together. */
+  function extentOf(slotPose: SlotPose, away: number): [number, number] {
+    const size = sizeOf(slotPose.slot);
+    const radians = slotPose.angle * DEG;
+    const spread = size.bookHeight * Math.abs(Math.sin(slotPose.lean * DEG));
+    const leftFoot = -(size.spineWidth / 2) * Math.cos(radians);
+    const rightFoot = (size.spineWidth / 2) * Math.cos(radians) + size.coverWidth * Math.sin(radians);
+    const x = slotPose.x + away;
+    return [x + leftFoot - (slotPose.lean < 0 ? spread : 0), x + rightFoot + (slotPose.lean > 0 ? spread : 0)];
   }
 
   function render(): void {
@@ -275,6 +342,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     if (count === 0) {
       for (const node of nodes.values()) node.element.remove();
       nodes.clear();
+      placeBookend(bookends.start, null);
+      placeBookend(bookends.end, null);
       captionTitle.textContent = '';
       captionMeta.textContent = '';
       // An empty shelf has no centred volume.
@@ -295,7 +364,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const range = visibleRange(position, geometry, sceneWidth, count, loop, 2, sized);
     syncNodes(range.from, range.to);
     if (centreChanged) {
-      syncSemantics(focusInside);
+      syncSemantics(focusInside || refocus);
+      refocus = false;
       syncCaption();
     }
 
@@ -308,6 +378,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const scale = geometry.spineWidth / variant.geometry.spineWidth;
 
     presented = null;
+    let start: number | null = null;
+    let end: number | null = null;
+    // A bookend presses against the end volume; a hair of space keeps the two faces from flickering.
+    const bookendGap = bookendWidth() / 2 + 1;
     for (const slotPose of computeRow(position, geometry, range.from, range.to, sized)) {
       const node = nodes.get(slotPose.slot);
       if (!node) continue;
@@ -347,9 +421,18 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
         node.element.style.setProperty('--bb-sweep', sweepOf(turning ? slotPose.weight : 0).toFixed(4));
       }
       node.element.classList.toggle('is-turned', slotPose.weight > 0.98);
+
+      if (!loop && slotPose.slot === 0) start = extentOf(slotPose, away)[0] - bookendGap;
+      if (!loop && slotPose.slot === count - 1) end = extentOf(slotPose, away)[1] + bookendGap;
     }
+    placeBookend(bookends.start, start);
+    placeBookend(bookends.end, end);
 
     root.dataset.open = pose.open <= 0 ? '0' : pose.open >= 1 ? '1' : 'moving';
+  }
+
+  function bookendWidth(): number {
+    return Math.max(BOOKEND_MIN, geometry.spineWidth * BOOKEND_SHARE);
   }
 
   function activate(book: HTMLElement): void {
@@ -461,6 +544,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   observer?.observe(scene);
 
   refresh();
+  mounted = true;
 
   return {
     element: root,
@@ -474,10 +558,12 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     },
     setItems(nextItems) {
       items = nextItems.slice();
+      refocus = refocus || row.contains(document.activeElement);
       for (const node of nodes.values()) node.element.remove();
       nodes.clear();
       centre = Number.NaN;
       measureSizes();
+      decideLoop();
       render();
     },
     setPose(nextPose) {
@@ -487,9 +573,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     setVariant(nextVariant) {
       variant = resolveVariant(nextVariant);
       light = resolveLight(variant.light);
-      loop = options.loop ?? variant.loop;
       root.dataset.variant = variant.name;
       root.style.setProperty('--bb-light-tint', light.tint);
+      refocus = refocus || row.contains(document.activeElement);
       for (const node of nodes.values()) node.element.remove();
       nodes.clear();
       centre = Number.NaN;

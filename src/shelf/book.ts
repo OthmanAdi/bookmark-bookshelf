@@ -110,6 +110,32 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   return { element, slot, index, item, title, words, treatment, spineShade, cover, coverShade, back, backShade, print: null, turn: 0, shades: [-1, -1, -1], control: null };
 }
 
+/** A bookend at one end of a row that does not loop: a thin plate standing across the row. */
+export interface BookendNode {
+  element: HTMLLIElement;
+  edgeShade: HTMLElement;
+  frontShade: HTMLElement;
+  backShade: HTMLElement;
+  shades: [number, number, number];
+}
+
+export function createBookend(side: 'start' | 'end'): BookendNode {
+  const element = document.createElement('li');
+  element.className = `bb-shelf__bookend bb-shelf__bookend--${side}`;
+  element.setAttribute('aria-hidden', 'true');
+  const face = (className: string): [HTMLSpanElement, HTMLSpanElement] => {
+    const part = span(className);
+    const shade = span('bb-book__shade');
+    part.appendChild(shade);
+    element.appendChild(part);
+    return [part, shade];
+  };
+  const [, edgeShade] = face('bb-bookend__edge');
+  const [, frontShade] = face('bb-bookend__face bb-bookend__face--front');
+  const [, backShade] = face('bb-bookend__face bb-bookend__face--back');
+  return { element, edgeShade, frontShade, backShade, shades: [-1, -1, -1] };
+}
+
 /**
  * Lays the printed cover on the front board. The print only shows as the volume turns toward the viewer,
  * so a volume that is still at rest looks the same with or without it.
