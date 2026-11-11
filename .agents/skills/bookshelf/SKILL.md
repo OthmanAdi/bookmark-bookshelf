@@ -18,15 +18,24 @@ The modules are not inside this skill folder. They live in a checkout of the Boo
 
 ## 0. Find the source root
 
-1. **Adjacent repository.** If this file is at `<root>/.agents/skills/bookshelf/SKILL.md` and `<root>/src/shelf/index.ts` exists, `<root>` is the source root. This is the case when the skill is used in place.
-2. **Supplied path.** If the skill was copied somewhere else (the skills folder of an agent), the person has to give the path of a checkout: the *source path*. If the request does not contain one, ask for it. Do not guess a download address and do not fetch anything.
-3. **Verify before copying.** In the source root:
+Try the routes in this order and stop at the first that works.
+
+1. **Next to the skill.** If this file is at `<root>/.agents/skills/bookshelf/SKILL.md` and `<root>/src/shelf/index.ts` exists, `<root>` is the source root. This is the case when the skill is used in place, and when it was installed as a plugin that keeps the whole repository.
+2. **A path the person gives.** If the skill was copied somewhere else (the skills folder of an agent), the person may already have a checkout. If the request contains a path, use it as the source root. If it does not, ask for one, and offer route 3 in the same question.
+3. **A shallow clone, only after the person agrees.** Ask first, and say plainly what will happen: the public repository `https://github.com/OthmanAdi/bookmark-bookshelf` is cloned at release tag `v0.2.0` into a new temporary folder, and nothing else is downloaded. Do not fetch anything before the person says yes. After a yes, run:
+
+   ```bash
+   git clone --depth 1 --branch v0.2.0 https://github.com/OthmanAdi/bookmark-bookshelf <temporary folder>
+   ```
+
+   The temporary folder is a new, empty directory outside the project (the system temporary directory is fine). Tell the person where it is. It is the source root. Copy from it, never edit inside it, and say at the end that it can be deleted. If the clone fails (no network, no git, tag missing), say so and go back to route 2.
+4. **Verify before copying.** In the source root:
    - `package.json` has `"name": "bookmark-bookshelf"`. Note its `version`.
    - These markers exist: `src/shelf/index.ts`, `src/motion/index.ts`, `src/store/index.ts`, `src/reader/index.ts`, `src/app/bookshelf.ts`, `src/app/bookshelf.css`, `src/styles/tokens.css`.
    - If it is a git checkout, note `git -C <root> rev-parse --short HEAD`.
 
-   If a marker is missing, stop and say which one. This skill describes version `0.1.x`; for another version, read the `types.ts` of each module before trusting the reference files here.
-4. **Report** the source path, version and commit you copied from, so a later update can be compared.
+   If a marker is missing, stop and say which one. This skill describes version `0.2.x`; for another version, read the `types.ts` of each module before trusting the reference files here.
+5. **Report** the source path, version and commit you copied from, and whether it was a clone you made, so a later update can be compared.
 
 Every path below that starts with `src/`, `examples/` or `public/` is relative to that source root.
 
