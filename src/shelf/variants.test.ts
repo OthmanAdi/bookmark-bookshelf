@@ -29,6 +29,25 @@ describe('VARIANTS', () => {
     expect(typeof variant.loop).toBe('boolean');
   });
 
+  it.each(Object.entries(VARIANTS))('%s has a name a person can read and a way to move', (_key, variant) => {
+    // A short name for a menu: words that start with a capital, no codes or punctuation.
+    expect(variant.label).toMatch(/^[A-Z][a-z]+( [A-Z][a-z]+)+$/);
+    const { motion } = variant;
+    expect(motion.openDuration).toBeGreaterThan(0);
+    expect(motion.closeDuration).toBeGreaterThan(0);
+    expect(motion.closeDuration).toBeLessThanOrEqual(motion.openDuration);
+    expect(motion.openHold).toBeGreaterThanOrEqual(0);
+    // Every look steps along the row on the spring a released drag uses.
+    expect(motion.travel).toBeNull();
+  });
+
+  it('gives every look its own name and words', () => {
+    const looks = Object.values(VARIANTS);
+    for (const field of ['label', 'summary'] as const) {
+      expect(new Set(looks.map((variant) => variant[field])).size, field).toBe(looks.length);
+    }
+  });
+
   it('includes the default and lists every variant', () => {
     expect(VARIANTS[DEFAULT_VARIANT]).toBeDefined();
     expect(listVariants().map((variant) => variant.name).sort()).toEqual(Object.keys(VARIANTS).sort());
@@ -69,6 +88,9 @@ describe('VARIANTS', () => {
       const { summary } = variant;
       expect(summary, variant.name).toMatch(/^[A-Z][^.!?]*\.$/);
       expect(summary.length, variant.name).toBeLessThanOrEqual(90);
+      // It says what the look is, not which one to pick or how the app works.
+      expect(summary, variant.name).not.toMatch(/(default|variant|theme|look|style)/i);
+      expect(summary.split(' ').length, variant.name).toBeGreaterThanOrEqual(6);
     }
   });
 });
