@@ -8,7 +8,7 @@ import { minutesOf } from '../store/reading-time';
 import { SORT_MODES } from '../store/sort';
 import type { StatsVolume } from '../store/stats';
 import { createBookshelf } from './bookshelf';
-import { downloadText, must, toast } from './dom';
+import { must, toast } from './dom';
 import { askText } from './editor';
 import { carriesAddress } from './flow-address';
 import { createFlows } from './flows';
@@ -387,6 +387,7 @@ onShelf('#shelf-rename', async (id) => {
 onShelf('#shelf-describe', (id) => flows.describeShelf(id));
 onShelf('#shelf-share', (id) => flows.shareShelf(id));
 onShelf('#shelf-hand-in', (id) => flows.handIn(id));
+onShelf('#shelf-print', (id) => flows.printShelf(id));
 onShelf('#shelf-remove', (id) => flows.removeShelf(id));
 
 /* ---------- list view ---------- */
@@ -621,9 +622,7 @@ createMenu({
   },
 });
 must<HTMLButtonElement>('#library-bring').addEventListener('click', () => flows.bringLinksIn());
-must<HTMLButtonElement>('#library-export').addEventListener('click', () => {
-  downloadText(`bookmark-bookshelf-${new Date().toISOString().slice(0, 10)}.json`, store.exportLibrary());
-});
+must<HTMLButtonElement>('#library-out').addEventListener('click', () => flows.takeLinksOut());
 must<HTMLButtonElement>('#library-send').addEventListener('click', () => flows.sendPageHere());
 removeExamplesItem.addEventListener('click', () => flows.removeExamples());
 
