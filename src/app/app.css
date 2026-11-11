@@ -291,7 +291,7 @@
   min-width: 16rem;
   max-width: min(22rem, calc(100vw - 2 * var(--bb-gutter, 1.25rem)));
   /* A long menu in a short window scrolls inside itself rather than running off the screen. */
-  max-height: calc(100dvh - 8rem);
+  max-height: calc(100dvh - 7.5rem);
   overflow-y: auto;
   padding: var(--bb-s-2);
   border: var(--bb-hairline) solid var(--bb-rule-strong);
@@ -317,6 +317,14 @@
   from {
     opacity: 0;
     translate: 0 -0.25rem;
+  }
+}
+
+/* With a mouse the rows can sit closer, so the longest menu shows whole in a 720 px window. */
+@media (hover: hover) and (pointer: fine) {
+  .bb-menu__item {
+    min-height: 2.125rem;
+    padding-block: var(--bb-s-1);
   }
 }
 
