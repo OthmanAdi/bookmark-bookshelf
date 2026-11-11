@@ -28,7 +28,7 @@ import { migrateLibraryWithReport } from './migrate';
 import { orderedBookmarks } from './ordering';
 import { setDoneIn, setNoteIn } from './personal-ops';
 import type { LoadedLibrary } from './persistence';
-import { loadLibrary, saveLibrary } from './persistence';
+import { loadLibrary, saveLibrary, saveSession, storedBytes } from './persistence';
 import { normalizeProgress } from './progress';
 import { clone, cloneResult, ok } from './result';
 import { readSession } from './sanitize';
@@ -37,6 +37,9 @@ import { addShelfTo, removeShelfFrom, renameShelfIn, updateShelfIn } from './she
 import { resolveStorage } from './storage';
 
 type Listener = (event: StoreEvent) => void;
+
+/** Browsers keep about five million characters per site, two bytes each. */
+const QUOTA_HINT = 10 * 1024 * 1024;
 
 export function createStore(options: StoreOptions = {}): Store {
   const key = options.key ?? DEFAULT_STORAGE_KEY;
@@ -52,6 +55,9 @@ export function createStore(options: StoreOptions = {}): Store {
   let lib = loaded.library;
   // A library written by a newer version is shown but never written back.
   let readOnly = loaded.readOnly;
+  // The session text on disk. Undefined until it has been written once, which also moves a library that was
+  // saved in a single key to the two-key layout on its first write.
+  let savedSession = loaded.sessionText;
   // The outcome of the latest write, for methods that return nothing and for `persistence`.
   let lastWriteError: StoreError | undefined;
   let progressTimer: ReturnType<typeof setTimeout> | undefined;
@@ -62,11 +68,24 @@ export function createStore(options: StoreOptions = {}): Store {
     progressTimer = undefined;
   }
 
-  function save(): StoreError | undefined {
+  /**
+   * Writes what changed. The session goes to its own small key, and the library is only written when
+   * `libraryChanged` says something in it did, so settling on another link costs a few bytes.
+   */
+  function save(libraryChanged = true): StoreError | undefined {
+    // A reading position still waiting for its delayed write goes out with this one.
+    const writeLibrary = libraryChanged || progressTimer !== undefined;
     cancelProgressTimer();
     if (readOnly) return undefined;
-    lastWriteError = saveLibrary(storage, key, lib);
-    return lastWriteError;
+    let error: StoreError | undefined;
+    if (JSON.stringify(lib.session) !== savedSession) {
+      const written = saveSession(storage, key, lib.session);
+      if ('error' in written) error = written.error;
+      else savedSession = written.text;
+    }
+    if (!error && writeLibrary) error = saveLibrary(storage, key, lib);
+    lastWriteError = error;
+    return error;
   }
 
   function readOnlyFailure(): { ok: false; error: StoreError } {
@@ -104,7 +123,7 @@ export function createStore(options: StoreOptions = {}): Store {
     const sessionBefore = JSON.stringify(lib.session);
     const value = run();
     if (!changed(value)) return { value, error: undefined };
-    const error = save();
+    const error = save(reasons.some((reason) => reason !== 'session'));
     if (error && !reasons.every((reason) => reason === 'session')) {
       lib = before;
       return { value, error };
@@ -184,6 +203,7 @@ export function createStore(options: StoreOptions = {}): Store {
       return readOnly;
     },
     lastError: () => (lastWriteError ? { ...lastWriteError } : undefined),
+    usage: () => ({ bytes: storedBytes(storage, key), quotaHint: QUOTA_HINT }),
     snapshot: () => clone(lib),
     shelves: () => clone([...lib.shelves].sort((a, b) => a.order - b.order)),
     bookmarks: (shelfId) => clone(orderedBookmarks(lib, shelfId)),

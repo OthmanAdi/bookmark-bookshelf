@@ -270,6 +270,11 @@ export interface Store {
    * position and the session still work for this visit but are not saved.
    */
   readonly readOnly: boolean;
+  /**
+   * What this library takes of the browser's storage. `bytes` counts the library and session keys at two
+   * bytes a character; `quotaHint` is what browsers usually allow a site, an estimate and not a promise.
+   */
+  usage(): { bytes: number; quotaHint: number };
   /** Why the latest write failed, or undefined when it worked. */
   lastError(): StoreError | undefined;
   /** Deep copy of the whole library. */
