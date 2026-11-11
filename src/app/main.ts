@@ -10,6 +10,7 @@ import type { StatsVolume } from '../store/stats';
 import { createBookshelf } from './bookshelf';
 import { downloadText, must, toast } from './dom';
 import { askText } from './editor';
+import { carriesAddress } from './flow-address';
 import { createFlows } from './flows';
 import { renderList } from './list-view';
 import { createMenu } from './menu';
@@ -37,7 +38,8 @@ function firstVisit(): boolean {
 }
 
 const fresh = firstVisit();
-const store = createStore({ seed: () => sampleLibrary() });
+// A shelf or a link arriving in the address into a fresh browser starts a library of its own, not the examples.
+const store = createStore(carriesAddress(window.location) ? {} : { seed: () => sampleLibrary() });
 
 // The page was painted in a look before this script ran (Night when the system is dark). On a first
 // visit the new library takes that look, so nothing changes colour once the shelf appears.
@@ -75,6 +77,7 @@ const bookshelf = createBookshelf({
   label: 'Your shelf',
   caption: false,
   arrows: false,
+  isExample: isExampleId,
   onFocusChange: () => {
     if (!ready) return;
     // The row was rebuilt or retargeted: read its links again before describing the centre.
