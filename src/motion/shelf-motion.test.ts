@@ -213,6 +213,70 @@ describe('setOpen', () => {
   });
 });
 
+describe('first frame of an open or close', () => {
+  /** A clock whose frames can carry any timestamp, including one earlier than the call that asked for them. */
+  function frameClock(now: number) {
+    let pending: ((time: number) => void) | null = null;
+    return {
+      now: () => now,
+      request(callback: (time: number) => void) {
+        pending = callback;
+        return 1;
+      },
+      cancel() {
+        pending = null;
+      },
+      fire(time: number) {
+        const callback = pending;
+        pending = null;
+        callback?.(time);
+      },
+    };
+  }
+
+  it('moves open off 0 on a first frame stamped before the call', () => {
+    const clock = frameClock(100);
+    const motion = createShelfMotion({ count: 12, clock });
+    void motion.setOpen(true);
+    clock.fire(92);
+    expect(motion.state.open).toBeGreaterThan(0);
+    expect(motion.state.open).toBeLessThan(0.01);
+  });
+
+  it('moves open off 1 on a first closing frame stamped before the call', () => {
+    const clock = frameClock(100);
+    const motion = createShelfMotion({ count: 12, clock });
+    void motion.setOpen(true, { immediate: true });
+    void motion.setOpen(false);
+    clock.fire(95);
+    expect(motion.state.open).toBeLessThan(1);
+    expect(motion.state.open).toBeGreaterThan(0.99);
+  });
+
+  it('measures the rest of the move from the first frame, not from the call', () => {
+    const clock = frameClock(100);
+    const motion = createShelfMotion({ count: 12, clock, openDuration: 600 });
+    void motion.setOpen(true);
+    clock.fire(150);
+    clock.fire(150 + 300 - 1000 / 60);
+    expect(motion.state.open).toBeCloseTo(0.5, 5);
+  });
+
+  it('does not jump when a move in progress is reversed', () => {
+    const clock = frameClock(0);
+    const motion = createShelfMotion({ count: 12, clock, openDuration: 600, closeDuration: 600 });
+    void motion.setOpen(true);
+    clock.fire(10);
+    clock.fire(210);
+    const before = motion.state.open;
+    expect(before).toBeGreaterThan(0.05);
+    void motion.setOpen(false);
+    clock.fire(226);
+    expect(Math.abs(motion.state.open - before)).toBeLessThan(0.03);
+    expect(motion.state.open).toBeLessThanOrEqual(before);
+  });
+});
+
 describe('subscribe', () => {
   it('fires immediately and then on frames', () => {
     const { clock, motion } = setup();

@@ -96,6 +96,12 @@ const FLICK_MAX_ITEMS = 6;
 const RUBBER_BAND = 0.35;
 const REDUCED_FADE_MS = 150;
 const WHEEL_SETTLE_MS = 140;
+/**
+ * A move that leaves rest counts its first frame as one frame already travelled, so that frame differs from
+ * the resting state. The time between the call and that frame is unknown and the frame may even carry an
+ * earlier timestamp than the call.
+ */
+const FIRST_FRAME_MS = 1000 / 60;
 /** Value of `open` during the hold: enough for a renderer to show that the trigger landed. */
 const STAGED = 0.0001;
 
@@ -138,7 +144,8 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   // Open tween bookkeeping. `openRaw` is linear time, `state.open` is eased.
   let openRaw = 0;
   let openFrom = 0;
-  let openStartTime = 0;
+  let openStartTime: number | null = null;
+  let openHoldMs = 0;
   let openSpan = 0;
   let openResolvers: Array<() => void> = [];
 
@@ -193,6 +200,11 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
 
   function stepOpen(time: number): boolean {
     if (openRaw === state.openTarget) return true;
+    if (openStartTime === null) {
+      // The tween runs on the clock of the frames, not on the clock of the call that asked for it.
+      const fromRest = openFrom === 0 || openFrom === 1;
+      openStartTime = time + openHoldMs - (fromRest ? FIRST_FRAME_MS : 0);
+    }
     if (time < openStartTime) {
       // Holding: the trigger has landed, the move has not begun.
       state.open = Math.max(state.open, STAGED);
@@ -291,7 +303,8 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     const hold = open && openRaw === 0 && !state.reduced ? timing.openHold : 0;
     openFrom = openRaw;
     openSpan = full * Math.abs(target - openRaw);
-    openStartTime = clock.now() + hold;
+    openStartTime = null;
+    openHoldMs = hold;
     if (hold > 0) {
       // Show at once that the trigger landed, before the move begins.
       state.open = STAGED;
