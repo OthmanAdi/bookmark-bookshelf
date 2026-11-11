@@ -44,7 +44,8 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  touch-action: pan-y;
+  /* The page scrolls up and down through the shelf and can be pinched larger over it; sideways is the row. */
+  touch-action: pan-y pinch-zoom;
 }
 
 .bb-shelf__scene:active {

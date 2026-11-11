@@ -951,6 +951,107 @@ describe('mountShelf volumes that travel, arrive and leave', () => {
   });
 });
 
+describe('mountShelf taps and touches', () => {
+  interface Touch {
+    id?: number;
+    x?: number;
+    y?: number;
+    time?: number;
+    kind?: string;
+    primary?: boolean;
+  }
+  /** A pointer event as a touch screen sends it, at a chosen moment. */
+  const pointer = (type: string, target: Element, touch: Touch = {}): void => {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: touch.x ?? 300, clientY: touch.y ?? 200 });
+    Object.defineProperties(event, {
+      pointerId: { value: touch.id ?? 1 },
+      pointerType: { value: touch.kind ?? 'touch' },
+      isPrimary: { value: touch.primary ?? true },
+      timeStamp: { value: touch.time ?? 0 },
+    });
+    target.dispatchEvent(event);
+  };
+  const clickAt = (target: Element, time: number): void => {
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+    Object.defineProperty(event, 'timeStamp', { value: time });
+    target.dispatchEvent(event);
+  };
+  const faceOf = (shelf: ShelfHandle, slot: number): Element => bySlot(shelf, slot).querySelector('.bb-book__body')!;
+
+  it('opens the centred volume while the row is still settling onto it', () => {
+    const { shelf, intents } = mount();
+    shelf.setPose({ position: 0.55, open: 0 });
+    shelf.setPose({ position: 0.7, open: 0 });
+    click(faceOf(shelf, 1));
+    expect(intents).toEqual([{ type: 'open', id: 'id-1', index: 1 }]);
+  });
+
+  it('brings back a centred volume that the row is leaving instead of opening it', () => {
+    const { shelf, intents } = mount();
+    shelf.setPose({ position: 1, open: 0 });
+    shelf.setPose({ position: 1.3, open: 0 });
+    click(faceOf(shelf, 1));
+    expect(intents).toEqual([{ type: 'focus', id: 'id-1', index: 1, slot: 1 }]);
+  });
+
+  it('takes a touch tap once, whatever click the browser sends after it', () => {
+    const { shelf, intents } = mount();
+    pointer('pointerdown', faceOf(shelf, 0), { time: 1000 });
+    pointer('pointerup', faceOf(shelf, 0), { time: 1090 });
+    clickAt(faceOf(shelf, 0), 1100);
+    expect(intents).toEqual([{ type: 'open', id: 'id-0', index: 0 }]);
+  });
+
+  it('does not open a volume a thumb rested on, and takes the next tap as usual', () => {
+    const { shelf, intents } = mount();
+    pointer('pointerdown', faceOf(shelf, 0), { time: 1000 });
+    pointer('pointerup', faceOf(shelf, 0), { time: 2200 });
+    clickAt(faceOf(shelf, 0), 2210);
+    expect(intents).toEqual([]);
+    clickAt(faceOf(shelf, 0), 3000);
+    expect(intents).toEqual([{ type: 'open', id: 'id-0', index: 0 }]);
+  });
+
+  it('takes nothing for a tap while a second finger is on the shelf', () => {
+    const { shelf, intents } = mount();
+    pointer('pointerdown', faceOf(shelf, 1), { id: 1, time: 1000 });
+    pointer('pointerdown', faceOf(shelf, 3), { id: 2, time: 1040, primary: false });
+    pointer('pointerup', faceOf(shelf, 1), { id: 1, time: 1100 });
+    pointer('pointerup', faceOf(shelf, 3), { id: 2, time: 1120 });
+    expect(intents).toEqual([]);
+    // One finger again: a tap is a tap.
+    pointer('pointerdown', faceOf(shelf, 1), { id: 3, time: 2000 });
+    pointer('pointerup', faceOf(shelf, 1), { id: 3, time: 2080 });
+    expect(intents).toEqual([{ type: 'focus', id: 'id-1', index: 1, slot: 1 }]);
+  });
+
+  it('holds a travelling row still while a second finger is down', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    pointer('pointerdown', faceOf(shelf, 3), { id: 1, x: 500 });
+    const track = shelf.trackFrom({ x: 500, target: faceOf(shelf, 3), position: 0 });
+    const before = track?.(480) ?? Number.NaN;
+    expect(before).toBeGreaterThan(0.1);
+    pointer('pointerdown', faceOf(shelf, 5), { id: 2, x: 700, primary: false });
+    expect(track?.(300)).toBe(before);
+    pointer('pointerup', faceOf(shelf, 5), { id: 2, x: 700 });
+    expect(track?.(300)).toBeGreaterThan(before + 1);
+  });
+
+  it('leaves the row alone for a swipe that comes in from the side of the window', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    pointer('pointerdown', shelf.surface, { x: 6 });
+    const track = shelf.trackFrom({ x: 6, target: shelf.surface, position: 4 });
+    expect(track?.(6)).toBe(4);
+    expect(track?.(240)).toBe(4);
+    pointer('pointerup', shelf.surface, { x: 240 });
+    // The same press with a mouse, or a touch further in, moves the row as usual.
+    pointer('pointerdown', shelf.surface, { x: 6, kind: 'mouse' });
+    expect(shelf.trackFrom({ x: 6, target: shelf.surface, position: 4 })?.(240)).toBeLessThan(3);
+    pointer('pointerdown', shelf.surface, { x: 120 });
+    expect(shelf.trackFrom({ x: 120, target: shelf.surface, position: 4 })?.(360)).toBeLessThan(3);
+  });
+});
+
 describe('mountShelf under a dragging hand', () => {
   let now = 0;
   let frames: FrameRequestCallback[] = [];

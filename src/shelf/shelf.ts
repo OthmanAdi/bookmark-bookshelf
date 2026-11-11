@@ -86,6 +86,10 @@ const SWIPE_WINDOW_MS = 80;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
 const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
+/** After a touch that was held too long to be a tap, the click the browser still sends is ignored for this long, in ms. */
+const HELD_CLICK_MS = 400;
+/** A touch that begins this close to the side of the window is the system's own edge swipe, in px. */
+const EDGE_PX = 20;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 1.5;
 
@@ -159,6 +163,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let openSlot: number | null = null;
   /** Pose of the centred volume as last drawn. */
   let presented: SlotPose | null = null;
+  /** The position last drawn, and which way the row was going when it got there: up the row, down it, or neither. */
+  let shown = 0;
+  let heading = 0;
   /**
    * Where a lamp stands along the scene, in px from its centre: over the presented volume. A travelling
    * row brings that volume to the centre; in a row that stands still the lamp goes to the volume.
@@ -755,6 +762,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       : loop
         ? pose.position
         : Math.min(count - 1 + 0.49, Math.max(-0.49, pose.position));
+    if (position !== shown) {
+      heading = Math.sign(position - shown);
+      shown = position;
+    }
     const nextCentre = Math.round(position);
     const centreChanged = nextCentre !== centre;
     const focusInside = row.contains(document.activeElement);
@@ -878,8 +889,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const index = Number(book.dataset.index);
     const item = items[index];
     if (!item || Number.isNaN(slot)) return;
-    const atRest = Math.abs(pose.position - slot) < 0.25;
-    if (slot === centre && atRest) emit({ type: 'open', id: item.id, index });
+    // The volume in the centre opens when it is at rest there or still arriving. One the row is leaving is
+    // brought back instead: by the time anything opened, another volume would stand in the centre.
+    const away = shown - slot;
+    const arriving = Math.abs(away) < 0.25 || away * heading < 0;
+    if (slot === centre && arriving) emit({ type: 'open', id: item.id, index });
     else emit({ type: 'focus', id: item.id, index, slot });
   }
 
@@ -887,10 +901,31 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   // some browsers swallow the next tap's click, and a volume that ignores a tap feels broken.
   let touchDown: { id: number; x: number; y: number; time: number; book: HTMLElement } | null = null;
   let handledTapUntil = 0;
+  let ignoreClickUntil = 0;
+  /** Touches now on the scene. With more than one it is a pinch or a second hand, and nothing follows the first. */
+  const fingers = new Set<number>();
+  /** The press now on the scene began at the very side of the window. */
+  let fromEdge = false;
 
   const onPointerDown = (event: PointerEvent): void => {
     touchDown = null;
-    if (event.pointerType === 'mouse') return;
+    fromEdge = false;
+    if (event.pointerType === 'mouse') {
+      fingers.clear();
+      return;
+    }
+    // The first finger of a new gesture: whatever went before is over, even if its release was never seen.
+    if (event.isPrimary !== false) fingers.clear();
+    fingers.add(event.pointerId);
+    if (fingers.size > 1) {
+      // A second finger: neither lifting is a tap, and a row held by the first is let go where it is.
+      letGo(true);
+      return;
+    }
+    fromEdge =
+      event.pointerType === 'touch' &&
+      typeof innerWidth === 'number' &&
+      (event.clientX < EDGE_PX || event.clientX > innerWidth - EDGE_PX);
     const book = (event.target as Element | null)?.closest<HTMLElement>('.bb-book');
     if (book) touchDown = { id: event.pointerId, x: event.clientX, y: event.clientY, time: event.timeStamp, book };
   };
@@ -903,17 +938,24 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
 
   const onPointerUp = (event: PointerEvent): void => {
     letGo(false);
+    fingers.delete(event.pointerId);
     const down = touchDown;
     touchDown = null;
     if (!down || down.id !== event.pointerId) return;
     const moved = Math.hypot(event.clientX - down.x, event.clientY - down.y);
-    if (moved > TAP_SLOP || event.timeStamp - down.time > TAP_MAX_MS) return;
+    if (moved > TAP_SLOP) return;
+    if (event.timeStamp - down.time > TAP_MAX_MS) {
+      // A thumb rested on a volume and lifted is not a tap, whatever click the browser makes of it.
+      ignoreClickUntil = event.timeStamp + HELD_CLICK_MS;
+      return;
+    }
     handledTapUntil = event.timeStamp + TAP_MAX_MS;
     activate(down.book);
   };
 
-  const onPointerCancel = (): void => {
+  const onPointerCancel = (event: PointerEvent): void => {
     touchDown = null;
+    fingers.delete(event.pointerId);
     letGo(true);
   };
 
@@ -926,7 +968,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     // Skip the browser's own click for a tap that was already handled above: one activation per tap.
     // A click with detail 0 comes from the keyboard or from script, never from that tap, so it always counts.
     const fromKeyboard = event.detail === 0;
-    if (!fromKeyboard && event.timeStamp < handledTapUntil) return;
+    if (!fromKeyboard && (event.timeStamp < handledTapUntil || event.timeStamp < ignoreClickUntil)) return;
     const book = (event.target as Element | null)?.closest<HTMLElement>('.bb-book');
     if (book) activate(book);
   };
@@ -1049,6 +1091,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     pitchAt: (position) => pitchAt(position, geometry, sizes ? sizeOf : undefined),
     trackFrom(start) {
       if (items.length === 0) return null;
+      // A swipe in from the side of the window belongs to the system: the row stays where it is.
+      if (fromEdge) return () => start.position;
       if (fixed) {
         // A row that stands still does not travel with the hand: it gives a little, and a swipe steps along it.
         if (giveFrame !== null) cancelAnimationFrame(giveFrame);
@@ -1060,7 +1104,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
         const held = { from: start.x, samples: [{ time: performance.now(), x: start.x }] };
         pull = held;
         return (x) => {
-          if (pull === held) {
+          if (pull === held && fingers.size < 2) {
             held.samples.push({ time: performance.now(), x });
             if (held.samples.length > 8) held.samples.shift();
             if (!quiet) drawGive(giveOf(before + x - start.x, GIVE_MOST, GIVE_REACH));
@@ -1098,6 +1142,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       let last = start.position;
       let lastX = start.x;
       return (x) => {
+        // With a second finger down the hand is doing something else: the row waits where it is.
+        if (fingers.size > 1) return last;
         const guess = last - (x - lastX) / pitchAt(last, geometry, sized);
         last = solvePosition(x - middle - beside, geometry, slot, share, guess, sized);
         lastX = x;
