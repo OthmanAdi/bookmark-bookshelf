@@ -389,6 +389,8 @@
 
 .bb-menu__item[aria-checked='true']::before {
   content: '\2713';
+  /* The state is already said by `aria-checked`: the drawn tick is not part of the name. */
+  content: '\2713' / '';
   grid-column: 1;
 }
 
