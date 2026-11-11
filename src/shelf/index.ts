@@ -7,10 +7,14 @@ export { createCover, createCoverArt } from './cover-art';
 export { DEFAULT_LAMP, DEFAULT_LIGHT, faceShades, lampReach, sheenOf, sweepOf, type FaceShades } from './light';
 export {
   computeRow,
+  computeStandingRow,
   focusWeight,
   gapWeight,
+  LOOP_FILL,
   pitchAt,
+  restLength,
   restPitch,
+  rowStands,
   scaleGeometry,
   slotAdvance,
   turnedWidth,
@@ -18,6 +22,7 @@ export {
   volumeSize,
   type SizeOf,
   type SlotPose,
+  type StandingRow,
   type VolumeSize,
 } from './layout';
 export {

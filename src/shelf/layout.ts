@@ -230,6 +230,69 @@ export function computeRow(
   return poses;
 }
 
+/** Left and right edge of a posed volume along the row, foot and head together, in the px `pose.x` is in. */
+export function extentOf(pose: SlotPose, size: VolumeSize): [number, number] {
+  const radians = pose.angle * DEG;
+  const spread = size.bookHeight * Math.abs(Math.sin(pose.lean * DEG));
+  const leftFoot = -(size.spineWidth / 2) * Math.cos(radians);
+  const rightFoot = (size.spineWidth / 2) * Math.cos(radians) + size.coverWidth * Math.sin(radians);
+  return [pose.x + leftFoot - (pose.lean < 0 ? spread : 0), pose.x + rightFoot + (pose.lean > 0 ? spread : 0)];
+}
+
+/** Room a row of `count` volumes takes when all of them are at rest, gaps included, in px. */
+export function restLength(geometry: Geometry, count: number, sizeOf?: SizeOf): number {
+  if (!sizeOf) return Math.max(0, count) * restPitch(geometry);
+  let length = 0;
+  for (let slot = 0; slot < count; slot++) length += slotAdvance(geometry, 0, 0, sizeOf(slot));
+  return length;
+}
+
+/** A row that stands still: every volume of it, placed about the centre of the scene. */
+export interface StandingRow {
+  /** Poses of slots 0 to `count - 1`, with `x` measured from the centre of the scene. */
+  poses: SlotPose[];
+  /** Outer edges of the first and of the last volume. They lie the same distance either side of the centre. */
+  left: number;
+  right: number;
+}
+
+/**
+ * Poses for a row that does not travel. The row as a whole stays in the middle of the scene and the
+ * presented volume turns where it stands: moving the position along it changes which volume is turned,
+ * and the others only give or take the room that takes.
+ */
+export function computeStandingRow(position: number, geometry: Geometry, count: number, sizeOf?: SizeOf): StandingRow {
+  if (count <= 0) return { poses: [], left: 0, right: 0 };
+  const last = count - 1;
+  const poses = computeRow(Math.min(last, Math.max(0, position)), geometry, 0, last, sizeOf);
+  const left = extentOf(poses[0]!, sizeOf?.(0) ?? geometry)[0];
+  const right = extentOf(poses[last]!, sizeOf?.(last) ?? geometry)[1];
+  const shift = -(left + right) / 2;
+  for (const pose of poses) pose.x += shift;
+  return { poses, left: left + shift, right: right + shift };
+}
+
+/** A row whose volumes at rest fill at least this share of the scene repeats; a shorter one stands still. */
+export const LOOP_FILL = 0.8;
+
+/**
+ * Whether a row stands still in a scene `width` px wide instead of travelling. It does when its volumes at
+ * rest leave more than a fifth of the scene empty, so that a travelling row would show bare floor, and
+ * when it fits whole with any one volume presented and `ends` px of room kept at each end. An empty row
+ * stands.
+ */
+export function rowStands(geometry: Geometry, count: number, width: number, sizeOf?: SizeOf, ends = 0): boolean {
+  if (count <= 0) return true;
+  if (restLength(geometry, count, sizeOf) >= LOOP_FILL * width) return false;
+  // A volume pushed toward the viewer is drawn larger, and further from the middle of the scene.
+  const nearer = geometry.perspective / Math.max(1, geometry.perspective - geometry.focusPush);
+  for (let slot = 0; slot < count; slot++) {
+    const row = computeStandingRow(slot, geometry, count, sizeOf);
+    if ((row.right - row.left + 2 * ends) * nearer > width) return false;
+  }
+  return true;
+}
+
 /** Inclusive slot range that can be visible in a viewport of `width` px, with a margin of spare slots. */
 export function visibleRange(
   position: number,

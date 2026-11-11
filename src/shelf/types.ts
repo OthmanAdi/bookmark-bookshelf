@@ -40,7 +40,7 @@ export interface ShelfItem {
 
 /** One frame of the shelf. */
 export interface Pose {
-  /** Float index of the volume at the centre. Unbounded when the row loops. */
+  /** Float index of the presented volume: the one at the centre of a travelling row. Unbounded when the row loops. */
   position: number;
   /**
    * 0 closed, 1 the centred volume is open beside the page. Already eased. Above 0 the shelf leaves that
@@ -156,13 +156,14 @@ export interface ShelfOptions {
   /** Variant name or a full variant. Defaults to `paper`. */
   variant?: string | Variant;
   /**
-   * Overrides the variant's loop setting. Either way a row only loops when its volumes are wider than
-   * the scene plus two covers; a shorter row has two ends, with a bookend at each.
+   * Overrides the variant's loop setting. Either way a row only loops when its volumes at rest fill at
+   * least four fifths of the scene; a shorter row stands still between two bookends (`ShelfHandle.fixed`).
    */
   loop?: boolean;
   /**
    * Called when the row starts or stops looping after mounting: items were added or removed, the scene
-   * was resized, or the look changed. `ShelfHandle.loop` already has the new value.
+   * was resized, or the look changed. `ShelfHandle.loop` and `ShelfHandle.fixed` already have their new
+   * values.
    */
   onLoopChange?: (loop: boolean) => void;
   /** Accessible name of the shelf region. */
@@ -188,6 +189,12 @@ export interface ShelfHandle {
   readonly variant: Variant;
   /** Whether the row repeats endlessly right now. It changes with the items and the scene's width. */
   readonly loop: boolean;
+  /**
+   * True while the row is short enough to stand whole in the middle of the scene. Such a row does not
+   * travel: the position only says which volume is presented, so a host should not let a drag or the
+   * wheel move it. Picking a spine, the arrow keys and the arrow buttons still move along it.
+   */
+  readonly fixed: boolean;
   /** Mean distance in px between two neighbouring resting volumes, at the current scale. */
   pitch(): number;
   /** How far the row moves in px for one unit of position near `position`; volumes may differ in thickness. */

@@ -84,6 +84,33 @@ describe('mountShelf rendering', () => {
     expect(start).toBeLessThan(first);
   });
 
+  it('stands a short row still in the middle of the scene, whichever volume is presented', () => {
+    const { shelf } = mount();
+    expect(shelf.fixed).toBe(true);
+    expect(shelf.element.dataset.fixed).toBe('1');
+    const xOf = (element: HTMLElement): number => Number(/translate3d\(([-\d.e]+)px/.exec(element.style.transform)?.[1]);
+    const ends = [...shelf.element.querySelectorAll<HTMLElement>('.bb-shelf__bookend')];
+    const resting = xOf(bySlot(shelf, 4));
+    for (const position of [0, 0.4, 1, 2.5, 4]) {
+      shelf.setPose({ position, open: 0 });
+      expect(Math.abs(xOf(ends[0]!) + xOf(ends[1]!))).toBeLessThan(1);
+    }
+    // The last volume was standing at rest at the far end and stays there while the focus moves up to it.
+    shelf.setPose({ position: 2, open: 0 });
+    expect(Math.abs(xOf(bySlot(shelf, 4)) - resting)).toBeLessThan(shelf.pitch() / 4);
+    expect(xOf(bySlot(shelf, 2))).toBeGreaterThan(xOf(bySlot(shelf, 1)));
+  });
+
+  it('presents the end volume of a standing row for a position past that end', () => {
+    const { shelf } = mount();
+    shelf.setPose({ position: 9.7, open: 0 });
+    expect(shelf.element.dataset.focus).toBe('4');
+    expect(bySlot(shelf, 4).classList.contains('is-turned')).toBe(true);
+    shelf.setPose({ position: -3, open: 0 });
+    expect(shelf.element.dataset.focus).toBe('0');
+    expect(bySlot(shelf, 0).classList.contains('is-turned')).toBe(true);
+  });
+
   it('starts looping when the row grows past the scene, tells the host, and hides the bookends', () => {
     const changes: boolean[] = [];
     const { shelf } = mount({ onLoopChange: (loop) => changes.push(loop) });
@@ -91,9 +118,22 @@ describe('mountShelf rendering', () => {
     shelf.setItems(makeItems(40));
     expect(changes).toEqual([true]);
     expect(shelf.loop).toBe(true);
+    expect(shelf.fixed).toBe(false);
+    expect(shelf.element.dataset.fixed).toBe('0');
     for (const end of shelf.element.querySelectorAll<HTMLElement>('.bb-shelf__bookend')) expect(end.hidden).toBe(true);
     shelf.setItems(makeItems(3));
     expect(changes).toEqual([true, false]);
+    expect(shelf.fixed).toBe(true);
+  });
+
+  it('lets a host that asks for no loop keep a long row with two ends that travels', () => {
+    const { shelf } = mount({ items: makeItems(40), loop: false });
+    expect(shelf.loop).toBe(false);
+    expect(shelf.fixed).toBe(false);
+    shelf.setPose({ position: 39, open: 0 });
+    expect(shelf.element.dataset.focus).toBe('39');
+    expect(shelf.element.querySelector<HTMLElement>('.bb-shelf__bookend--end')?.hidden).toBe(false);
+    expect(shelf.element.querySelector<HTMLElement>('.bb-shelf__bookend--start')?.hidden).toBe(true);
   });
 
   it('keeps keyboard focus in the row when it starts looping', () => {

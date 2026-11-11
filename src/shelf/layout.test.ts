@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeRow,
+  computeStandingRow,
   focusWeight,
   gapWeight,
-  leanSpread,
+  LOOP_FILL,
   pitchAt,
+  restLength,
   restPitch,
+  rowStands,
   scaleGeometry,
-  turnedWidth,
   visibleRange,
   volumeSize,
+  type SizeOf,
 } from './layout';
 import { VARIANTS } from './variants';
 import type { Geometry } from './types';
@@ -293,6 +296,97 @@ describe('computeRow with mixed sizes', () => {
   it('gives the rest pitch for one size and a local pitch for mixed sizes', () => {
     expect(pitchAt(4.2, paper)).toBeCloseTo(restPitch(paper), 9);
     expect(pitchAt(4.2, paper, mixed)).not.toBeCloseTo(restPitch(paper), 3);
+  });
+});
+
+describe('a row that stands still', () => {
+  const mixedFor =
+    (geometry: Geometry): SizeOf =>
+    (slot) =>
+      volumeSize(geometry, [0, 0.9, 0.3, 1, 0.1][((slot % 5) + 5) % 5], [1, 0, 0.5][((slot % 3) + 3) % 3]);
+  const mixed = mixedFor(paper);
+  const looks = Object.entries(VARIANTS).map(([name, variant]) => [name, variant.geometry] as const);
+
+  /** Leftmost and rightmost drawn point of every volume in a standing row. */
+  function drawn(position: number, geometry: Geometry, count: number, sizeOf?: SizeOf): Array<[number, number]> {
+    return computeStandingRow(position, geometry, count, sizeOf).poses.map((pose) => {
+      const at = corners(pose, { ...geometry, ...sizeOf?.(pose.slot) });
+      const xs = [at.leftFoot.x, at.rightFoot.x, at.leftHead.x, at.rightHead.x];
+      return [Math.min(...xs), Math.max(...xs)];
+    });
+  }
+
+  it.each(looks)('keeps its two ends the same distance from the centre wherever the focus is (%s)', (_name, geometry) => {
+    for (const count of [1, 2, 3, 6, 15]) {
+      for (const sizeOf of [undefined, mixedFor(geometry)]) {
+        for (let step = 0; step <= (count - 1) * 20; step++) {
+          const row = drawn(step / 20, geometry, count, sizeOf);
+          expect(Math.abs(row[0]![0] + row[count - 1]![1])).toBeLessThan(2);
+        }
+      }
+    }
+  });
+
+  it('reports the ends it centred', () => {
+    const row = computeStandingRow(2.3, paper, 6, mixed);
+    expect(row.left).toBeCloseTo(-row.right, 9);
+    expect(row.poses.map((pose) => pose.slot)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(computeStandingRow(0, paper, 0)).toEqual({ poses: [], left: 0, right: 0 });
+  });
+
+  it('turns the presented volume where it stands: the far volumes hardly move', () => {
+    const before = computeStandingRow(2, paper, 7).poses;
+    for (let step = 0; step <= 20; step++) {
+      const row = computeStandingRow(2 + step / 20, paper, 7).poses;
+      for (const slot of [0, 1, 4, 5, 6]) expect(Math.abs(row[slot]!.x - before[slot]!.x)).toBeLessThanOrEqual(paper.gap);
+    }
+  });
+
+  it('stays where it is for a position past either end', () => {
+    expect(computeStandingRow(-0.4, paper, 5).poses).toEqual(computeStandingRow(0, paper, 5).poses);
+    expect(computeStandingRow(9, paper, 5).poses).toEqual(computeStandingRow(4, paper, 5).poses);
+  });
+
+  it.each(looks)('never lets a volume leave the scene, presented or not (%s)', (_name, base) => {
+    let standing = 0;
+    for (const width of [320, 390, 768, 1280, 1920]) {
+      for (const factor of [0.5, 1, 1.5]) {
+        const geometry = scaleGeometry(base, factor);
+        for (const sizeOf of [undefined, mixedFor(geometry)]) {
+          for (const count of [1, 2, 3, 4, 6, 9, 13, 18, 24, 31, 40]) {
+            if (!rowStands(geometry, count, width, sizeOf)) continue;
+            standing++;
+            expect(restLength(geometry, count, sizeOf)).toBeLessThan(LOOP_FILL * width);
+            let reach = 0;
+            for (let step = 0; step <= (count - 1) * 4; step++) {
+              for (const [left, right] of drawn(step / 4, geometry, count, sizeOf)) reach = Math.max(reach, -left, right);
+            }
+            expect(reach).toBeLessThanOrEqual(width / 2);
+          }
+        }
+      }
+    }
+    expect(standing).toBeGreaterThan(20);
+  });
+
+  it('travels instead once its volumes at rest fill four fifths of the scene', () => {
+    const pitch = restPitch(paper);
+    expect(rowStands(paper, Math.ceil((0.8 * 1280) / pitch), 1280)).toBe(false);
+    expect(rowStands(paper, Math.ceil((0.8 * 1280) / pitch) - 4, 1280)).toBe(true);
+    expect(rowStands(paper, 3, 1280)).toBe(true);
+    expect(rowStands(paper, 400, 1280)).toBe(false);
+  });
+
+  it('travels when the row would not fit with one volume presented, or with the room asked for at its ends', () => {
+    // Three resting spines fit a narrow scene; the turned cover does not fit beside them.
+    expect(restLength(paper, 3)).toBeLessThan(0.8 * 300);
+    expect(rowStands(paper, 3, 300)).toBe(false);
+    expect(rowStands(paper, 6, 640)).toBe(true);
+    expect(rowStands(paper, 6, 640, undefined, 60)).toBe(false);
+  });
+
+  it('counts an empty row as standing', () => {
+    expect(rowStands(paper, 0, 1280)).toBe(true);
   });
 });
 

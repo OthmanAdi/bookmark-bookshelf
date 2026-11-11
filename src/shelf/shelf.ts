@@ -14,8 +14,11 @@ import {
 import { fitTitle, forgetTitleWidths, type TitleFont } from './title-fit';
 import {
   computeRow,
+  computeStandingRow,
+  extentOf,
   pitchAt,
   restPitch,
+  rowStands,
   scaleGeometry,
   visibleRange,
   volumeSize,
@@ -53,6 +56,8 @@ const NARROW_SPINE = 40;
 /** A bookend's plate is this share of the look's spine width thick, and never thinner than the minimum. */
 const BOOKEND_SHARE = 0.1;
 const BOOKEND_MIN = 4;
+/** Space in px a standing row keeps between each bookend and the edge of the scene. */
+const BOOKEND_AIR = 4;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
 const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
@@ -89,6 +94,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let variant: Variant = resolveVariant(options.variant);
   let light: Light = resolveLight(variant.light);
   let loop = options.loop ?? variant.loop;
+  /** The row is short enough to stand whole in the middle of the scene, and does not travel. */
+  let fixed = false;
   let pose: Pose = options.pose ?? { position: 0, open: 0 };
   let geometry: Geometry = variant.geometry;
   let sceneWidth = 0;
@@ -179,20 +186,21 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     root.style.setProperty('--bb-bookend-w', `${bookendWidth()}px`);
     scene.style.perspective = `${geometry.perspective}px`;
     measureSizes();
-    decideLoop();
+    decideRow();
   }
 
   /**
-   * A row repeats only when there is more of it than fits: otherwise the same volume would stand on
-   * screen twice. A shorter row has two ends with a bookend at each.
+   * A row that would leave part of the stage bare does not travel: it stands whole in the middle of the
+   * scene between two bookends, and the presented volume turns where it stands. A longer row repeats, so
+   * the stage is full wherever the row stops, and at most a sliver of it can be seen twice at the edges.
    */
-  function decideLoop(): void {
-    const wants = options.loop ?? variant.loop;
-    const length = sizes
-      ? sizes.reduce((sum, size) => sum + size.spineWidth + geometry.gap, 0)
-      : items.length * restPitch(geometry);
-    const next = wants && length > sceneWidth + 2 * geometry.coverWidth;
+  function decideRow(): void {
+    // Past each end volume stands its bookend, with a little air between it and the edge of the scene.
+    const ends = bookendWidth() + BOOKEND_AIR;
+    fixed = rowStands(geometry, items.length, sceneWidth, sizes ? sizeOf : undefined, ends);
+    const next = !fixed && (options.loop ?? variant.loop);
     root.dataset.loop = next ? '1' : '0';
+    root.dataset.fixed = fixed ? '1' : '0';
     if (next === loop) return;
     loop = next;
     // Slots mean something else in the other kind of row, so every volume is built again.
@@ -380,17 +388,6 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     writeShade(bookend, 2, bookend.backShade, shades.back);
   }
 
-  /** Left and right edge of a drawn volume along the row, foot and head together. */
-  function extentOf(slotPose: SlotPose, away: number): [number, number] {
-    const size = sizeOf(slotPose.slot);
-    const radians = slotPose.angle * DEG;
-    const spread = size.bookHeight * Math.abs(Math.sin(slotPose.lean * DEG));
-    const leftFoot = -(size.spineWidth / 2) * Math.cos(radians);
-    const rightFoot = (size.spineWidth / 2) * Math.cos(radians) + size.coverWidth * Math.sin(radians);
-    const x = slotPose.x + away;
-    return [x + leftFoot - (slotPose.lean < 0 ? spread : 0), x + rightFoot + (slotPose.lean > 0 ? spread : 0)];
-  }
-
   function render(): void {
     const count = items.length;
     empty.hidden = count > 0;
@@ -411,14 +408,19 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       return;
     }
 
-    const position = loop ? pose.position : Math.min(count - 1 + 0.49, Math.max(-0.49, pose.position));
+    const position = fixed
+      ? Math.min(count - 1, Math.max(0, pose.position))
+      : loop
+        ? pose.position
+        : Math.min(count - 1 + 0.49, Math.max(-0.49, pose.position));
     const nextCentre = Math.round(position);
     const centreChanged = nextCentre !== centre;
     const focusInside = row.contains(document.activeElement);
     centre = nextCentre;
 
     const sized = sizes ? sizeOf : undefined;
-    const range = visibleRange(position, geometry, sceneWidth, count, loop, 2, sized);
+    // A row that stands still shows every volume it has.
+    const range = fixed ? { from: 0, to: count - 1 } : visibleRange(position, geometry, sceneWidth, count, loop, 2, sized);
     syncNodes(range.from, range.to);
     if (centreChanged) {
       syncSemantics(focusInside || refocus);
@@ -439,7 +441,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     let end: number | null = null;
     // A bookend presses against the end volume; a hair of space keeps the two faces from flickering.
     const bookendGap = bookendWidth() / 2 + 1;
-    for (const slotPose of computeRow(position, geometry, range.from, range.to, sized)) {
+    const poses = fixed
+      ? computeStandingRow(position, geometry, count, sized).poses
+      : computeRow(position, geometry, range.from, range.to, sized);
+    for (const slotPose of poses) {
       const node = nodes.get(slotPose.slot);
       if (!node) continue;
       if (slotPose.slot === centre) presented = slotPose;
@@ -479,8 +484,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       }
       node.element.classList.toggle('is-turned', slotPose.weight > 0.98);
 
-      if (!loop && slotPose.slot === 0) start = extentOf(slotPose, away)[0] - bookendGap;
-      if (!loop && slotPose.slot === count - 1) end = extentOf(slotPose, away)[1] + bookendGap;
+      if (!loop && slotPose.slot === 0) start = extentOf(slotPose, sizeOf(0))[0] + away - bookendGap;
+      if (!loop && slotPose.slot === count - 1) end = extentOf(slotPose, sizeOf(count - 1))[1] + away + bookendGap;
     }
     placeBookend(bookends.start, start);
     placeBookend(bookends.end, end);
@@ -613,6 +618,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     get loop() {
       return loop;
     },
+    get fixed() {
+      return fixed;
+    },
     setItems(nextItems) {
       items = nextItems.slice();
       refocus = refocus || row.contains(document.activeElement);
@@ -620,7 +628,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       nodes.clear();
       centre = Number.NaN;
       measureSizes();
-      decideLoop();
+      decideRow();
       render();
     },
     setPose(nextPose) {
