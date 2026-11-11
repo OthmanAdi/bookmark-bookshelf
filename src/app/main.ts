@@ -92,10 +92,11 @@ const bookshelf = createBookshelf({
       return;
     }
     readerHistory?.closed();
-    // Reading moved the place and maybe the status of the shelf.
+    // Reading moved the place and maybe the status of the shelf, so the action under the row has new words too.
     if (ready) {
       renderShelfStatus();
       updateTitle();
+      syncStage(true);
     }
     // In list view the row that opened the reader may have been redrawn while it was open. Find it again by id.
     if (store.session().view !== 'list' || document.activeElement !== document.body || !lastOpenedId) return;
