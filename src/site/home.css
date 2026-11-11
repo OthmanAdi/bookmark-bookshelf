@@ -46,6 +46,13 @@ body.bb-home {
   }
 }
 
+/* The links need about 40rem beside the wordmark; below that the bar keeps one row and the passages follow in order. */
+@media (max-width: 47.9375rem) {
+  .bb-home__links {
+    display: none;
+  }
+}
+
 /* ---------- hero ---------- */
 
 .bb-hero {
