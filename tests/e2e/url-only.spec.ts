@@ -26,7 +26,7 @@ test.describe('a link without a reading copy', () => {
     await expectReaderOpen(page);
     await expect(page.locator('.bb-reader__paste-field')).toBeFocused();
     await expect(page.locator('.bb-reader__empty-title')).toBeVisible();
-    await expect(page.locator('.bb-reader__empty-body')).toContainText('never fetches pages');
+    await expect(page.locator('.bb-reader__empty-body')).toContainText('Paste the text you want to read');
     await expect(page.locator('.bb-reader__open')).toHaveAttribute('href', URL_ONLY);
 
     await page.locator('.bb-reader__paste-field').fill('# A pasted heading\n\nFirst pasted paragraph.\n\n- one\n- two');

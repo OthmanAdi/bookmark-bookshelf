@@ -12,8 +12,8 @@ export const defaultReaderLabels: ReaderLabels = {
   pasteLabel: 'Reading copy (plain text or markdown)',
   emptyTitle: 'No reading copy yet',
   emptyBody:
-    'This app never fetches pages for you. Most sites block it, and doing it safely needs a server. ' +
-    'Paste the text you want to read here, or open the original.',
+    'Paste the text you want to read and it is kept with this link. You can stop and pick it up later, ' +
+    'and the original page stays one click away.',
   progress: (percent) => `${percent}% read`,
   minutes: (minutes) => `${minutes} min read`,
 };

@@ -176,7 +176,7 @@ describe('empty state and the paste panel', () => {
   it('shows the explanation and the panel when there is no text', () => {
     mount({ doc: empty, onSaveText: () => undefined });
     expect(query('.bb-reader__empty-title').textContent).toBe('No reading copy yet');
-    expect(query('.bb-reader__empty-body').textContent).toContain('never fetches pages');
+    expect(query('.bb-reader__empty-body').textContent).toContain('Paste the text you want to read');
     const label = query<HTMLLabelElement>('.bb-reader__paste label');
     const field = query<HTMLTextAreaElement>('.bb-reader__paste textarea');
     expect(label.getAttribute('for')).toBe(field.id);
