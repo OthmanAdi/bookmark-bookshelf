@@ -74,6 +74,19 @@
   --bb-s-8: 4rem;
   --bb-s-9: 6rem;
 
+  /*
+   * Roles on top of the scale. 8 inside a group, 24 between groups, 32 between regions,
+   * 48 and up only on the homepage.
+   */
+  --bb-gutter: clamp(1.25rem, 2.5vw, 2.5rem);
+  --bb-bar-h: 3.5rem;
+  --bb-tabs-h: 2.5rem;
+  --bb-dock-h: 3.5rem;
+  --bb-control-h: 2.5rem;
+  --bb-target-min: 1.5rem;
+  --bb-stage-headroom: 2.5rem;
+  --bb-stage-floor: 2rem;
+
   /* shape */
   --bb-r-1: 2px;
   --bb-r-2: 4px;
@@ -86,11 +99,31 @@
   --bb-dur-2: 220ms;
   --bb-dur-3: 360ms;
 
-  /* layers */
+  /* layers: the first three order things inside one component, the rest order the page */
   --bb-z-shelf: 1;
+  --bb-z-bar: 2;
+  --bb-z-raised: 3;
+  --bb-z-menu: 30;
   --bb-z-chrome: 20;
   --bb-z-reader: 40;
   --bb-z-flight: 50;
   --bb-z-dialog: 60;
   --bb-z-toast: 70;
+}
+
+@media (max-width: 40rem) {
+  :root {
+    --bb-tabs-h: 2.75rem;
+    --bb-stage-headroom: 1.5rem;
+    --bb-stage-floor: 1.5rem;
+  }
+}
+
+/* A finger needs more room than a pointer: every control and the shelf tabs grow to 44px. */
+@media (pointer: coarse) {
+  :root {
+    --bb-control-h: 2.75rem;
+    --bb-tabs-h: 2.75rem;
+    --bb-target-min: 2.75rem;
+  }
 }
