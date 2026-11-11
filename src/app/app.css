@@ -756,6 +756,40 @@
   }
 }
 
+/* ---------- dropping on the page ---------- */
+
+/* An inset frame over the whole page says the drop will be taken; it never catches the pointer itself. */
+.bb-drop {
+  position: fixed;
+  inset: var(--bb-s-3);
+  z-index: var(--bb-z-dialog);
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--bb-ink);
+  border-radius: var(--bb-r-2);
+  background: color-mix(in srgb, var(--bb-paper) 82%, transparent);
+  pointer-events: none;
+  animation: bb-drop-in var(--bb-dur-1) var(--bb-ease-out);
+}
+
+.bb-drop[hidden] {
+  display: none;
+}
+
+.bb-drop__text {
+  padding: var(--bb-s-3) var(--bb-s-5);
+  border-radius: var(--bb-r-2);
+  background: var(--bb-paper-raised);
+  font-size: var(--bb-text-lead, 1.4375rem);
+  font-weight: 600;
+}
+
+@keyframes bb-drop-in {
+  from {
+    opacity: 0;
+  }
+}
+
 /* ---------- phones ---------- */
 
 /* Pull-to-refresh must not reload the app under a thumb that drifts down at the top of the page. */
@@ -1058,7 +1092,8 @@
     transition: none;
   }
 
-  .bb-menu__panel {
+  .bb-menu__panel,
+  .bb-drop {
     animation: none;
   }
 

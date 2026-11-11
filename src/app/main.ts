@@ -14,6 +14,7 @@ import { createFlows } from './flows';
 import { renderList } from './list-view';
 import { createMenu } from './menu';
 import { createSearch, findLinks } from './search';
+import { attachDrop } from './shell-drop';
 import { emptyState, READING_NOTE } from './shell-empty';
 import { createReaderHistory, pageTitle, type ReaderHistory } from './shell-history';
 import { createPhoneLayout, PHONE_QUERY } from './shell-phone';
@@ -564,6 +565,16 @@ createSearch(
     },
   },
 );
+
+/* ---------- dropping links and files on the page ---------- */
+
+attachDrop({
+  hint: must<HTMLElement>('#drop-hint'),
+  hintText: must<HTMLElement>('#drop-text'),
+  accepting: () => !bookshelf.isOpen() && document.querySelector('dialog[open]') === null,
+  onFiles: (files) => flows.bringLinksIn(files),
+  onLink: (link) => flows.addLink(link),
+});
 
 /* ---------- the Library menu ---------- */
 
