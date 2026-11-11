@@ -309,32 +309,33 @@ createMenu({
 
 must<HTMLButtonElement>('#add').addEventListener('click', () => flows.addLink());
 
-must<HTMLButtonElement>('#export').addEventListener('click', () => {
+/* ---------- the Library menu ---------- */
+
+/** The example links are the ones the bundled library brings; any of them still here counts. */
+const exampleIds = new Set(sampleLibrary().bookmarks.map((bookmark) => bookmark.id));
+
+function examplesLeft(): number {
+  return store.bookmarks(null).filter((bookmark) => exampleIds.has(bookmark.id)).length;
+}
+
+const saving = store.persistence === 'local';
+must<HTMLElement>('#storage-warning').hidden = saving;
+if (!saving) must<HTMLElement>('#library-note').textContent = 'This browser is not saving. Changes last until you close this tab.';
+
+const removeExamplesItem = must<HTMLButtonElement>('#library-examples');
+createMenu({
+  button: must<HTMLButtonElement>('#library-button'),
+  panel: must<HTMLElement>('#library-menu'),
+  onOpen: () => {
+    removeExamplesItem.hidden = examplesLeft() === 0;
+  },
+});
+must<HTMLButtonElement>('#library-bring').addEventListener('click', () => flows.bringLinksIn());
+must<HTMLButtonElement>('#library-export').addEventListener('click', () => {
   downloadText(`bookmark-bookshelf-${new Date().toISOString().slice(0, 10)}.json`, store.exportLibrary());
-  toast('Library exported as a JSON file.');
 });
-
-const importFile = must<HTMLInputElement>('#import-file');
-must<HTMLButtonElement>('#import').addEventListener('click', () => importFile.click());
-importFile.addEventListener('change', async () => {
-  const file = importFile.files?.[0];
-  importFile.value = '';
-  if (!file) return;
-  const result = store.importLibrary(await file.text(), 'merge');
-  if (!result.ok) return toast(`Import failed: ${result.error.message}`);
-  toast(`Imported: ${result.value.added} added, ${result.value.updated} updated.`);
-  renderAll();
-});
-
-must<HTMLButtonElement>('#samples').addEventListener('click', () => {
-  const result = store.importLibrary(sampleLibrary(), 'merge');
-  if (!result.ok) return toast(result.error.message);
-  toast(`Sample volumes: ${result.value.added} added, ${result.value.updated} already here.`);
-  renderAll();
-});
-
-must<HTMLElement>('#persistence').textContent =
-  store.persistence === 'local' ? 'Saved in this browser only' : 'Storage is blocked: changes last until you close this tab';
+must<HTMLButtonElement>('#library-send').addEventListener('click', () => flows.sendPageHere());
+removeExamplesItem.addEventListener('click', () => flows.removeExamples());
 
 store.subscribe((event) => {
   if (event.reason === 'session') return;

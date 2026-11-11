@@ -26,9 +26,25 @@
             </button>
             <div id="view-menu" class="bb-menu__panel" role="menu" aria-label="View" hidden></div>
           </div>
+          <div class="bb-menu">
+            <button id="library-button" type="button" class="bb-button bb-button--quiet bb-menu__button">
+              Library
+              <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M2.5 4.5 6 8l3.5-3.5" /></svg>
+            </button>
+            <div id="library-menu" class="bb-menu__panel" role="group" aria-label="Library" hidden>
+              <button id="library-bring" type="button" class="bb-menu__item bb-menu__item--plain"><span class="bb-menu__label">Bring links in</span></button>
+              <button id="library-export" type="button" class="bb-menu__item bb-menu__item--plain"><span class="bb-menu__label">Export library</span></button>
+              <button id="library-send" type="button" class="bb-menu__item bb-menu__item--plain"><span class="bb-menu__label">Send the current page here</span></button>
+              <button id="library-examples" type="button" class="bb-menu__item bb-menu__item--plain" hidden><span class="bb-menu__label">Remove examples</span></button>
+              <div class="bb-menu__rule" role="separator"></div>
+              <p id="library-note" class="bb-menu__note">Saved in this browser only. Export a copy before clearing site data.</p>
+            </div>
+          </div>
           <button id="add" type="button" class="bb-button bb-button--solid">Add a link</button>
         </div>
       </header>
+
+      <p id="storage-warning" class="bb-app__notice" role="status" hidden>This browser is not saving. Changes last until you close this tab.</p>
 
       <div class="bb-app__shelves">
         <div id="tabs" class="bb-tabs" role="group" aria-label="Shelves"></div>
@@ -59,21 +75,6 @@
         </div>
         <div id="list" hidden></div>
       </main>
-
-      <footer class="bb-app__foot">
-        <p class="bb-app__boundary">
-          <strong>Reading in the app.</strong>
-          Paste the text you want to read when you save a link, or add it later from the volume. The shelf keeps
-          your place, so you can stop and pick it up again. Every volume also opens the original page.
-        </p>
-        <div class="bb-app__library">
-          <span id="persistence" class="bb-label"></span>
-          <button id="export" type="button" class="bb-button bb-button--quiet">Export library</button>
-          <button id="import" type="button" class="bb-button bb-button--quiet">Import</button>
-          <button id="samples" type="button" class="bb-button bb-button--quiet">Add sample volumes</button>
-          <input id="import-file" type="file" accept="application/json,.json" hidden />
-        </div>
-      </footer>
     </div>
 
     <div id="reader"></div>

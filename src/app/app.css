@@ -27,9 +27,31 @@
   display: grid;
   /* minmax(0, 1fr): a wide child (tab strip, long title) must never widen the page. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  /* Named rows: a line that is hidden leaves an empty row behind and never moves the stage into it. */
+  grid-template-areas: 'bar' 'notice' 'shelves' 'status' 'stage' 'dock';
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
   height: 100dvh;
   min-height: 32rem;
+}
+
+.bb-app__bar {
+  grid-area: bar;
+}
+
+.bb-app__notice {
+  grid-area: notice;
+  padding: var(--bb-s-2) var(--bb-gutter, clamp(1.25rem, 2.5vw, 2.5rem));
+  border-bottom: var(--bb-hairline) solid var(--bb-rule);
+  background: var(--bb-paper-raised);
+  font-size: var(--bb-text-small);
+}
+
+.bb-app__shelves {
+  grid-area: shelves;
+}
+
+.bb-app__main {
+  grid-area: stage;
 }
 
 .bb-app__chrome[data-view='list'] {
@@ -182,6 +204,20 @@
 
 .bb-menu__item:focus-visible {
   outline-offset: -2px;
+}
+
+.bb-menu__item[hidden] {
+  display: none;
+}
+
+/* An item that is an action, not a choice, needs no room for a check mark. */
+.bb-menu__item--plain {
+  grid-template-columns: minmax(0, 1fr);
+  padding-left: var(--bb-s-3);
+}
+
+.bb-menu__item--plain .bb-menu__label {
+  grid-column: 1;
 }
 
 .bb-menu__item[aria-checked='true']::before {
@@ -466,45 +502,6 @@
   }
 }
 
-/* ---------- footer: the boundary statement and library tools ---------- */
-
-.bb-app__foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: last baseline;
-  justify-content: space-between;
-  gap: var(--bb-s-3) var(--bb-s-6);
-  padding: var(--bb-s-5);
-  border-top: var(--bb-hairline) solid var(--bb-rule);
-}
-
-.bb-app__boundary {
-  flex: 1 1 24rem;
-  max-width: 62ch;
-  color: var(--bb-ink-soft);
-  font-size: var(--bb-text-small);
-  line-height: 1.5;
-}
-
-.bb-app__boundary strong {
-  color: var(--bb-ink);
-  font-weight: 600;
-}
-
-.bb-app__library {
-  flex: 0 1 auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--bb-s-1) var(--bb-s-2);
-  color: var(--bb-ink-soft);
-}
-
-#persistence {
-  margin-right: var(--bb-s-3);
-}
-
 /* ---------- small screens ---------- */
 
 @media (max-width: 40rem) {
@@ -548,14 +545,6 @@
   .bb-app__shelves {
     justify-content: flex-start;
     padding: var(--bb-s-4) var(--bb-s-4) var(--bb-s-2);
-  }
-
-  .bb-app__foot {
-    padding: var(--bb-s-4);
-  }
-
-  .bb-app__library {
-    justify-content: flex-start;
   }
 }
 
