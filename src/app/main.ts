@@ -467,11 +467,16 @@ function applyView(): void {
   else bookshelf.shelf.refresh();
 }
 
-/** The page title names the open link, or else the open shelf. */
+const pageHeading = must<HTMLElement>('#page-heading');
+
+/** The page title names the open link, or else the open shelf; the page's heading names the shelf. */
 function updateTitle(): void {
   const openId = bookshelf.isOpen() ? store.session().openId : null;
   const link = openId ? store.get(openId)?.title : undefined;
-  document.title = pageTitle(link ? { link } : { shelf: openShelfName() });
+  const shelf = openShelfName();
+  document.title = pageTitle(link ? { link } : { shelf });
+  const heading = shelf ?? 'All links';
+  if (pageHeading.textContent !== heading) pageHeading.textContent = heading;
 }
 
 function renderAll(): void {

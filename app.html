@@ -36,7 +36,7 @@
     <title>All links | Bookmark Bookshelf</title>
   </head>
   <body class="bb-app">
-    <a class="bb-skip" href="#shelf">Skip to the shelf</a>
+    <a class="bb-skip" href="#main">Skip to your links</a>
     <noscript>
       <p class="bb-noscript">Bookmark Bookshelf needs JavaScript to show your shelf. Nothing you saved is lost; it is kept in this browser.</p>
     </noscript>
@@ -123,8 +123,8 @@
         </p>
       </div>
 
-      <main id="main" class="bb-app__main">
-        <h1 class="bb-visually-hidden">Your shelf</h1>
+      <main id="main" class="bb-app__main" tabindex="-1" aria-labelledby="page-heading">
+        <h1 id="page-heading" class="bb-visually-hidden">All links</h1>
         <div id="shelf" data-fill></div>
         <div id="caption" class="bb-stage__caption" data-empty="1">
           <div class="bb-stage__head">

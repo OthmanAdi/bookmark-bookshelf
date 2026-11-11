@@ -54,6 +54,11 @@
   grid-area: stage;
 }
 
+/* The skip link lands here; the content that follows shows where the page is, so no ring is drawn. */
+.bb-app__main:focus {
+  outline: none;
+}
+
 /* Quiet lines under the tabs: the state of the open shelf, and the note about examples. */
 .bb-app__status {
   grid-area: status;
