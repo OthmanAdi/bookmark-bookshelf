@@ -375,6 +375,31 @@ export function titleBoxOf(item: ShelfItem, layout: CoverLayout, aspect = COVER_
   return { measure: grid.measure, height, max: grid.max, min: grid.min, leading: TITLE.leading };
 }
 
+/**
+ * A small tick set in the imprint line of a link marked as read, the way a reader pencils one on a
+ * finished book. A link part read gets none: the slip on the volume already shows how far.
+ */
+function doneMark(): HTMLElement {
+  const mark = document.createElement('span');
+  mark.className = 'bb-cover__done';
+  const svg = document.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
+  svg.setAttribute('viewBox', '0 0 12 12');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.appendChild(
+    shape('path', {
+      d: 'M2.4 6.6 L4.9 9 L9.8 3.2',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': 1.5,
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    }),
+  );
+  mark.appendChild(svg);
+  return mark;
+}
+
 function textElement(tag: string, className: string, text: string): HTMLElement {
   const element = document.createElement(tag);
   element.className = className;
@@ -424,10 +449,12 @@ export function createCover(item: ShelfItem, mark?: string, options: CoverOption
 
   const imprint = imprintOf(item.source).name;
   const label = mark ?? item.mark;
-  if (imprint || label) {
+  if (item.done) cover.dataset.done = '';
+  if (imprint || label || item.done) {
     const foot = document.createElement('span');
     foot.className = 'bb-cover__foot';
     if (imprint) foot.appendChild(textElement('span', 'bb-cover__imprint', imprint));
+    if (item.done) foot.appendChild(doneMark());
     if (label) foot.appendChild(textElement('span', 'bb-cover__mark', label));
     cover.appendChild(foot);
   }

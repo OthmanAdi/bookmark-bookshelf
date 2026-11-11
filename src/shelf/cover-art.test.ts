@@ -362,6 +362,20 @@ describe('createCover', () => {
     expect(createCover(item({ outline: [Number.NaN] })).dataset.plate).toBe('art');
   });
 
+  it('sets a quiet tick in the imprint line of a link marked as read', () => {
+    const cover = createCover(item({ source: 'example.org', done: true }));
+    expect(cover.hasAttribute('data-done')).toBe(true);
+    const foot = cover.querySelector('.bb-cover__foot');
+    expect([...(foot?.children ?? [])].map((child) => child.className)).toEqual(['bb-cover__imprint', 'bb-cover__done']);
+    expect(createCover(item({ done: true })).querySelector('.bb-cover__foot > .bb-cover__done')).not.toBeNull();
+  });
+
+  it('marks nothing on a link that is only part read', () => {
+    const cover = createCover(item({ source: 'example.org', progress: 0.4 }));
+    expect(cover.querySelector('.bb-cover__done')).toBeNull();
+    expect(cover.hasAttribute('data-done')).toBe(false);
+  });
+
   it('records the resolved pattern and cloth', () => {
     const cover = createCover(item({ pattern: 'waves', cloth: 'rust' }));
     expect(cover.dataset.pattern).toBe('waves');
