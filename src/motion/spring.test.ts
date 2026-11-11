@@ -108,6 +108,124 @@ describe('stepSpring', () => {
   });
 });
 
+/** Small seeded generator so a failing case can be replayed. */
+function seeded(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const between = (random: () => number, low: number, high: number): number => low + (high - low) * random();
+
+/** Advances in whole frames of `frameMs` until `untilMs`, returning the final state and every value on the way. */
+function run(
+  start: SpringState,
+  target: number,
+  frameMs: number,
+  untilMs: number,
+): { state: SpringState; values: number[]; atRestAt: number | null } {
+  const state = { ...start };
+  const values: number[] = [];
+  let atRestAt: number | null = null;
+  const frames = Math.round(untilMs / frameMs);
+  for (let frame = 1; frame <= frames; frame++) {
+    const atRest = stepSpring(state, target, frameMs);
+    values.push(state.value);
+    if (atRest && atRestAt === null) atRestAt = frame * frameMs;
+  }
+  return { state, values, atRestAt };
+}
+
+describe('stepSpring properties', () => {
+  const frameTimes = [1000 / 60, 1000 / 90, 1000 / 144];
+
+  it('never overshoots when critically damped and not thrown at the target', () => {
+    const random = seeded(20260511);
+    for (let trial = 0; trial < 300; trial++) {
+      const from = between(random, -20, 20);
+      const target = between(random, -20, 20);
+      if (Math.abs(target - from) < 0.01) continue;
+      const direction = Math.sign(target - from);
+      // Speed zero or pointing away from the target, as it is after a press or a reversed drag.
+      const velocity = -direction * between(random, 0, 0.05) * (random() < 0.3 ? 0 : 1);
+      const frameMs = frameTimes[trial % frameTimes.length]!;
+      const { values } = run({ value: from, velocity }, target, frameMs, 3000);
+      for (const value of values) {
+        const beyond = (value - target) * direction;
+        expect(beyond).toBeLessThanOrEqual(1e-9);
+      }
+    }
+  });
+
+  it('overshoots at most once, and only slightly, when thrown at the target at a gentle speed', () => {
+    const random = seeded(77);
+    for (let trial = 0; trial < 200; trial++) {
+      const distance = between(random, 0.5, 6);
+      const velocity = between(random, 0, 0.004);
+      const { values } = run({ value: 0, velocity }, distance, 1000 / 60, 3000);
+      const peak = Math.max(...values);
+      // A critically damped spring thrown at its target can pass it once, by at most v / omega.
+      const omega = Math.sqrt(SETTLE_SPRING.stiffness) / 1000;
+      expect(peak - distance).toBeLessThanOrEqual(velocity / omega + 1e-6);
+      const last = values[values.length - 1]!;
+      expect(last).toBe(distance);
+    }
+  });
+
+  it('always settles exactly on the target, within a second and a half, from any start', () => {
+    const random = seeded(9001);
+    for (let trial = 0; trial < 300; trial++) {
+      const from = between(random, -50, 50);
+      const target = Math.round(between(random, -50, 50));
+      const velocity = between(random, -0.05, 0.05);
+      const frameMs = frameTimes[trial % frameTimes.length]!;
+      const { state, atRestAt } = run({ value: from, velocity }, target, frameMs, 4000);
+      expect(atRestAt).not.toBeNull();
+      expect(state.value).toBe(target);
+      expect(state.velocity).toBe(0);
+      // Distance 100 at stiffness 200 still lands in well under four seconds.
+      expect(atRestAt!).toBeLessThan(4000);
+    }
+    const near = run({ value: 0, velocity: 0 }, 1, 1000 / 60, 3000);
+    expect(near.atRestAt!).toBeLessThan(1500);
+  });
+
+  it('keeps pace across frame rates: 60, 90 and 144 Hz agree within one percent of the distance', () => {
+    const random = seeded(144);
+    for (let trial = 0; trial < 100; trial++) {
+      const from = between(random, -10, 10);
+      const target = between(random, -10, 10);
+      const distance = Math.abs(target - from);
+      if (distance < 0.5) continue;
+      const velocity = between(random, -0.01, 0.01);
+      // Multiples of 1/6 s are whole numbers of frames at all three rates.
+      for (const at of [1000 / 6, 1000 / 3, 500, 2000 / 3, 1000]) {
+        const results = frameTimes.map((frameMs) => run({ value: from, velocity }, target, frameMs, at).state.value);
+        const spread = Math.max(...results) - Math.min(...results);
+        expect(spread).toBeLessThanOrEqual(distance * 0.01 + 1e-6);
+      }
+    }
+  });
+
+  it('takes about 340 ms to reach 95 percent at every frame rate', () => {
+    for (const frameMs of frameTimes) {
+      const state: SpringState = { value: 0, velocity: 0 };
+      let elapsed = 0;
+      while (state.value < 0.95 && elapsed < 2000) {
+        stepSpring(state, 1, frameMs);
+        elapsed += frameMs;
+      }
+      expect(elapsed).toBeGreaterThan(315);
+      expect(elapsed).toBeLessThan(365);
+    }
+  });
+});
+
 describe('scalar helpers', () => {
   it('clamp limits to the range', () => {
     expect(clamp(5, 0, 3)).toBe(3);
