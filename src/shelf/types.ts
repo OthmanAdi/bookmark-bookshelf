@@ -51,6 +51,11 @@ export interface Pose {
   open: number;
   /** Reduced motion: the row stays exactly as it is while a volume opens. */
   reduced?: boolean;
+  /**
+   * How fast the position is changing, in volumes a second, positive up the row. Given it, the volumes
+   * standing at rest lean a little behind the travel, as things with weight do. Left out, they stand straight.
+   */
+  velocity?: number;
 }
 
 export interface Box {

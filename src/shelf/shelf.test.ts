@@ -812,7 +812,9 @@ describe('mountShelf volumes that travel, arrive and leave', () => {
     shelf.setPose({ position: 3, open: 0 });
     expect(turn()).toBeCloseTo(full, 6);
     expect(book.querySelector('.bb-cover')).not.toBeNull();
-    step(180);
+    // The host has just set a pose, so the shelf lets one frame go by before it draws frames of its own.
+    step(16);
+    step(164);
     expect(turn()).toBeGreaterThan(0.1);
     expect(turn()).toBeLessThan(full - 0.1);
     step(200);
@@ -940,6 +942,50 @@ describe('mountShelf volumes that travel, arrive and leave', () => {
     vi.stubGlobal('sessionStorage', { getItem: refuse, setItem: refuse });
     const shut = mountShelf(document.body.appendChild(document.createElement('div')), { items: makeItems(5) });
     expect(shut.element.querySelector('.is-rising')).toBeNull();
+  });
+
+  it('leans the standing volumes behind the travel and straightens them when the row stops', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    const leanOf = (slot: number): number => Number(/rotateZ\(([-\d.]+)deg\) rotateY/.exec(bySlot(shelf, slot).style.transform)?.[1] ?? 0);
+    expect(leanOf(5)).toBe(0);
+    // Travelling up the row at six volumes a second for a while.
+    for (let frame = 0; frame < 30; frame++) {
+      now += 16;
+      shelf.setPose({ position: 0, open: 0, velocity: 6 });
+    }
+    expect(leanOf(5)).toBeGreaterThan(0.5);
+    expect(leanOf(5)).toBeLessThanOrEqual(0.6);
+    expect(leanOf(-5)).toBeCloseTo(leanOf(5), 6);
+    // The presented volume and the one beside it hold still.
+    expect(leanOf(0)).toBe(0);
+    expect(leanOf(1)).toBeLessThan(leanOf(5) / 4);
+    // However fast the row goes, the lean has a limit.
+    for (let frame = 0; frame < 40; frame++) {
+      now += 16;
+      shelf.setPose({ position: 0, open: 0, velocity: -90 });
+    }
+    expect(leanOf(5)).toBeLessThan(-1.4);
+    expect(leanOf(5)).toBeGreaterThanOrEqual(-1.5);
+    // The row stops: the volumes straighten on frames of the shelf's own, and then it asks for no more.
+    shelf.setPose({ position: 0, open: 0, velocity: 0 });
+    const stopping = leanOf(5);
+    for (let frame = 0; frame < 6; frame++) step(16);
+    expect(Math.abs(leanOf(5))).toBeLessThan(Math.abs(stopping));
+    expect(Math.abs(leanOf(5))).toBeGreaterThan(0);
+    for (let frame = 0; frame < 80; frame++) step(16);
+    expect(leanOf(5)).toBe(0);
+    expect(bySlot(shelf, 5).style.transform).not.toContain('rotateZ');
+    expect(frames).toHaveLength(0);
+  });
+
+  it('stands every volume straight under reduced motion, whatever the speed', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    for (let frame = 0; frame < 10; frame++) {
+      now += 16;
+      shelf.setPose({ position: 0, open: 0, velocity: 12, reduced: true });
+    }
+    expect(bySlot(shelf, 5).style.transform).not.toContain('rotateZ');
+    expect(frames).toHaveLength(0);
   });
 
   it('stops asking for frames once it is destroyed', () => {

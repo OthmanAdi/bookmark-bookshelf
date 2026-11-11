@@ -384,6 +384,25 @@ export function settleOf(from: number, speed: number, seconds: number, stiffness
 }
 
 /**
+ * How far a standing volume leans behind the travel of the row, in degrees: `perSpeed` for each volume a
+ * second, never more than `most`. Positive leans right, which is what a row moving up (to the left) does
+ * to the heads of its volumes.
+ */
+export function swayOf(speed: number, perSpeed: number, most: number): number {
+  if (!Number.isFinite(speed)) return 0;
+  return Math.min(most, Math.max(-most, speed * perSpeed));
+}
+
+/**
+ * Share of that lean a volume `distance` places from the row's position takes: none for a volume that is
+ * turned at all, so the presented volume and its turning neighbour hold still, and all of it from about
+ * two places out.
+ */
+export function swayShare(distance: number): number {
+  return smooth((Math.abs(distance) - TURN_SPAN) / GAP_SPAN);
+}
+
+/**
  * A pose part of the way from one pose to another, `t` from 0 to 1. A volume whose place in the row
  * changes is drawn through these, so it travels and turns to where it belongs instead of jumping there.
  */

@@ -30,6 +30,8 @@ import {
   scaleGeometry,
   settleOf,
   solvePosition,
+  swayOf,
+  swayShare,
   visibleRange,
   volumeSize,
   type SlotPose,
@@ -52,6 +54,14 @@ const PART_REACH = 4;
 /** The printed cover is laid on a volume closer than this many steps to the centre and dropped beyond the second. */
 const PRINT_NEAR = 1.5;
 const PRINT_FAR = 2.5;
+/**
+ * Standing volumes have weight: while the row travels their heads trail a little behind their feet. The
+ * lean is this many degrees for each volume a second the row moves, and never more than `SWAY_MOST`.
+ * It follows the speed over `SWAY_EASE_MS`, so it comes on and goes without a step.
+ */
+const SWAY_PER_SPEED = 0.1;
+const SWAY_MOST = 1.5;
+const SWAY_EASE_MS = 90;
 /** A change of shade smaller than this cannot be seen. */
 const SHADE_STEP = 0.002;
 /**
@@ -166,6 +176,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   /** The position last drawn, and which way the row was going when it got there: up the row, down it, or neither. */
   let shown = 0;
   let heading = 0;
+  /** How far standing volumes lean behind the travel right now, in degrees, and when that was worked out. */
+  let sway = 0;
+  let swayAt = 0;
   /**
    * Where a lamp stands along the scene, in px from its centre: over the presented volume. A travelling
    * row brings that volume to the centre; in a row that stands still the lamp goes to the volume.
@@ -193,8 +206,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
    * come in, the ones named in `arrive` from above; volumes whose item left go out instead of vanishing.
    */
   let entering: { arrive: Set<string> } | null = null;
-  /** The frame asked for while volumes travel to new places. The shelf keeps no other clock. */
+  /** The frame asked for while volumes travel to new places or straighten up. The shelf keeps no other clock. */
   let frame: number | null = null;
+  /** The host has set a pose since the shelf's last frame of its own. */
+  let posed = false;
   /** Where the lamp travels from after the row changed, and when that began. */
   let lampFrom: number | null = null;
   let lampFromAt = 0;
@@ -463,11 +478,20 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     if (giveFrame === null) giveFrame = requestAnimationFrame(settleGive);
   }
 
+  /**
+   * Asks for a frame of the shelf's own, to carry on something no pose drives: volumes travelling to new
+   * places, or straightening up after the row has stopped. While the host is posing every frame anyway,
+   * its frames draw all of it and this one only waits.
+   */
   function requestFrame(): void {
     if (frame !== null || !alive) return;
     frame = requestAnimationFrame(() => {
       frame = null;
-      if (alive) render();
+      if (!alive) return;
+      if (posed) {
+        posed = false;
+        requestFrame();
+      } else render();
     });
   }
 
@@ -782,6 +806,18 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     }
     if (disordered) orderRow();
 
+    // Heads trail the feet: moving up the row takes the volumes left, so they lean right.
+    const speed = pose.reduced ? 0 : (pose.velocity ?? 0);
+    if (speed !== 0 || sway !== 0) {
+      const wanted = still() ? 0 : swayOf(speed, SWAY_PER_SPEED, SWAY_MOST);
+      const elapsed = Math.min(64, Math.max(0, travelNow() - swayAt));
+      swayAt = travelNow();
+      sway += (wanted - sway) * (1 - Math.exp(-elapsed / SWAY_EASE_MS));
+      if (wanted === 0 && Math.abs(sway) < 0.004) sway = 0;
+      // The row may have come to rest while its volumes are still straightening up.
+      if (sway !== 0) travelling = true;
+    }
+
     const opening = pose.open > 0;
     if (opening && openSlot === null) openSlot = centre;
     if (!opening) openSlot = null;
@@ -843,11 +879,14 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       const away = reach > 0 && reach <= PART_REACH ? Math.sign(offset) * PART * scale * (1 - reach / 5) * pose.open : 0;
       const style = node.element.style;
       style.visibility = reach === 0 ? 'hidden' : '';
+      // Only volumes standing at rest lean with the travel: the presented one and the two beside it hold still.
+      const tilt = sway === 0 ? 0 : sway * swayShare(distance);
+      const leaning = tilt === 0 ? '' : `rotateZ(${tilt.toFixed(3)}deg) `;
       style.transform =
         slotPose.lean === 0
-          ? `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) rotateY(${-slotPose.angle}deg)`
+          ? `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ${leaning}rotateY(${-slotPose.angle}deg)`
           : `translate3d(${slotPose.x + slotPose.corner + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ` +
-            `rotateZ(${slotPose.lean}deg) translateX(${-slotPose.corner}px) rotateY(${-slotPose.angle}deg)`;
+            `rotateZ(${slotPose.lean}deg) translateX(${-slotPose.corner}px) ${leaning}rotateY(${-slotPose.angle}deg)`;
       style.zIndex = slotPose.weight > 0 ? '2' : '';
 
       // Distance of the volume's middle from the lamp, in cover widths.
@@ -1072,6 +1111,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     },
     setPose(nextPose) {
       pose = nextPose;
+      posed = true;
       render();
     },
     setVariant(nextVariant) {

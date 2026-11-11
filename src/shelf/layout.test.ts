@@ -19,6 +19,8 @@ import {
   scaleGeometry,
   settleOf,
   solvePosition,
+  swayOf,
+  swayShare,
   visibleRange,
   volumeSize,
   type SizeOf,
@@ -533,6 +535,40 @@ describe('a standing row under a pull', () => {
   it('carries on a little the way it was going before it comes back', () => {
     expect(settleOf(10, 60, 0.02)).toBeGreaterThan(10);
     expect(settleOf(10, 60, 0.6)).toBeLessThan(0.5);
+  });
+});
+
+describe('standing volumes behind the travel', () => {
+  it('lean with the speed of the row, up to a limit, the other way when it goes the other way', () => {
+    expect(swayOf(0, 0.1, 1.5)).toBe(0);
+    expect(swayOf(5, 0.1, 1.5)).toBeCloseTo(0.5, 12);
+    expect(swayOf(-5, 0.1, 1.5)).toBeCloseTo(-0.5, 12);
+    expect(swayOf(400, 0.1, 1.5)).toBe(1.5);
+    expect(swayOf(-400, 0.1, 1.5)).toBe(-1.5);
+    expect(swayOf(Number.NaN, 0.1, 1.5)).toBe(0);
+  });
+
+  it('leave out every volume that is turned at all, and take in the rest by degrees', () => {
+    for (const distance of [0, 0.3, 0.5, 0.78]) {
+      expect(swayShare(distance)).toBe(0);
+      expect(focusWeight(distance, 0)).toBeGreaterThanOrEqual(0);
+    }
+    // Wherever a volume is turned, however slightly, it does not lean with the travel.
+    for (let step = 0; step <= 100; step++) {
+      const distance = step / 50;
+      if (focusWeight(distance, 0) > 0) expect(swayShare(distance)).toBe(0);
+    }
+    expect(swayShare(1)).toBeGreaterThan(0);
+    expect(swayShare(1)).toBeLessThan(0.3);
+    expect(swayShare(1.7)).toBe(1);
+    expect(swayShare(-1.7)).toBe(1);
+    let previous = 0;
+    for (let step = 40; step <= 90; step++) {
+      const share = swayShare(step / 50);
+      expect(share).toBeGreaterThanOrEqual(previous);
+      expect(share - previous).toBeLessThan(0.05);
+      previous = share;
+    }
   });
 });
 
