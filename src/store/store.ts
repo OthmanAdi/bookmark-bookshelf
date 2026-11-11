@@ -40,14 +40,14 @@ export function createStore(options: StoreOptions = {}): Store {
   const key = options.key ?? DEFAULT_STORAGE_KEY;
   const clock = options.now ?? (() => new Date());
   const ctx: OpContext = { now: () => clock().toISOString(), newId: options.idFactory ?? defaultIdFactory };
-  const { storage, persistence } = resolveStorage(options.storage, key);
+  const { storage, persistence: chosenPersistence } = resolveStorage(options.storage, key);
   const progressDelay = options.progressDelay ?? 250;
   const listeners = new Set<Listener>();
   const load = (): LibraryV2 =>
     loadLibrary({ storage, key, now: clock, idFactory: ctx.newId, ...(options.seed ? { seed: options.seed } : {}) });
 
   let lib = load();
-  // Kept for methods that return nothing, so a failed write is not lost track of.
+  // The outcome of the latest write, for methods that return nothing and for `persistence`.
   let lastWriteError: StoreError | undefined;
   let progressTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -75,17 +75,24 @@ export function createStore(options: StoreOptions = {}): Store {
 
   /**
    * Runs a change; when `changed` says it took effect, writes synchronously and notifies.
-   * Memory keeps the change even if the write fails.
+   * A write that storage refuses puts the library back as it was and announces nothing, so what the person
+   * sees is what is saved and trying again cannot add the same thing twice. Changes to the session alone
+   * (which look, which link is in the centre) are not worth refusing: they stay and the error is reported.
    */
   function commit<T>(
     reasons: ChangeReason[],
     run: () => T,
     changed: (value: T) => boolean,
   ): { value: T; error: StoreError | undefined } {
+    const before = clone(lib);
     const sessionBefore = JSON.stringify(lib.session);
     const value = run();
     if (!changed(value)) return { value, error: undefined };
     const error = save();
+    if (error && !reasons.every((reason) => reason === 'session')) {
+      lib = before;
+      return { value, error };
+    }
     const sessionMoved = !reasons.includes('replace') && JSON.stringify(lib.session) !== sessionBefore;
     for (const reason of new Set(sessionMoved ? [...reasons, 'session' as const] : reasons)) notify(reason);
     return { value, error };
@@ -129,7 +136,10 @@ export function createStore(options: StoreOptions = {}): Store {
   if (listenToTabs) window.addEventListener('storage', onStorageEvent);
 
   return {
-    persistence,
+    get persistence() {
+      return chosenPersistence === 'local' && lastWriteError === undefined ? 'local' : 'memory';
+    },
+    lastError: () => (lastWriteError ? { ...lastWriteError } : undefined),
     snapshot: () => clone(lib),
     shelves: () => clone([...lib.shelves].sort((a, b) => a.order - b.order)),
     bookmarks: (shelfId) => clone(orderedBookmarks(lib, shelfId)),
@@ -142,8 +152,8 @@ export function createStore(options: StoreOptions = {}): Store {
     updateBookmark: (id: string, patch: BookmarkPatch) =>
       mutate(['bookmarks'], () => updateBookmarkIn(lib, ctx, id, patch)),
     removeBookmark: (id) => {
-      const { value } = commit(['bookmarks'], () => removeBookmarkFrom(lib, id), (entry) => entry !== undefined);
-      return value ? clone(value) : undefined;
+      const { value, error } = commit(['bookmarks'], () => removeBookmarkFrom(lib, id), (entry) => entry !== undefined);
+      return value && !error ? clone(value) : undefined;
     },
     restoreBookmark: (entry) => {
       commit(['bookmarks'], () => restoreBookmarkTo(lib, entry), Boolean);

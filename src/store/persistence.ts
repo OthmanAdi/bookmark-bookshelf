@@ -52,6 +52,9 @@ export function saveLibrary(storage: KeyValueStorage, key: string, library: Libr
     storage.setItem(key, JSON.stringify(library));
     return undefined;
   } catch {
-    return { code: 'quota', message: 'The browser would not save your library. Changes are kept until you close the page.' };
+    return {
+      code: 'quota',
+      message: 'The browser would not save your library, so this change was not made. Export a copy to keep your links.',
+    };
   }
 }

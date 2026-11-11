@@ -78,7 +78,7 @@ describe('persistence', () => {
     expect(backupKeys(storage, [DEFAULT_STORAGE_KEY])).toEqual([]);
   });
 
-  it('a quota failure does not throw, keeps memory, and reports quota from Result methods', () => {
+  it('a quota failure does not throw, undoes the change, and reports quota from Result methods', () => {
     const storage = quotaStorage(createMemoryStorage());
     const { store } = makeRig({ storage });
     const [id = ''] = addAll(store, ['a.com']);
@@ -86,18 +86,19 @@ describe('persistence', () => {
 
     const added = store.addBookmark({ url: 'b.com' });
     expect(added).toMatchObject({ ok: false, error: { code: 'quota' } });
-    expect(store.bookmarks()).toHaveLength(2);
+    expect(store.bookmarks()).toHaveLength(1);
 
     expect(store.addShelf('More')).toMatchObject({ ok: false, error: { code: 'quota' } });
-    expect(store.shelves()).toHaveLength(2);
+    expect(store.shelves()).toHaveLength(1);
     expect(() => store.setSession({ focusId: id })).not.toThrow();
-    expect(() => store.removeBookmark(id)).not.toThrow();
+    expect(store.removeBookmark(id)).toBeUndefined();
+    expect(store.bookmarks()).toHaveLength(1);
     expect(() => store.flush()).not.toThrow();
 
     storage.full = false;
     expect(store.addBookmark({ url: 'c.com' }).ok).toBe(true);
     const reloaded = createStore({ storage, syncTabs: false });
-    expect(reloaded.bookmarks().map((b) => b.url)).toContain('https://b.com/');
+    expect(reloaded.bookmarks().map((b) => b.url)).toEqual(['https://a.com/', 'https://c.com/']);
   });
 
   it('a quota failure on a coalesced progress write does not throw', () => {
@@ -189,14 +190,14 @@ describe('subscribers', () => {
     expect(seen).toEqual(['shelves']);
   });
 
-  it('still notifies when the write failed', () => {
+  it('does not notify when the write failed, because nothing changed', () => {
     const storage = quotaStorage(createMemoryStorage());
     const { store } = makeRig({ storage });
     storage.full = true;
     const seen: string[] = [];
     store.subscribe((event) => seen.push(event.reason));
     store.addShelf('X');
-    expect(seen).toEqual(['shelves']);
+    expect(seen).toEqual([]);
   });
 });
 

@@ -259,8 +259,13 @@ export interface ImportSummary {
 }
 
 export interface Store {
-  /** `local` when writes reach durable storage, `memory` when they do not. */
+  /**
+   * `local` when writes reach durable storage, `memory` when they do not: storage is blocked, or the latest
+   * write was refused. It goes back to `local` after a write succeeds.
+   */
   readonly persistence: 'local' | 'memory';
+  /** Why the latest write failed, or undefined when it worked. */
+  lastError(): StoreError | undefined;
   /** Deep copy of the whole library. */
   snapshot(): LibraryV2;
 
