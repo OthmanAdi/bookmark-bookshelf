@@ -191,7 +191,7 @@ export function createFlight(options: FlightOptions): Flight {
     const pose = flightPose(time, start, end);
     const transform =
       `translate3d(${round(pose.x - layoutWidth / 2)}px, ${round(pose.y - layoutHeight)}px, 0) ` +
-      `scale(${round(pose.scale * landing * 1000) / 1000}) rotateZ(${round(pose.lean)}deg) ` +
+      `scale(${Math.round(pose.scale * landing * 1000) / 1000}) rotateZ(${round(pose.lean)}deg) ` +
       `rotateX(${round(pose.tip)}deg) rotateY(${round(pose.yaw)}deg)`;
     if (transform === last) return;
     last = transform;
