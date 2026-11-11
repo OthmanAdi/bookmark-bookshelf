@@ -8,43 +8,94 @@ const root = import.meta.dirname;
 /**
  * Search and sharing metadata that depends on where the site is published.
  *
- * Without an approved origin the build fails closed: every page is marked noindex and no canonical or
- * absolute sharing URL is written. Set SITE_ORIGIN (an https origin, optionally with a base path, no
- * trailing slash) at build time once the site has a home:
+ * Only the homepage is meant to be found through a search engine. `app.html` is the application and the pages
+ * in `examples/` are demonstrations: they are always `noindex, follow`, carry no canonical link and are not
+ * listed in the sitemap.
+ *
+ * Without an approved origin the build fails closed: every page is `noindex` and no canonical or absolute
+ * sharing URL is written. Set SITE_ORIGIN (an https origin, optionally with a base path, no trailing slash)
+ * at build time once the site has a home:
  *
  *   SITE_ORIGIN=https://example.org npm run build
  *
- * Then the homepage and the app get a canonical link and absolute Open Graph URLs, the homepage's
- * structured data gets its `url`, and `robots.txt` and `sitemap.xml` are written. Example pages stay noindex.
+ * Then the homepage gets a canonical link, an `og:url` and absolute image URLs, its structured data gets its
+ * `url`, and `robots.txt` and `sitemap.xml` are written. A `{{ORIGIN}}` placeholder in any page is replaced by
+ * the origin, or, when there is none, the tag that carries it is dropped so no broken URL is shipped.
+ * `robots.txt` is only read at the root of a host, so on a project path the robots meta tag is what counts.
  */
 function siteMeta(): Plugin {
   const origin = (process.env.SITE_ORIGIN ?? '').trim().replace(/\/+$/, '');
   const approved = /^https:\/\/[^/\s]+(\/[^\s]*)?$/.test(origin);
+  const version = (JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { version: string }).version;
+  const placeholder = '{{ORIGIN}}';
+  const structuredData = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g;
+  const applicationTypes = new Set(['SoftwareApplication', 'WebApplication', 'MobileApplication']);
+
+  type Node = Record<string, unknown>;
+  const refine = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(refine);
+    if (typeof node !== 'object' || node === null) return;
+    const entry = node as Node;
+    const types = ([] as unknown[]).concat(entry['@type']);
+    if (types.some((type) => typeof type === 'string' && applicationTypes.has(type))) {
+      entry['applicationCategory'] = 'UtilitiesApplication';
+      // No review or rating exists for this project, so none may be published.
+      delete entry['aggregateRating'];
+      delete entry['review'];
+      if ('softwareVersion' in entry) entry['softwareVersion'] = version;
+      if (approved && !('url' in entry)) entry['url'] = `${origin}/`;
+    }
+    Object.values(entry).forEach(refine);
+  };
+
+  const refineStructuredData = (html: string, page: string): string =>
+    html.replace(structuredData, (_block, body: string) => {
+      if (!approved && body.includes(placeholder)) return '';
+      let data: unknown;
+      try {
+        data = JSON.parse(body.replaceAll(placeholder, origin));
+      } catch (error) {
+        throw new Error(`${page}: the structured data is not valid JSON (${(error as Error).message}).`);
+      }
+      refine(data);
+      return `<script type="application/ld+json">\n${JSON.stringify(data, null, 2)}\n    </script>`;
+    });
+
   return {
     name: 'bookmark-bookshelf-site-meta',
-    transformIndexHtml(html, context) {
+    transformIndexHtml(source, context) {
       const page = context.path.replace(/^\//, '');
-      const indexable = approved && !page.startsWith('examples/');
-      if (!indexable) {
-        return { html, tags: [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' }, injectTo: 'head' }] };
+      const home = page === 'index.html';
+      // One robots directive per page: a static one in the source would contradict the injected one.
+      let html = source.replace(/<meta\s+name="robots"[^>]*>\s*/g, '');
+      const robots = (content: string) => ({ tag: 'meta', attrs: { name: 'robots', content }, injectTo: 'head' as const });
+
+      if (!approved) {
+        html = html.replace(/<(?:meta|link)\b[^>]*\{\{ORIGIN\}\}[^>]*>\s*/g, '');
+        html = refineStructuredData(html, page);
+        return { html, tags: [robots(home ? 'noindex, nofollow' : 'noindex, follow')] };
       }
-      const url = `${origin}/${page === 'index.html' ? '' : page}`;
+
+      html = refineStructuredData(
+        html.replaceAll('content="./social-preview.png"', `content="${origin}/social-preview.png"`).replaceAll(placeholder, origin),
+        page,
+      );
+      if (!home) return { html, tags: [robots('noindex, follow')] };
+
+      const url = `${origin}/`;
       return {
-        html: html
-          .replaceAll('content="./social-preview.png"', `content="${origin}/social-preview.png"`)
-          .replace('"@type": "SoftwareApplication",', `"@type": "SoftwareApplication",\n        "url": "${origin}/",`),
+        html,
         tags: [
-          { tag: 'link', attrs: { rel: 'canonical', href: url }, injectTo: 'head' },
-          { tag: 'meta', attrs: { property: 'og:url', content: url }, injectTo: 'head' },
+          ...(/rel="canonical"/.test(html) ? [] : [{ tag: 'link', attrs: { rel: 'canonical', href: url }, injectTo: 'head' as const }]),
+          ...(/property="og:url"/.test(html) ? [] : [{ tag: 'meta', attrs: { property: 'og:url', content: url }, injectTo: 'head' as const }]),
         ],
       };
     },
     generateBundle() {
       if (!approved) return;
-      const pages = [`${origin}/`, `${origin}/app.html`];
       const sitemap =
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-        pages.map((page) => `  <url><loc>${page}</loc></url>\n`).join('') +
+        `  <url><loc>${origin}/</loc></url>\n` +
         '</urlset>\n';
       this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemap });
       this.emitFile({
