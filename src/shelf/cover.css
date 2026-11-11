@@ -20,13 +20,50 @@
   border-radius: calc(2px * var(--bb-cover-k, 1)) calc(3px * var(--bb-cover-k, 1)) calc(3px * var(--bb-cover-k, 1))
     calc(2px * var(--bb-cover-k, 1));
   background-color: var(--cloth);
-  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 5%, rgba(255, 255, 255, 0.05) 9%, rgba(0, 0, 0, 0) 14%);
   color: var(--cloth-ink);
   overflow: hidden;
-  box-shadow:
-    0 calc(1px * var(--bb-cover-k, 1)) 0 rgba(0, 0, 0, 0.08),
-    0 calc(10px * var(--bb-cover-k, 1)) calc(22px * var(--bb-cover-k, 1)) calc(-12px * var(--bb-cover-k, 1))
-      rgba(26, 24, 21, 0.55);
+  /* Cast away from a light at the upper left. A look with another light sets --bb-cover-shadow. */
+  box-shadow: var(
+    --bb-cover-shadow,
+    calc(5px * var(--bb-cover-k, 1)) calc(9px * var(--bb-cover-k, 1)) calc(20px * var(--bb-cover-k, 1))
+      calc(-11px * var(--bb-cover-k, 1)) rgba(26, 24, 21, 0.5),
+    calc(1px * var(--bb-cover-k, 1)) calc(2px * var(--bb-cover-k, 1)) calc(3px * var(--bb-cover-k, 1)) rgba(26, 24, 21, 0.12)
+  );
+}
+
+/*
+ * The board itself, laid over everything printed on it: the cloth's weave, the joint groove near the
+ * spine (its far wall catches the light), and the edges where the cloth turns over the board. Printing
+ * follows the cloth, so the groove crosses a band printed up to the spine as it would on a real case.
+ */
+.bb-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    var(--bb-weave, none),
+    var(
+      --bb-cover-joint,
+      linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.26) 0,
+        rgba(0, 0, 0, 0.05) 2.4%,
+        rgba(0, 0, 0, 0.3) 3.4%,
+        rgba(255, 255, 255, 0.1) 4.3%,
+        rgba(255, 255, 255, 0) 7%
+      )
+    );
+  background-size:
+    calc(72px * var(--bb-cover-k, 1)) calc(72px * var(--bb-cover-k, 1)),
+    100% 100%;
+  box-shadow: var(
+    --bb-cover-edge,
+    inset calc(-1px * var(--bb-cover-k, 1)) 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 calc(1px * var(--bb-cover-k, 1)) 0 rgba(255, 255, 255, 0.07),
+    inset 0 calc(-1px * var(--bb-cover-k, 1)) 0 rgba(0, 0, 0, 0.2)
+  );
+  pointer-events: none;
 }
 
 /* The inner margin is wider than the outer one: the joint takes the first few percent at the spine side. */
