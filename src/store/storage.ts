@@ -1,8 +1,14 @@
 import type { KeyValueStorage } from './types';
 
-export function createMemoryStorage(initial: Record<string, string> = {}): KeyValueStorage {
+/** Storage held in memory. `keys` lists what is stored, which `localStorage` only does by index. */
+export interface MemoryStorage extends KeyValueStorage {
+  keys(): string[];
+}
+
+export function createMemoryStorage(initial: Record<string, string> = {}): MemoryStorage {
   const values = new Map<string, string>(Object.entries(initial));
   return {
+    keys: () => [...values.keys()],
     getItem: (key) => values.get(key) ?? null,
     setItem: (key, value) => {
       values.set(key, String(value));

@@ -1,5 +1,5 @@
 import { createMemoryStorage, createStore } from './index';
-import type { KeyValueStorage, Store, StoreOptions } from './index';
+import type { MemoryStorage, Store, StoreOptions } from './index';
 
 export function counterIds(prefix = 'id'): () => string {
   let count = 0;
@@ -26,12 +26,13 @@ export function testClock(start = '2026-01-01T00:00:00.000Z'): TestClock {
 
 export interface TestRig {
   store: Store;
-  storage: KeyValueStorage;
+  /** Memory storage unless a test brought its own; tests that bring a wrapper do not list keys. */
+  storage: MemoryStorage;
   clock: TestClock;
 }
 
 export function makeRig(extra: StoreOptions = {}): TestRig {
-  const storage = extra.storage ?? createMemoryStorage();
+  const storage = (extra.storage ?? createMemoryStorage()) as MemoryStorage;
   const clock = testClock();
   const store = createStore({
     storage,

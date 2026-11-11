@@ -264,6 +264,12 @@ export interface Store {
    * write was refused. It goes back to `local` after a write succeeds.
    */
   readonly persistence: 'local' | 'memory';
+  /**
+   * True when the saved library was written by a newer version of the app. It can be read but not changed:
+   * every change to links, shelves, done marks and notes answers `read-only`, and nothing is written. Reading
+   * position and the session still work for this visit but are not saved.
+   */
+  readonly readOnly: boolean;
   /** Why the latest write failed, or undefined when it worked. */
   lastError(): StoreError | undefined;
   /** Deep copy of the whole library. */

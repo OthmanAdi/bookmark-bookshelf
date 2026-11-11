@@ -12,6 +12,11 @@ export interface MigrateOptions {
   now?: () => Date;
   /** Used when a shelf or volume has to be created, and for any id a document gives that cannot be kept. */
   idFactory?: () => string;
+  /**
+   * Reads a document from a newer version as if it were version 2, as far as it makes sense. Only for showing
+   * what is there: the result must never be saved over the original.
+   */
+  acceptNewer?: boolean;
 }
 
 type Resolved = Required<MigrateOptions>;
@@ -135,10 +140,11 @@ function migrate(raw: unknown, resolved: Resolved): Result<MigrationReport> {
   }
   if (Array.isArray(value)) return ok(migrateV0(value, resolved));
   if (!isObject(value)) return fail('invalid-format', 'This is not a Bookmark Bookshelf library.');
-  if (typeof value.version === 'number' && value.version > LIBRARY_VERSION) {
+  const newer = typeof value.version === 'number' && value.version > LIBRARY_VERSION;
+  if (newer && !resolved.acceptNewer) {
     return fail('unsupported-version', `Library version ${value.version} is newer than this app understands.`);
   }
-  if (value.format !== LIBRARY_FORMAT || (value.version !== 1 && value.version !== LIBRARY_VERSION)) {
+  if (value.format !== LIBRARY_FORMAT || (!newer && value.version !== 1 && value.version !== LIBRARY_VERSION)) {
     return fail('invalid-format', 'This is not a Bookmark Bookshelf library.');
   }
   return migrateKnown(value, value.version === 1 ? 1 : 2, resolved);
@@ -154,6 +160,7 @@ export function migrateLibraryWithReport(raw: unknown, options: MigrateOptions =
   const resolved: Resolved = {
     now: options.now ?? (() => new Date()),
     idFactory: options.idFactory ?? defaultIdFactory,
+    acceptNewer: options.acceptNewer ?? false,
   };
   try {
     return migrate(raw, resolved);

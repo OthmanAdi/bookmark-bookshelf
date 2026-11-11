@@ -27,6 +27,7 @@ import { mergeLibrary } from './merge';
 import { migrateLibraryWithReport } from './migrate';
 import { orderedBookmarks } from './ordering';
 import { setDoneIn, setNoteIn } from './personal-ops';
+import type { LoadedLibrary } from './persistence';
 import { loadLibrary, saveLibrary } from './persistence';
 import { normalizeProgress } from './progress';
 import { clone, cloneResult, ok } from './result';
@@ -43,10 +44,13 @@ export function createStore(options: StoreOptions = {}): Store {
   const { storage, persistence: chosenPersistence } = resolveStorage(options.storage, key);
   const progressDelay = options.progressDelay ?? 250;
   const listeners = new Set<Listener>();
-  const load = (): LibraryV2 =>
+  const load = (): LoadedLibrary =>
     loadLibrary({ storage, key, now: clock, idFactory: ctx.newId, ...(options.seed ? { seed: options.seed } : {}) });
 
-  let lib = load();
+  const loaded = load();
+  let lib = loaded.library;
+  // A library written by a newer version is shown but never written back.
+  let readOnly = loaded.readOnly;
   // The outcome of the latest write, for methods that return nothing and for `persistence`.
   let lastWriteError: StoreError | undefined;
   let progressTimer: ReturnType<typeof setTimeout> | undefined;
@@ -59,8 +63,19 @@ export function createStore(options: StoreOptions = {}): Store {
 
   function save(): StoreError | undefined {
     cancelProgressTimer();
+    if (readOnly) return undefined;
     lastWriteError = saveLibrary(storage, key, lib);
     return lastWriteError;
+  }
+
+  function readOnlyFailure(): { ok: false; error: StoreError } {
+    return {
+      ok: false,
+      error: {
+        code: 'read-only',
+        message: 'This library was saved by a newer version of the app, so it can be read here but not changed. Update the app to edit it.',
+      },
+    };
   }
 
   function notify(reason: ChangeReason): void {
@@ -99,6 +114,7 @@ export function createStore(options: StoreOptions = {}): Store {
   }
 
   function mutate<T>(reasons: ChangeReason[], run: () => Result<T>): Result<T> {
+    if (readOnly) return readOnlyFailure();
     const { value, error } = commit(reasons, run, (result) => result.ok);
     if (!value.ok) return value;
     return error ? { ok: false, error } : cloneResult(value);
@@ -106,6 +122,7 @@ export function createStore(options: StoreOptions = {}): Store {
 
   /** For changes that may turn out to be none: nothing is written or announced unless the value says so. */
   function mutateFlag(reasons: ChangeReason[], run: () => Result<boolean>): Result<void> {
+    if (readOnly) return readOnlyFailure();
     const { value, error } = commit(reasons, run, (result) => result.ok && result.value);
     if (!value.ok) return value;
     return error ? { ok: false, error } : ok(undefined);
@@ -125,7 +142,9 @@ export function createStore(options: StoreOptions = {}): Store {
 
   function reloadFromStorage(): void {
     cancelProgressTimer();
-    lib = load();
+    const next = load();
+    lib = next.library;
+    readOnly = next.readOnly;
     notify('external');
   }
 
@@ -138,6 +157,9 @@ export function createStore(options: StoreOptions = {}): Store {
   return {
     get persistence() {
       return chosenPersistence === 'local' && lastWriteError === undefined ? 'local' : 'memory';
+    },
+    get readOnly() {
+      return readOnly;
     },
     lastError: () => (lastWriteError ? { ...lastWriteError } : undefined),
     snapshot: () => clone(lib),
@@ -152,10 +174,12 @@ export function createStore(options: StoreOptions = {}): Store {
     updateBookmark: (id: string, patch: BookmarkPatch) =>
       mutate(['bookmarks'], () => updateBookmarkIn(lib, ctx, id, patch)),
     removeBookmark: (id) => {
+      if (readOnly) return undefined;
       const { value, error } = commit(['bookmarks'], () => removeBookmarkFrom(lib, id), (entry) => entry !== undefined);
       return value && !error ? clone(value) : undefined;
     },
     restoreBookmark: (entry) => {
+      if (readOnly) return;
       commit(['bookmarks'], () => restoreBookmarkTo(lib, entry), Boolean);
     },
     moveBookmark: (id, to) => mutate(['bookmarks'], () => moveBookmarkIn(lib, ctx, id, to)),

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryStorage, createStore, DEFAULT_STORAGE_KEY } from './index';
-import type { KeyValueStorage, StoreEvent } from './index';
+import type { KeyValueStorage, MemoryStorage, StoreEvent } from './index';
 import { addAll, counterIds, makeRig, testClock } from './test-helpers';
 
 function quotaStorage(inner: KeyValueStorage): KeyValueStorage & { full: boolean } {
@@ -53,22 +53,41 @@ describe('persistence', () => {
     expect(store.shelves()).toEqual([{ id: 's', name: 'Seeded', order: 0 }]);
   });
 
-  it('backs up unreadable text under a timestamped key before starting fresh', () => {
-    const clock = testClock();
+  it('backs up unreadable text under a key named after its content before starting fresh', () => {
     const garbage = '{not json at all';
     const storage = createMemoryStorage({ [DEFAULT_STORAGE_KEY]: garbage });
-    const store = createStore({ storage, now: clock.now, syncTabs: false });
-    expect(storage.getItem(`${DEFAULT_STORAGE_KEY}:backup-${clock.now().getTime()}`)).toBe(garbage);
+    const store = createStore({ storage, now: testClock().now, syncTabs: false });
+    const [backup, ...others] = backupKeys(storage, [DEFAULT_STORAGE_KEY]);
+    expect(others).toEqual([]);
+    expect(storage.getItem(backup ?? '')).toBe(garbage);
     expect(store.bookmarks()).toEqual([]);
     expect(store.shelves()).toHaveLength(1);
   });
 
-  it('backs up a library from a newer version as well', () => {
+  it('backs up the same unreadable text once, however often it is loaded', () => {
+    const storage = createMemoryStorage({ [DEFAULT_STORAGE_KEY]: '{not json at all' });
+    const clock = testClock();
+    for (let load = 0; load < 4; load += 1) {
+      createStore({ storage, now: clock.now, syncTabs: false });
+      clock.advance(1000);
+    }
+    expect(backupKeys(storage, [DEFAULT_STORAGE_KEY])).toHaveLength(1);
+  });
+
+  it('backs up different unreadable texts separately', () => {
+    const storage = createMemoryStorage({ [DEFAULT_STORAGE_KEY]: '{first' });
+    createStore({ storage, syncTabs: false });
+    storage.setItem(DEFAULT_STORAGE_KEY, '{second');
+    createStore({ storage, syncTabs: false });
+    expect(backupKeys(storage, [DEFAULT_STORAGE_KEY])).toHaveLength(2);
+  });
+
+  it('does not copy a library from a newer version, because it is never replaced', () => {
     const newer = JSON.stringify({ format: 'bookmark-bookshelf', version: 3, shelves: [], bookmarks: [] });
     const storage = createMemoryStorage({ [DEFAULT_STORAGE_KEY]: newer });
     createStore({ storage, now: testClock().now, syncTabs: false });
-    const backups = backupKeys(storage, [DEFAULT_STORAGE_KEY]);
-    expect(backups).toHaveLength(1);
+    expect(backupKeys(storage, [DEFAULT_STORAGE_KEY])).toEqual([]);
+    expect(storage.getItem(DEFAULT_STORAGE_KEY)).toBe(newer);
   });
 
   it('does not create a backup for a readable library', () => {
@@ -138,10 +157,8 @@ describe('persistence', () => {
   });
 });
 
-/** Memory storage has no key listing, so look for the one timestamp the test clock produces. */
-function backupKeys(storage: KeyValueStorage, keys: string[]): string[] {
-  const stamp = testClock().now().getTime();
-  return keys.map((key) => `${key}:backup-${stamp}`).filter((key) => storage.getItem(key) !== null);
+function backupKeys(storage: MemoryStorage, keys: string[]): string[] {
+  return storage.keys().filter((name) => keys.some((key) => name.startsWith(`${key}:backup-`)));
 }
 
 describe('subscribers', () => {
