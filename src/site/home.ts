@@ -25,7 +25,7 @@ const bookshelf = createBookshelf({
   shelfHost: must<HTMLElement>('#shelf'),
   readerHost: must<HTMLElement>('#reader-host'),
   background: [must<HTMLElement>('#page')],
-  label: 'Sample shelf',
+  label: 'Example shelf',
   caption: false,
   arrows: false,
   onFocusChange: (bookmark) => renderCaption(bookmark),

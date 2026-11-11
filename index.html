@@ -3,33 +3,41 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Bookmark Bookshelf: an open-source 3D bookmark manager</title>
+    <title>Bookmark Bookshelf: a 3D bookmark manager for saved links</title>
     <meta
       name="description"
-      content="An interactive 3D bookshelf for your saved links. Drag the row, open a volume, read the copy you kept and resume where you stopped. Local data, open source."
+      content="A 3D bookmark manager. Saved links stand as books on a shelf you drag, open and read. Import browser bookmarks, share a reading list. No account."
     />
     <meta name="referrer" content="no-referrer" />
     <meta name="theme-color" content="#efebe2" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Bookmark Bookshelf" />
-    <meta property="og:title" content="Bookmark Bookshelf: an open-source 3D bookmark manager" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="Bookmark Bookshelf: a 3D bookmark manager for saved links" />
     <meta
       property="og:description"
-      content="Saved links as volumes on a shelf you can drag, open and read. A read-later list that keeps its context, stored only in your browser."
+      content="Saved links as volumes on a shelf you drag, open and read. Import browser bookmarks, search and share a reading list. Stored only in your browser."
     />
     <meta property="og:image" content="./social-preview.png" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="A row of cloth-bound book spines with one volume turned to show its cover." />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Bookmark Bookshelf: a 3D bookmark manager for saved links" />
+    <meta
+      name="twitter:description"
+      content="Saved links as volumes on a shelf you drag, open and read. Import browser bookmarks, search and share a reading list."
+    />
     <meta name="twitter:image" content="./social-preview.png" />
+    <meta name="twitter:image:alt" content="A row of cloth-bound book spines with one volume turned to show its cover." />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "Bookmark Bookshelf",
-        "description": "An open-source 3D bookmark manager: saved links stand as volumes on an interactive bookshelf, with a reader for the text you keep and reading positions that resume.",
+        "description": "An open-source 3D bookmark manager. Saved links stand as volumes on an interactive bookshelf, with a reader for the text you keep, import of browser bookmarks, search, and sharing of a reading list without a server.",
         "applicationCategory": "BrowserApplication",
         "operatingSystem": "Any modern web browser",
         "isAccessibleForFree": true,
@@ -57,13 +65,13 @@
         <section class="bb-hero" aria-labelledby="hero-title">
           <h1 id="hero-title" class="bb-hero__title">Give your saved links a spine.</h1>
           <p class="bb-hero__deck">
-            Bookmark Bookshelf is an open-source 3D bookmark manager. The pages you meant to read stand as volumes on
-            a shelf: drag the row, pull one out, and read the copy you saved with it. Your library stays in your
-            browser and nothing leaves it.
+            Your saved links stand here as books. Pull one out to read the text you kept with it, from where you
+            stopped last time. You can bring in your browser’s bookmarks and hand a whole shelf to a class. Nothing
+            you save leaves this browser.
           </p>
         </section>
 
-        <section id="preview" class="bb-preview" aria-label="Sample shelf">
+        <section id="preview" class="bb-preview" aria-label="Example shelf">
           <div id="shelf" class="bb-preview__shelf"></div>
           <div class="bb-preview__row">
             <button id="prev" type="button" class="bb-button bb-preview__arrow bb-preview__arrow--prev" aria-label="Previous link" hidden>
@@ -82,12 +90,12 @@
             </p>
           </div>
           <noscript>
-            <p class="bb-preview__noscript">The sample shelf needs JavaScript. The text on this page works without it.</p>
+            <p class="bb-preview__noscript">The example shelf needs JavaScript. Everything else on this page works without it.</p>
           </noscript>
         </section>
 
         <section class="bb-looks-band" aria-label="Looks">
-          <p class="bb-looks-band__note">A sample shelf. It forgets everything when you leave this page.</p>
+          <p class="bb-looks-band__note">These links are examples. Nothing you do here is kept after you leave the page.</p>
           <div id="looks" class="bb-looks" role="group" aria-label="Look"></div>
         </section>
 
@@ -150,12 +158,19 @@
       </main>
 
       <footer class="bb-home__foot">
-        <p>
-          Apache-2.0. Typefaces Newsreader and IBM Plex Mono under the SIL Open Font License 1.1:
-          <a href="./licenses/Newsreader-OFL-1.1.txt">Newsreader licence</a>,
-          <a href="./licenses/IBM-Plex-Mono-OFL-1.1.txt">Plex Mono licence</a>. No tracking, no server.
+        <p class="bb-home__statement">
+          Bookmark Bookshelf is an open-source 3D bookmark manager, released under the Apache-2.0 licence. It runs in
+          your browser and has no server, so your links stay on your device.
         </p>
-        <a class="bb-button bb-home__foot-cta" href="./app.html">Open your shelf</a>
+        <a class="bb-button bb-button--solid bb-home__foot-cta" href="./app.html">Open your shelf</a>
+        <p class="bb-home__fine">
+          <a href="https://github.com/OthmanAdi/bookmark-bookshelf">Source on GitHub</a>
+          <span>
+            Licences for the bundled typefaces:
+            <a href="./licenses/Newsreader-OFL-1.1.txt">Newsreader</a> and
+            <a href="./licenses/IBM-Plex-Mono-OFL-1.1.txt">IBM Plex Mono</a>
+          </span>
+        </p>
       </footer>
     </div>
 
