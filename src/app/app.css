@@ -202,7 +202,7 @@
   position: absolute;
   top: calc(100% + var(--bb-s-1));
   right: 0;
-  z-index: var(--bb-z-chrome);
+  z-index: var(--bb-z-menu, 30);
   width: max(100%, 22rem);
   max-width: calc(100vw - 2 * var(--bb-gutter, 1.25rem));
   padding: var(--bb-s-2);
@@ -285,7 +285,7 @@
   position: absolute;
   top: calc(100% + var(--bb-s-1));
   right: 0;
-  z-index: var(--bb-z-chrome);
+  z-index: var(--bb-z-menu, 30);
   display: grid;
   width: max-content;
   min-width: 16rem;
@@ -825,7 +825,7 @@
     --bb-safe-left: max(var(--bb-gutter, 1.25rem), env(safe-area-inset-left, 0px));
     --bb-safe-right: max(var(--bb-gutter, 1.25rem), env(safe-area-inset-right, 0px));
     /* What a toast or a panel at the bottom has to keep clear of. */
-    --bb-dock-space: calc(var(--bb-bar-h, 3.5rem) + var(--bb-safe-bottom));
+    --bb-dock-space: calc(var(--bb-dock-h, 3.5rem) + var(--bb-safe-bottom));
   }
 
   .bb-app__bar {
@@ -976,6 +976,13 @@
 
   .bb-app__dock #add {
     flex: 1;
+  }
+
+  /* The list scrolls as a page; the dock stays under the thumb while it does. */
+  .bb-app__chrome[data-view='list'] .bb-app__dock {
+    position: sticky;
+    bottom: 0;
+    z-index: var(--bb-z-bar, 2);
   }
 
   .bb-app__dock .bb-menu__button {
