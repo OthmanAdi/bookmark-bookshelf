@@ -304,6 +304,86 @@ export function rowStands(geometry: Geometry, count: number, width: number, size
 }
 
 /**
+ * Where a point of the volume in `slot` stands along the row at `position`, in px from the centre of the
+ * row. The point is a share of the volume's drawn width: 0 is its left edge, 1 its right edge. A volume
+ * gets narrower as it turns back to its spine, and the point keeps its share of that width, so a hand
+ * that follows the point stays on the volume.
+ */
+export function grabbedX(position: number, geometry: Geometry, slot: number, share: number, sizeOf?: SizeOf): number {
+  const pose = computeRow(position, geometry, slot, slot, sizeOf)[0]!;
+  const [left, right] = extentOf(pose, sizeOf?.(slot) ?? geometry);
+  return left + (right - left) * share;
+}
+
+/**
+ * The row position that puts the grabbed point of the volume in `slot` at `x`: what a drag asks for when
+ * the volume under the hand is to stay under it. Found by halving, starting around `near`; the row moves
+ * left as the position grows, so there is one answer. About a dozen layouts are worked out, and the
+ * answer is good to a small fraction of a pixel.
+ */
+export function solvePosition(
+  x: number,
+  geometry: Geometry,
+  slot: number,
+  share: number,
+  near: number,
+  sizeOf?: SizeOf,
+): number {
+  const miss = (position: number): number => grabbedX(position, geometry, slot, share, sizeOf) - x;
+  let low = near - 0.5;
+  let high = near + 0.5;
+  let above = miss(low);
+  let below = miss(high);
+  // The answer lies between a position that leaves the point right of `x` and one that leaves it left.
+  for (let reach = 1; above < 0 && reach <= 64; reach *= 2) {
+    high = low;
+    below = above;
+    low -= reach;
+    above = miss(low);
+  }
+  for (let reach = 1; below > 0 && reach <= 64; reach *= 2) {
+    low = high;
+    above = below;
+    high += reach;
+    below = miss(high);
+  }
+  if (above < 0) return low;
+  if (below > 0) return high;
+  for (let step = 0; step < 10; step++) {
+    const middle = (low + high) / 2;
+    if (miss(middle) > 0) low = middle;
+    else high = middle;
+  }
+  return (low + high) / 2;
+}
+
+/**
+ * How far a row that stands still gives under a hand that has pulled it `travel` px sideways. It follows
+ * the hand at first and less and less after, and never gives more than `most` px: `reach` is the pull
+ * that takes it about two thirds of the way there.
+ */
+export function giveOf(travel: number, most: number, reach: number): number {
+  return Math.sign(travel) * most * (1 - Math.exp(-Math.abs(travel) / Math.max(1, reach)));
+}
+
+/** The pull that makes such a row give by `give` px: the inverse of `giveOf`. */
+export function pullOf(give: number, most: number, reach: number): number {
+  const share = Math.min(0.999, Math.abs(give) / Math.max(1e-6, most));
+  return -Math.sign(give) * Math.max(1, reach) * Math.log(1 - share);
+}
+
+/**
+ * Where something let go `seconds` ago is on its way back to rest: it was `from` away and moving at
+ * `speed` per second. The pull back is that of a spring that just does not swing past its rest, the same
+ * feel as a row settling on a volume.
+ */
+export function settleOf(from: number, speed: number, seconds: number, stiffness = 200): number {
+  const rate = Math.sqrt(Math.max(1e-6, stiffness));
+  const time = Math.max(0, seconds);
+  return (from + (speed + rate * from) * time) * Math.exp(-rate * time);
+}
+
+/**
  * A pose part of the way from one pose to another, `t` from 0 to 1. A volume whose place in the row
  * changes is drawn through these, so it travels and turns to where it belongs instead of jumping there.
  */

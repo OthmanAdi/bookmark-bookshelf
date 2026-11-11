@@ -7,13 +7,18 @@ import {
   extentOf,
   focusWeight,
   gapWeight,
+  giveOf,
+  grabbedX,
   LOOP_FILL,
   pitchAt,
+  pullOf,
   restLength,
   restPitch,
   rowStands,
   samePose,
   scaleGeometry,
+  settleOf,
+  solvePosition,
   visibleRange,
   volumeSize,
   type SizeOf,
@@ -417,6 +422,117 @@ describe('a row that stands still', () => {
 
   it('counts an empty row as standing', () => {
     expect(rowStands(paper, 0, 1280)).toBe(true);
+  });
+});
+
+describe('dragging the row by a volume', () => {
+  const looks = Object.entries(VARIANTS).map(([name, variant]) => [name, variant.geometry] as const);
+  const mixedFor =
+    (geometry: Geometry): SizeOf =>
+    (slot) =>
+      volumeSize(geometry, [0, 0.9, 0.3, 1, 0.1][((slot % 5) + 5) % 5], [1, 0, 0.5][((slot % 3) + 3) % 3]);
+
+  it.each(looks)('keeps the grabbed volume under the pointer to within a pixel (%s)', (_name, geometry) => {
+    const pitch = restPitch(geometry);
+    let worst = 0;
+    for (const sizeOf of [undefined, mixedFor(geometry)]) {
+      for (const start of [3, 3.3, 3.5, 7.9, -2.4]) {
+        // Any volume: the presented one, its neighbours and ones far along the row.
+        for (const offset of [-5, -2, -1, 0, 1, 2, 5]) {
+          const slot = Math.round(start) + offset;
+          for (const share of [0, 0.3, 0.5, 1]) {
+            const from = grabbedX(start, geometry, slot, share, sizeOf);
+            for (let step = -10; step <= 10; step++) {
+              const pointer = from + (step / 5) * pitch;
+              const position = solvePosition(pointer, geometry, slot, share, start, sizeOf);
+              worst = Math.max(worst, Math.abs(grabbedX(position, geometry, slot, share, sizeOf) - pointer));
+            }
+          }
+        }
+      }
+    }
+    expect(worst).toBeLessThan(1);
+  });
+
+  it('leaves the row where it is for a pointer that has not moved', () => {
+    for (const start of [3, 3.4, 8.75]) {
+      const from = grabbedX(start, paper, 5, 0.5);
+      expect(solvePosition(from, paper, 5, 0.5, start)).toBeCloseTo(start, 2);
+    }
+  });
+
+  it('moves the row with the hand: pulling right brings earlier volumes to the centre', () => {
+    const from = grabbedX(4, paper, 8, 0.5);
+    expect(solvePosition(from + restPitch(paper), paper, 8, 0.5, 4)).toBeCloseTo(3, 1);
+    expect(solvePosition(from - 2 * restPitch(paper), paper, 8, 0.5, 4)).toBeCloseTo(6, 1);
+  });
+
+  it('follows a slow hand without a jump, even through the turn of the grabbed volume', () => {
+    for (const [, geometry] of looks) {
+      for (const slot of [3, 4]) {
+        const from = grabbedX(3, geometry, slot, 0.4);
+        let previous = 3;
+        for (let travel = 2; travel <= 300; travel += 2) {
+          const position = solvePosition(from - travel, geometry, slot, 0.4, previous);
+          expect(position).toBeGreaterThan(previous - 1e-6);
+          expect(position - previous).toBeLessThan(0.12);
+          previous = position;
+        }
+      }
+    }
+  });
+
+  it('finds the answer from a poor first guess', () => {
+    const from = grabbedX(20, paper, 22, 0.5);
+    expect(solvePosition(from, paper, 22, 0.5, 3)).toBeCloseTo(20, 1);
+    expect(solvePosition(from, paper, 22, 0.5, 41)).toBeCloseTo(20, 1);
+  });
+});
+
+describe('a standing row under a pull', () => {
+  it('follows the hand at first, then less and less, and never past its limit', () => {
+    expect(giveOf(0, 28, 90)).toBe(0);
+    expect(giveOf(9, 28, 90)).toBeCloseTo(9 * (28 / 90), 0);
+    let previous = 0;
+    for (let travel = 10; travel <= 2000; travel += 10) {
+      const give = giveOf(travel, 28, 90);
+      expect(give).toBeGreaterThan(previous);
+      expect(give - previous).toBeLessThan(10 * (28 / 90));
+      expect(give).toBeLessThanOrEqual(28);
+      previous = give;
+    }
+    expect(giveOf(2000, 28, 90)).toBeCloseTo(28, 3);
+  });
+
+  it('gives the same either way', () => {
+    for (const travel of [3, 40, 250]) expect(giveOf(-travel, 28, 90)).toBeCloseTo(-giveOf(travel, 28, 90), 12);
+  });
+
+  it('knows the pull that made it give so far', () => {
+    for (const travel of [-300, -40, -2, 0, 5, 90, 200]) {
+      expect(pullOf(giveOf(travel, 28, 90), 28, 90)).toBeCloseTo(travel, 6);
+    }
+    expect(Number.isFinite(pullOf(28, 28, 90))).toBe(true);
+  });
+
+  it('comes back to rest without swinging past it', () => {
+    expect(settleOf(28, 0, 0)).toBe(28);
+    let previous = 28;
+    for (let ms = 10; ms <= 1000; ms += 10) {
+      const value = settleOf(28, 0, ms / 1000);
+      expect(value).toBeLessThan(previous);
+      expect(value).toBeGreaterThan(0);
+      previous = value;
+    }
+    // The same pace as a row settling on a volume: about a twentieth is left after a third of a second.
+    expect(settleOf(28, 0, 0.34) / 28).toBeCloseTo(0.05, 1);
+    expect(settleOf(28, 0, 1)).toBeLessThan(0.01);
+    expect(settleOf(-12, 0, 0.1)).toBeCloseTo(-settleOf(12, 0, 0.1), 12);
+  });
+
+  it('carries on a little the way it was going before it comes back', () => {
+    expect(settleOf(10, 60, 0.02)).toBeGreaterThan(10);
+    expect(settleOf(10, 60, 0.6)).toBeLessThan(0.5);
   });
 });
 
