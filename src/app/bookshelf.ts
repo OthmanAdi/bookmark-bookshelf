@@ -25,6 +25,8 @@ export interface BookshelfOptions {
   caption?: boolean;
   /** False when the host draws its own previous and next buttons. Default true. */
   arrows?: boolean;
+  /** Says which links are bundled examples, so the reader can say that their text is not the linked page. */
+  isExample?: (id: string) => boolean;
   onFocusChange?: (bookmark: Bookmark | undefined) => void;
   onOpenChange?: (bookmark: Bookmark | undefined) => void;
 }
@@ -104,7 +106,7 @@ export function toShelfItem(bookmark: Bookmark, percent: number, details: ShelfI
   };
 }
 
-function toReaderDoc(bookmark: Bookmark): ReaderDoc {
+function toReaderDoc(bookmark: Bookmark, lang?: string): ReaderDoc {
   return {
     id: bookmark.id,
     title: bookmark.title,
@@ -114,6 +116,7 @@ function toReaderDoc(bookmark: Bookmark): ReaderDoc {
     note: bookmark.note,
     tags: bookmark.tags,
     text: bookmark.reading?.text,
+    lang,
   };
 }
 
@@ -158,10 +161,10 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     marks = new Map(all.map((bookmark, index) => [bookmark.id, String(index + 1).padStart(width, '0')]));
   };
 
-  const itemOf = (bookmark: Bookmark, percent: number): ShelfItem => {
-    const lang = store.shelves().find((shelf) => shelf.id === bookmark.shelfId)?.lang;
-    return toShelfItem(bookmark, percent, { mark: marks.get(bookmark.id), done: store.isDone(bookmark.id), lang });
-  };
+  const langOf = (bookmark: Bookmark): string | undefined => store.shelves().find((shelf) => shelf.id === bookmark.shelfId)?.lang;
+
+  const itemOf = (bookmark: Bookmark, percent: number): ShelfItem =>
+    toShelfItem(bookmark, percent, { mark: marks.get(bookmark.id), done: store.isDone(bookmark.id), lang: langOf(bookmark) });
 
   const listItems = (): ShelfItem[] => {
     bookmarks = store.bookmarks(store.session().shelfId);
@@ -232,7 +235,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       }
       flight.set(time);
     }
-    reader?.setReveal(time, null);
+    reader?.setReveal(time);
     shelf.element.dataset.settled = state.settled ? '1' : '0';
     // Caption and actions follow the volume that is visibly in the centre.
     const focused = current();
@@ -255,10 +258,12 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     else void open(intent.id);
   });
 
-  // Escape closes from the first frame of an opening, before focus has reached the reader.
+  // Keys reach the reader from the first frame of an opening, wherever focus happens to be.
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== 'Escape' || !reader || event.defaultPrevented) return;
+    if (!reader || event.defaultPrevented) return;
     if (reader.element.contains(document.activeElement)) return;
+    if (reader.handleKey(event)) return;
+    if (event.key !== 'Escape') return;
     event.preventDefault();
     void close();
   };
@@ -326,7 +331,8 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     const following = nextUnread(id);
     readerId = id;
     const active = mountReader(options.readerHost, {
-      doc: toReaderDoc(bookmark),
+      doc: toReaderDoc(bookmark, langOf(bookmark)),
+      example: options.isExample?.(id) ?? false,
       progress: store.progress(id),
       cover,
       coverAspect: coverAspect(),
@@ -438,7 +444,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     if (savingFromReader) return;
     if (reader) {
       const bookmark = readerId ? store.get(readerId) : undefined;
-      if (bookmark) reader.update(toReaderDoc(bookmark));
+      if (bookmark) reader.update(toReaderDoc(bookmark, langOf(bookmark)));
       else void close({ immediate: true });
       return;
     }
