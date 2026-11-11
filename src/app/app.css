@@ -1113,3 +1113,18 @@
     animation: none;
   }
 }
+
+/*
+ * While the look changes, everything in the frame takes its new colours over the same short time as the
+ * page ground, so a switch between a dark look and a light one never cuts. Only for that moment: at any
+ * other time a control answers a pointer at once.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .bb-look-changing .bb-app__chrome,
+  .bb-look-changing .bb-app__chrome * {
+    transition:
+      background-color var(--bb-dur-2) var(--bb-ease-in-out),
+      color var(--bb-dur-2) var(--bb-ease-in-out),
+      border-color var(--bb-dur-2) var(--bb-ease-in-out) !important;
+  }
+}

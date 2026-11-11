@@ -522,10 +522,13 @@ function changeLook(name: string): void {
     return;
   }
   shelfHost.classList.add('is-changing');
+  // The bar, the tabs and the search field take the new look's colours over the same time as the page ground.
+  document.documentElement.classList.add('bb-look-changing');
   window.setTimeout(() => {
     bookshelf.setVariant(name);
     syncThemeColor();
     shelfHost.classList.remove('is-changing');
+    window.setTimeout(() => document.documentElement.classList.remove('bb-look-changing'), LOOK_FADE_MS * 2);
   }, LOOK_FADE_MS);
 }
 
