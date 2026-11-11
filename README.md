@@ -2,9 +2,9 @@
 
 A 3D bookmark manager: your saved links stand as books on a shelf you can drag, open and read.
 
-![A 3D bookshelf in a browser: a row of book spines is dragged, and one volume opens into a reader](docs/media/shelf-demo.gif)
+![A 3D bookshelf in a browser: a row of book spines is swiped, a volume is picked by its spine and opens into a reader](docs/media/shelf-demo.gif)
 
-*Recorded from the app: drag the row, open a volume, read, close.*
+*Recorded from the app: swipe the row, pick a volume by its spine, open it, read, close.*
 
 [Live demo](https://othmanadi.github.io/bookmark-bookshelf/) | [For coding agents](#for-coding-agents) | [Source layout](#the-four-parts)
 

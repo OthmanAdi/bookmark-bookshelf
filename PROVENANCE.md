@@ -14,7 +14,7 @@ Everything under `src/`, `examples/`, `tests/`, `.agents/` and `.claude-plugin/`
 | Example links | `src/data/sample-library.ts` | Fifteen public pages, linked by address under each page's own title. Nothing of those pages' content is reproduced. |
 | Icons and marks | `public/favicon.svg`, `public/icon-192.png`, `public/icon-512.png`, `public/apple-touch-icon.png`, the wordmark in CSS | Drawn for this project. |
 | Social preview | `public/social-preview.png` | A screenshot of this app. |
-| GIFs | `docs/media/*.gif` | Recorded from this app running in a browser. |
+| GIFs | `docs/media/*.gif` | Recorded from this app running in a browser, driven by scripted mouse and touch input. A round pointer marker was added for the recording; nothing else on the page was changed. |
 
 ## The visual reference
 
