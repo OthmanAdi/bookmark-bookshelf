@@ -46,24 +46,33 @@
   overflow-wrap: anywhere;
 }
 
+/* One row at every width: a long site name gives way before the second action would drop below the first. */
 .bb-reader__actions {
   display: flex;
-  flex-wrap: wrap;
   gap: var(--bb-s-3);
   margin-top: var(--bb-s-4);
   padding-bottom: var(--bb-s-4);
   border-bottom: var(--bb-hairline) solid var(--bb-rule);
 }
 
+/* The shared control height, so these grow to the size of a finger on a touch screen like every other button. */
 .bb-reader__open,
 .bb-reader__edit,
 .bb-reader__save,
 .bb-reader__cancel {
-  min-height: 2.5rem;
+  min-height: var(--bb-control-h, 2.5rem);
 }
 
+.bb-reader__edit {
+  flex: none;
+}
+
+/* Shortened on the screen only: the whole name stays in the text of the link. */
 .bb-reader__open-host {
+  min-width: 0;
+  overflow: hidden;
   color: var(--bb-ink-faint);
+  text-overflow: ellipsis;
   text-transform: none;
 }
 

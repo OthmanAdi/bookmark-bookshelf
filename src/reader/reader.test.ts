@@ -104,6 +104,16 @@ describe('structure', () => {
     expect(open.querySelector('.bb-visually-hidden')?.textContent).toBe(' (opens in a new tab)');
   });
 
+  it('keeps the whole name of a long site in the text of the link, where a narrow screen shortens it', () => {
+    mount({ doc: { ...doc, url: 'https://a-long-subdomain.reading-room.example.org/essay' } });
+    const open = query('.bb-reader__open');
+    expect(query('.bb-reader__open-host').textContent).toBe('a-long-subdomain.reading-room.example.org');
+    expect(open.textContent).toBe('Open originala-long-subdomain.reading-room.example.org (opens in a new tab)');
+    // The name is read from the text, so nothing may stand in for it.
+    expect(open.hasAttribute('aria-label')).toBe(false);
+    expect(open.querySelector('[aria-hidden]')).toBeNull();
+  });
+
   it('renders the original action disabled for a non-http url', () => {
     mount({ doc: { ...doc, url: 'javascript:alert(1)' } });
     const open = query('.bb-reader__open');
