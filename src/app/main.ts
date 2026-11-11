@@ -14,6 +14,7 @@ import { createFlows } from './flows';
 import { renderList } from './list-view';
 import { createMenu } from './menu';
 import { createSearch, findLinks } from './search';
+import { emptyState, READING_NOTE } from './shell-empty';
 import { createPhoneLayout, PHONE_QUERY } from './shell-phone';
 import { createStageCaption, type LinkView } from './shell-stage';
 import { firstToRead, renderStatus, statusLine } from './status';
@@ -224,22 +225,23 @@ function openShelfId(): string | null {
 
 function renderTabs(): void {
   const active = store.session().shelfId;
+  const shelf = store.shelves().find((entry) => entry.id === active);
+  const hide = shelf === undefined;
+  const menuHadFocus = hide && shelfMenuWrap.contains(document.activeElement);
+  // The Shelf menu takes its room first, so the strip brings the active tab into the width it really has.
+  shelfMenuWrap.hidden = hide;
+  if (shelf) shelfMenuPanel.setAttribute('aria-label', shelf.name);
+
   shelfTabs.render(
     [
       { id: null, name: 'All', count: store.bookmarks(null).length },
-      ...store.shelves().map((shelf) => ({ id: shelf.id, name: shelf.name, count: store.bookmarks(shelf.id).length })),
+      ...store.shelves().map((entry) => ({ id: entry.id, name: entry.name, count: store.bookmarks(entry.id).length })),
     ],
     active,
   );
 
-  const shelf = store.shelves().find((entry) => entry.id === active);
-  const hide = shelf === undefined;
-  if (hide && shelfMenuWrap.contains(document.activeElement)) {
-    // The open shelf went away with focus on its menu: the tab that is now active takes it.
-    must<HTMLElement>('#tabs').querySelector<HTMLElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
-  }
-  shelfMenuWrap.hidden = hide;
-  if (shelf) shelfMenuPanel.setAttribute('aria-label', shelf.name);
+  // The open shelf went away with focus on its menu: the tab that is now active takes it.
+  if (menuHadFocus) must<HTMLElement>('#tabs').querySelector<HTMLElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
 }
 
 must<HTMLButtonElement>('#new-shelf').addEventListener('click', async () => {
@@ -298,21 +300,77 @@ onShelf('#shelf-remove', (id) => flows.removeShelf(id));
 
 /* ---------- list view ---------- */
 
+/* ---------- empty shelves ---------- */
+
+const mainHost = must<HTMLElement>('#main');
+const emptyHost = must<HTMLElement>('#empty');
+const emptyAdd = must<HTMLButtonElement>('#empty-add');
+must<HTMLElement>('#empty-note').textContent = READING_NOTE;
+
+function openShelfName(): string | null {
+  const id = openShelfId();
+  return id ? (store.shelves().find((shelf) => shelf.id === id)?.name ?? null) : null;
+}
+
+/** Adds a link to the open shelf, or lets the person choose one when every shelf is shown. */
+function addHere(): void {
+  const id = openShelfId();
+  flows.addLink(id ? { shelfId: id } : undefined);
+}
+
+emptyAdd.addEventListener('click', addHere);
+must<HTMLButtonElement>('#empty-bring').addEventListener('click', () => flows.bringLinksIn());
+
+/** Shows the stage, the list or the empty shelf, whichever applies, and keeps focus on the page. */
+function renderStage(): void {
+  const list = store.session().view === 'list';
+  const empty = row.length === 0;
+  const showEmpty = empty && !list;
+  if (showEmpty) {
+    const state = emptyState(openShelfName());
+    must<HTMLElement>('#empty-title').textContent = state.message;
+    must<HTMLElement>('#empty-hint').textContent = state.hint;
+    emptyAdd.textContent = state.buttons.find((entry) => entry.action === 'add')?.label ?? 'Add a link';
+  }
+  const focusWasInCaption = captionHost.contains(document.activeElement);
+  shelfHost.hidden = list || empty;
+  captionHost.hidden = list || empty;
+  emptyHost.hidden = !showEmpty;
+  mainHost.dataset.empty = showEmpty ? '1' : '0';
+  // The last link went away under the caption's buttons: the way forward takes focus.
+  if (showEmpty && focusWasInCaption) emptyAdd.focus({ preventScroll: true });
+}
+
 function renderListView(): void {
-  renderList(listHost, store, {
-    read: (id) => void bookshelf.open(id),
-    addText: (id) => void bookshelf.open(id, { editCopy: true }),
-    edit: (id) => flows.editLink(id),
-    move,
-  });
+  const state = emptyState(openShelfName());
+  renderList(
+    listHost,
+    store,
+    {
+      read: (id) => void bookshelf.open(id),
+      addText: (id) => void bookshelf.open(id, { editCopy: true }),
+      edit: (id) => flows.editLink(id),
+      move,
+    },
+    {
+      empty: {
+        message: state.message,
+        hint: state.hint,
+        buttons: state.buttons.map((entry) => ({
+          label: entry.label,
+          solid: entry.solid,
+          run: entry.action === 'add' ? addHere : () => flows.bringLinksIn(),
+        })),
+      },
+    },
+  );
 }
 
 function applyView(): void {
   const list = store.session().view === 'list';
   chrome.dataset.view = list ? 'list' : 'shelf';
-  shelfHost.hidden = list;
-  captionHost.hidden = list;
   listHost.hidden = !list;
+  renderStage();
   if (list) renderListView();
   else bookshelf.shelf.refresh();
 }
@@ -321,9 +379,29 @@ function renderAll(): void {
   row = store.bookmarks(store.session().shelfId);
   renderTabs();
   renderShelfStatus();
+  renderStage();
   syncStage(true);
   if (store.session().view === 'list') renderListView();
 }
+
+/*
+ * A dialog gives focus back to whatever opened it. When that control has gone in the meantime (the
+ * last link was removed, the shelf changed), focus would fall to the page; it goes to the control that
+ * now stands in the same place instead.
+ */
+function rescueFocus(): void {
+  if (document.activeElement && document.activeElement !== document.body) return;
+  if (bookshelf.isOpen()) return;
+  const candidates = [
+    must<HTMLElement>('#action-primary'),
+    emptyAdd,
+    must<HTMLElement>('#tabs').querySelector<HTMLElement>('[aria-pressed="true"]'),
+  ];
+  candidates.find((element) => element !== null && element.getClientRects().length > 0)?.focus({ preventScroll: true });
+}
+
+// `close` does not bubble, but a listener in the capture phase hears it from every dialog.
+document.addEventListener('close', () => window.setTimeout(rescueFocus, 0), true);
 
 /* ---------- wiring ---------- */
 

@@ -64,7 +64,10 @@
       <nav class="bb-app__shelves" aria-label="Shelves">
         <div class="bb-app__tabset">
           <div id="tabs" class="bb-tabs"></div>
-          <button id="new-shelf" type="button" class="bb-button bb-button--quiet bb-app__new-shelf">New shelf</button>
+          <button id="new-shelf" type="button" class="bb-button bb-button--quiet bb-app__new-shelf">
+            <svg class="bb-app__new-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" /></svg>
+            <span class="bb-app__new-text">New shelf</span>
+          </button>
         </div>
         <div id="shelf-menu-wrap" class="bb-menu bb-app__shelf-menu" hidden>
           <button id="shelf-button" type="button" class="bb-button bb-button--quiet bb-menu__button" aria-haspopup="menu">
@@ -111,6 +114,15 @@
             <button id="action-later" type="button" class="bb-button bb-button--quiet" aria-describedby="caption-title" hidden>Move later</button>
           </div>
         </div>
+        <section id="empty" class="bb-stage__empty" aria-labelledby="empty-title" hidden>
+          <h2 id="empty-title" class="bb-stage__empty-title"></h2>
+          <p id="empty-hint" class="bb-stage__empty-hint"></p>
+          <div class="bb-stage__empty-actions">
+            <button id="empty-add" type="button" class="bb-button bb-button--solid">Add a link</button>
+            <button id="empty-bring" type="button" class="bb-button">Bring links in</button>
+          </div>
+          <p id="empty-note" class="bb-stage__empty-note"></p>
+        </section>
         <div id="list" hidden></div>
       </main>
 
