@@ -297,7 +297,8 @@ function renderShelfStatus(): void {
     // The examples were removed from this line: the active tab, which stays, takes focus.
     must<HTMLElement>('#tabs').querySelector<HTMLElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
   }
-  examplesLine.hidden = examples === 0;
+  // The line speaks about the whole library, so it shows with every shelf at once; an open shelf has its own status.
+  examplesLine.hidden = examples === 0 || id !== null;
   if (examples > 0) must<HTMLElement>('#examples-text').textContent = examplesSentence(examples);
   statusArea.hidden = shelfStatus.hidden && examplesLine.hidden;
 }
