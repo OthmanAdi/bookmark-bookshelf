@@ -2,7 +2,7 @@ import { CLOTHS, PATTERNS } from '../shelf';
 import type { Bookmark, BookmarkInput, Store } from '../store';
 import { button, make, must, option, toast } from './dom';
 import { askToDiscard, closeDialog } from './flow-dialog';
-import { clearErrorOnInput, ensureHint, errorElement, markRequired, setFieldError } from './flow-fields';
+import { clearErrorOnInput, ensureHint, errorElement, groupOf, markRequired, setFieldError } from './flow-fields';
 import { titleFromAddress } from './flow-title';
 
 /**
@@ -23,7 +23,11 @@ export interface Editor {
 
 const capitalise = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1);
 
-export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created: boolean) => void): Editor {
+export function createEditor(
+  store: Store,
+  onSaved: (bookmark: Bookmark, created: boolean) => void,
+  onShow?: (bookmark: Bookmark) => void,
+): Editor {
   const dialog = must<HTMLDialogElement>('#editor');
   const form = must<HTMLFormElement>('#editor-form');
   const title = must<HTMLElement>('#editor-title');
@@ -73,6 +77,32 @@ export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created
       : 'Leave this empty and the title is taken from the address.';
   };
   url.addEventListener('input', showTitleHint);
+
+  const known = make('p', 'bb-field__note');
+  known.id = 'note-url';
+  known.hidden = true;
+  const knownText = make('span');
+  let knownLink: Bookmark | undefined;
+  const showKnown = button('Show it', 'bb-button bb-button--quiet', async () => {
+    if (!knownLink || !onShow) return;
+    const target = knownLink;
+    const typed = [titleInput, author, note, tags, readingText].some((control) => control.value.trim() !== '');
+    if (typed && !(await askToDiscard('This link has not been saved.'))) return;
+    closeDialog(dialog);
+    onShow(target);
+  });
+  known.append(knownText, ' ', showKnown);
+  groupOf(url).appendChild(known);
+
+  function checkKnown(): void {
+    knownLink = url.value.trim() === '' ? undefined : store.findByUrl(url.value, editingId ?? undefined);
+    known.hidden = !knownLink;
+    if (!knownLink) return;
+    const shelfName = store.shelves().find((entry) => entry.id === knownLink?.shelfId)?.name ?? 'a shelf';
+    knownText.textContent = `Already on ${shelfName}.`;
+    showKnown.hidden = !onShow;
+  }
+  url.addEventListener('input', checkKnown);
 
   const status = form.querySelector<HTMLElement>('.bb-dialog__status') ?? make('p', 'bb-dialog__status');
   status.setAttribute('role', 'status');
@@ -132,6 +162,7 @@ export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created
     saveMore.hidden = Boolean(bookmark);
     if (more) more.open = Boolean(bookmark);
     showTitleHint();
+    checkKnown();
     untouched = values();
   }
 

@@ -16,7 +16,7 @@ function describe(control: HTMLElement, id: string, on: boolean): void {
 }
 
 /** The element that holds a control together with its label, so notes can sit directly beneath it. */
-function groupOf(control: HTMLElement): HTMLElement {
+export function groupOf(control: HTMLElement): HTMLElement {
   const label = control.closest<HTMLElement>('.bb-field');
   if (!label) return control.parentElement ?? control;
   const existing = label.parentElement;

@@ -53,6 +53,12 @@ export function createFlows(context: FlowContext): Flows {
       }
     }
     bookshelf.show(bookmark.id);
+  }, (bookmark) => {
+    if (store.session().shelfId !== null && store.session().shelfId !== bookmark.shelfId) {
+      bookshelf.setShelf(bookmark.shelfId);
+      context.refresh();
+    }
+    bookshelf.show(bookmark.id);
   });
 
   function handleAddress(): void {

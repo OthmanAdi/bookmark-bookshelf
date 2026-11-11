@@ -5,6 +5,7 @@ import { makeStore, mountPage, tick } from './flow-test-helpers';
 
 let store: Store;
 let saved: Array<{ bookmark: Bookmark; created: boolean }>;
+let shown: Bookmark[];
 
 const input = (name: string): HTMLInputElement => document.querySelector(`#editor [name="${name}"]`) as HTMLInputElement;
 const dialog = (): HTMLDialogElement => document.getElementById('editor') as HTMLDialogElement;
@@ -13,10 +14,15 @@ beforeEach(() => {
   mountPage();
   store = makeStore();
   saved = [];
+  shown = [];
 });
 
 function editor() {
-  return createEditor(store, (bookmark, created) => saved.push({ bookmark, created }));
+  return createEditor(
+    store,
+    (bookmark, created) => saved.push({ bookmark, created }),
+    (bookmark) => shown.push(bookmark),
+  );
 }
 
 describe('add', () => {
@@ -110,6 +116,59 @@ describe('words', () => {
     expect(document.getElementById('editor-delete')?.textContent).toBe('Remove link');
     const words = (document.getElementById('editor') as HTMLElement).textContent ?? '';
     expect(words).not.toMatch(/volume|reading copy|sample/i);
+  });
+});
+
+describe('a link that is already saved', () => {
+  const typeAddress = (value: string): void => {
+    input('url').value = value;
+    input('url').dispatchEvent(new Event('input'));
+  };
+  const note = (): HTMLElement => document.getElementById('note-url') as HTMLElement;
+
+  it('says where it is, and offers to show it', () => {
+    const existing = store.bookmarks()[0] as Bookmark;
+    const shelf = store.shelves().find((entry) => entry.id === existing.shelfId);
+    editor().add();
+    typeAddress(existing.url);
+    expect(note().hidden).toBe(false);
+    expect(note().textContent).toContain(`Already on ${shelf?.name}.`);
+    expect(input('url').hasAttribute('aria-invalid')).toBe(false);
+  });
+
+  it('recognises the same address written a little differently', () => {
+    const existing = store.bookmarks()[0] as Bookmark;
+    editor().add();
+    typeAddress(`${existing.url.replace('https://', 'HTTPS://')}#top`);
+    expect(note().hidden).toBe(false);
+  });
+
+  it('stays quiet for an address that is new, and when editing the link itself', () => {
+    const existing = store.bookmarks()[0] as Bookmark;
+    const ed = editor();
+    ed.add();
+    typeAddress('https://example.org/brand-new');
+    expect(note().hidden).toBe(true);
+    ed.edit(existing.id);
+    expect(note().hidden).toBe(true);
+  });
+
+  it('closes and shows the link when asked', () => {
+    const existing = store.bookmarks()[2] as Bookmark;
+    editor().add();
+    typeAddress(existing.url);
+    (note().querySelector('button') as HTMLButtonElement).click();
+    expect(dialog().open).toBe(false);
+    expect(shown.map((entry) => entry.id)).toEqual([existing.id]);
+  });
+
+  it('still lets the person save it again', () => {
+    const existing = store.bookmarks()[0] as Bookmark;
+    const count = store.bookmarks().length;
+    editor().add();
+    typeAddress(existing.url);
+    (document.getElementById('editor-save') as HTMLButtonElement).click();
+    expect(store.bookmarks()).toHaveLength(count + 1);
   });
 });
 

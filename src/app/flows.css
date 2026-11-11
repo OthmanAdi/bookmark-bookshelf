@@ -265,6 +265,25 @@
   display: none;
 }
 
+.bb-field__note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--bb-s-2);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  line-height: 1.4;
+}
+
+.bb-field__note[hidden] {
+  display: none;
+}
+
+.bb-field__note .bb-button {
+  min-height: 1.75rem;
+  padding: 0 var(--bb-s-2);
+}
+
 .bb-field__required {
   color: var(--bb-ink-soft);
   text-transform: none;
