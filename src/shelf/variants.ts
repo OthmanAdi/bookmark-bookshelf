@@ -21,23 +21,15 @@ const paperGeometry: Geometry = {
 };
 
 /**
- * Paper Row follows the measured reference timing: programmed steps ease in and out over 1.65 to 2.05 s
- * depending on distance, and opening holds for five frames (the volume gives way to the page at once)
- * before a move of just over one second. Closing takes about 0.6 s. A dragged or flicked row is never slowed down: it tracks the pointer and settles on a spring.
+ * Every look moves the same way. A step along the row is eased and quick enough for daily use, and it
+ * grows only a little with distance. Opening is one continuous move: the volume stays in view from the
+ * shelf to its place beside the page. A dragged or flicked row is never slowed down: it tracks the
+ * pointer and settles on a spring.
  */
-const measuredMotion: VariantMotion = {
-  travel: { base: 1650, perItem: 200, max: 2050 },
-  openDuration: 1040,
-  closeDuration: 620,
-  openHold: 165,
-  swap: true,
-};
-
-/** The other looks answer faster: spring travel and a single continuous open. */
-const quickMotion: VariantMotion = {
-  travel: null,
-  openDuration: 900,
-  closeDuration: 640,
+const steadyMotion: VariantMotion = {
+  travel: { base: 420, perItem: 70, max: 950 },
+  openDuration: 720,
+  closeDuration: 520,
   openHold: 0,
   swap: false,
 };
@@ -48,7 +40,7 @@ export const VARIANTS: Record<string, Variant> = {
     label: 'Paper Row',
     summary: 'One endless row of cloth spines on a paper ground. The default.',
     geometry: paperGeometry,
-    motion: measuredMotion,
+    motion: steadyMotion,
     loop: true,
   },
   oak: {
@@ -67,7 +59,7 @@ export const VARIANTS: Record<string, Variant> = {
       focusLift: 0,
       perspective: 1500,
     },
-    motion: quickMotion,
+    motion: steadyMotion,
     loop: false,
   },
   night: {
@@ -83,7 +75,7 @@ export const VARIANTS: Record<string, Variant> = {
       focusLift: 14,
       perspective: 1300,
     },
-    motion: quickMotion,
+    motion: steadyMotion,
     loop: true,
   },
   pocket: {
@@ -100,7 +92,7 @@ export const VARIANTS: Record<string, Variant> = {
       focusLean: 3,
       perspective: 2400,
     },
-    motion: quickMotion,
+    motion: steadyMotion,
     loop: true,
   },
 };
