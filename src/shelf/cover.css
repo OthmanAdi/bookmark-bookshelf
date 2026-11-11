@@ -1,13 +1,16 @@
 /*
  * The front cover: cloth, type, plate and mark. Used on the shelf and on its own beside the reader.
  * Everything is sized in container units, so one cover works at any scale.
+ *
+ * The grid is fixed: widths in cqw, heights in % of the cover. The head (title block) takes the top 47 %,
+ * the plate hangs from the line at 50 % and stands on the foot line, and the foot carries the small print.
+ * None of these lines moves with the length of the title, so covers of one look line up on the shelf.
  */
 
 .bb-cover {
   position: absolute;
   inset: 0;
-  display: flex;
-  flex-direction: column;
+  display: block;
   container-type: inline-size;
   /*
    * --bb-cover-k is the size of this cover relative to the one on the shelf. A cover shown larger on its
@@ -26,11 +29,16 @@
       rgba(26, 24, 21, 0.55);
 }
 
+/* The inner margin is wider than the outer one: the joint takes the first few percent at the spine side. */
 .bb-cover__head {
+  position: absolute;
+  top: 10cqw;
+  right: 9cqw;
+  bottom: 53%;
+  left: 12cqw;
   display: flex;
   flex-direction: column;
-  gap: 3.4cqw;
-  padding: 10cqw 9cqw 6cqw 11cqw;
+  gap: 3cqw;
 }
 
 .bb-cover__source {
@@ -54,7 +62,7 @@
   font-size: 12.6cqw;
   font-weight: 600;
   letter-spacing: -0.012em;
-  line-height: 1.02;
+  line-height: 1.04;
   text-wrap: balance;
 }
 
@@ -63,38 +71,45 @@
   font-size: 5.6cqw;
   font-style: italic;
   line-height: 1.2;
-  opacity: 0.9;
 }
 
 .bb-cover__plate {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  margin: 0 9cqw 9cqw 11cqw;
+  position: absolute;
+  top: 50%;
+  right: 9cqw;
+  bottom: 14cqw;
+  left: 12cqw;
   border-top: calc(1px * var(--bb-cover-k, 1)) solid currentColor;
   color: var(--cloth-art);
-  overflow: hidden;
 }
 
 .bb-cover__art {
   position: absolute;
-  inset: 0;
+  inset: 5cqw 0 0;
   display: block;
   width: 100%;
-  height: 100%;
+  height: calc(100% - 5cqw);
 }
 
-.bb-cover__mark {
+.bb-cover__foot {
   position: absolute;
   right: 9cqw;
-  bottom: 9cqw;
-  padding: 1.6cqw 2.6cqw 1.2cqw;
-  border: calc(1px * var(--bb-cover-k, 1)) solid var(--cloth-ink);
-  background: var(--cloth);
-  color: var(--cloth-ink);
+  bottom: 5cqw;
+  left: 12cqw;
+  display: flex;
+  align-items: baseline;
+  gap: 2cqw;
+  line-height: 1.2;
+}
+
+/* The accession number. Printed only where a look asks for it with --bb-cover-mark: 1. */
+.bb-cover__mark {
+  flex: none;
+  margin-left: auto;
   font-family: var(--bb-font-mono);
-  font-size: 4.3cqw;
+  font-size: max(9px, 4.2cqw);
   font-weight: 500;
-  letter-spacing: 0.08em;
-  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  opacity: var(--bb-cover-mark, 0);
 }

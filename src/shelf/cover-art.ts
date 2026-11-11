@@ -188,12 +188,15 @@ function textElement(tag: string, className: string, text: string): HTMLElement 
 /**
  * A complete front cover: cloth, source line, title, drawing and catalogue mark.
  * It sizes its type from its own width, so the same element works at spine
- * scale on the shelf and at full size beside the reader.
+ * scale on the shelf and at full size beside the reader. Everything on it is
+ * said again next to it (caption, reader heading), so it is hidden from
+ * assistive technology.
  */
 export function createCover(item: ShelfItem, mark?: string): HTMLElement {
   const cover = document.createElement('span');
   cover.className = `bb-cover bb-cloth--${resolveCloth(item.cloth)}`;
   cover.dataset.pattern = resolvePattern(item.pattern);
+  cover.setAttribute('aria-hidden', 'true');
 
   const head = document.createElement('span');
   head.className = 'bb-cover__head';
@@ -208,6 +211,11 @@ export function createCover(item: ShelfItem, mark?: string): HTMLElement {
   cover.appendChild(plate);
 
   const label = mark ?? item.mark;
-  if (label) cover.appendChild(textElement('span', 'bb-cover__mark', label));
+  if (label) {
+    const foot = document.createElement('span');
+    foot.className = 'bb-cover__foot';
+    foot.appendChild(textElement('span', 'bb-cover__mark', label));
+    cover.appendChild(foot);
+  }
   return cover;
 }

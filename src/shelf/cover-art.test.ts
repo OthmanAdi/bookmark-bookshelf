@@ -65,6 +65,16 @@ describe('createCover', () => {
     expect(createCover(item({ mark: 'X1' })).querySelector('.bb-cover__mark')?.textContent).toBe('X1');
   });
 
+  it('sets the mark at the foot, not in a box at the head', () => {
+    const cover = createCover(item(), '07');
+    expect(cover.querySelector('.bb-cover__foot > .bb-cover__mark')).not.toBeNull();
+    expect(cover.querySelector('.bb-cover__head .bb-cover__mark')).toBeNull();
+  });
+
+  it('is hidden from assistive technology, since everything on it is said beside it', () => {
+    expect(createCover(item()).getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('renders markup in a title as text and creates no elements from it', () => {
     const hostile = '<img src=x onerror=1>';
     const cover = createCover(item({ title: hostile, source: hostile, author: hostile }));
