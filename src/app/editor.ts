@@ -1,6 +1,7 @@
 import { CLOTHS, PATTERNS } from '../shelf';
 import type { Bookmark, BookmarkInput, Store } from '../store';
 import { must, option, toast } from './dom';
+import { clearErrorOnInput, ensureHint, errorElement, markRequired, setFieldError } from './flow-fields';
 
 /**
  * Add and edit dialog. One native <dialog> with a plain form. Every rule lives
@@ -17,7 +18,7 @@ export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created
   const dialog = must<HTMLDialogElement>('#editor');
   const form = must<HTMLFormElement>('#editor-form');
   const title = must<HTMLElement>('#editor-title');
-  const error = must<HTMLElement>('#editor-error');
+  const formError = must<HTMLElement>('#editor-error');
   const remove = must<HTMLButtonElement>('#editor-delete');
   const cancel = must<HTMLButtonElement>('#editor-cancel');
   const field = <T extends HTMLElement>(name: string): T => must<T>(`[name="${name}"]`, form);
@@ -37,15 +38,34 @@ export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created
   cloth.replaceChildren(option('', 'Chosen for you'), ...CLOTHS.map((name) => option(name, capitalise(name))));
   pattern.replaceChildren(option('', 'Chosen for you'), ...PATTERNS.map((name) => option(name, capitalise(name))));
 
+  const controls: Record<string, HTMLElement> = { url, title: titleInput, author, note, tags, shelfId: shelf, cloth, pattern, readingText };
+  for (const control of Object.values(controls)) {
+    errorElement(control);
+    clearErrorOnInput(control);
+  }
+  markRequired(url);
+  ensureHint(titleInput, 'Leave this empty and the title is taken from the address.');
+
+  function clearErrors(): void {
+    formError.hidden = true;
+    for (const control of Object.values(controls)) setFieldError(control, null);
+  }
+
   function showError(message: string, fieldName?: string): void {
-    error.textContent = message;
-    error.hidden = false;
-    const target = fieldName ? form.querySelector<HTMLElement>(`[name="${fieldName}"]`) : null;
-    (target ?? url).focus();
+    clearErrors();
+    const target = fieldName ? controls[fieldName] : undefined;
+    if (!target) {
+      formError.textContent = message;
+      formError.hidden = false;
+      url.focus();
+      return;
+    }
+    setFieldError(target, message);
+    target.focus();
   }
 
   function fill(bookmark: Bookmark | undefined): void {
-    error.hidden = true;
+    clearErrors();
     shelf.replaceChildren(...store.shelves().map((entry) => option(entry.id, entry.name)));
     url.value = bookmark?.url ?? '';
     titleInput.value = bookmark?.title ?? '';
@@ -138,7 +158,9 @@ export function askText(heading: string, label: string, initial: string, validat
   must<HTMLElement>('#prompt-title').textContent = heading;
   must<HTMLElement>('#prompt-label').textContent = label;
   input.value = initial;
-  error.hidden = true;
+  errorElement(input, error);
+  setFieldError(input, null, error);
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
   return new Promise((resolve) => {
     let answer: string | null = null;
@@ -146,23 +168,27 @@ export function askText(heading: string, label: string, initial: string, validat
       event.preventDefault();
       const message = validate(input.value);
       if (message) {
-        error.textContent = message;
-        error.hidden = false;
+        setFieldError(input, message, error);
         input.focus();
         return;
       }
       answer = input.value;
       dialog.close();
     };
+    const onInput = (): void => setFieldError(input, null, error);
     const onCancel = (): void => dialog.close();
     const onClose = (): void => {
       form.removeEventListener('submit', onSubmit);
+      input.removeEventListener('input', onInput);
       cancel.removeEventListener('click', onCancel);
       dialog.removeEventListener('close', onClose);
+      const active = document.activeElement;
+      if (opener?.isConnected && (!active || active === document.body || dialog.contains(active))) opener.focus();
       resolve(answer);
     };
     const cancel = must<HTMLButtonElement>('#prompt-cancel');
     form.addEventListener('submit', onSubmit);
+    input.addEventListener('input', onInput);
     cancel.addEventListener('click', onCancel);
     dialog.addEventListener('close', onClose);
     dialog.showModal();

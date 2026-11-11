@@ -102,17 +102,12 @@
   border: var(--bb-hairline) solid var(--bb-rule-strong);
   border-radius: var(--bb-r-2);
   background: var(--bb-sheet);
-  color: #1a1815;
+  color: var(--bb-ink);
   box-shadow:
     0 1px 2px rgba(26, 24, 21, 0.08),
     0 24px 60px -20px rgba(26, 24, 21, 0.45);
-  /* Dialogs sit on the sheet colour in every variant, so they keep light-ground tokens. */
-  --bb-ink: #1a1815;
-  --bb-ink-soft: #524d46;
-  --bb-paper: #efebe2;
-  --bb-paper-raised: #ffffff;
-  --bb-rule: rgba(26, 24, 21, 0.16);
-  --bb-rule-strong: rgba(26, 24, 21, 0.62);
+  /* Until a look names its own danger colour, mix one from the look's ink so it reads on a light or a dark sheet. */
+  --flow-danger: var(--bb-danger, color-mix(in srgb, #c0341c 62%, var(--bb-ink)));
 }
 
 .bb-dialog--small {
@@ -120,7 +115,7 @@
 }
 
 .bb-dialog::backdrop {
-  background: rgba(26, 24, 21, 0.42);
+  background: var(--bb-backdrop, rgba(26, 24, 21, 0.42));
 }
 
 .bb-dialog form {
@@ -135,11 +130,38 @@
 }
 
 .bb-dialog__error {
-  padding: var(--bb-s-3);
-  border-left: 3px solid var(--bb-accent);
-  background: rgba(181, 48, 26, 0.08);
-  color: var(--bb-accent-strong);
+  color: var(--flow-danger);
   font-size: var(--bb-text-small);
+  line-height: 1.4;
+}
+
+.bb-field-group {
+  display: grid;
+  gap: var(--bb-s-2);
+  min-width: 0;
+}
+
+.bb-field__error {
+  color: var(--flow-danger);
+  font-size: var(--bb-text-small);
+  line-height: 1.4;
+}
+
+.bb-field__error[hidden] {
+  display: none;
+}
+
+.bb-field__required {
+  color: var(--bb-ink-soft);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.bb-field input[aria-invalid='true'],
+.bb-field select[aria-invalid='true'],
+.bb-field textarea[aria-invalid='true'] {
+  border-color: var(--flow-danger);
+  box-shadow: inset 0 0 0 1px var(--flow-danger);
 }
 
 .bb-field {
