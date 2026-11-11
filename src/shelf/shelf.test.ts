@@ -167,6 +167,25 @@ describe('mountShelf rendering', () => {
     expect(shelf.coverPlacement()).toBeNull();
   });
 
+  it('sizes each volume from its thickness and stature', () => {
+    const items = makeItems(6).map((item, index) => ({ ...item, thickness: index / 5, stature: index % 2 }));
+    const { shelf } = mount({ items });
+    const width = (slot: number): number => parseFloat(bySlot(shelf, slot).style.getPropertyValue('--bb-spine-w'));
+    const height = (slot: number): number => parseFloat(bySlot(shelf, slot).style.getPropertyValue('--bb-book-h'));
+    expect(width(5)).toBeGreaterThan(width(1));
+    expect(height(1)).toBeGreaterThan(height(2));
+    const placement = shelf.coverPlacement();
+    expect(placement?.height).toBeCloseTo(height(0), 6);
+    expect(shelf.pitchAt(0.5)).toBeGreaterThan(0);
+    expect(shelf.pitch()).not.toBeCloseTo(shelf.pitchAt(0.5), 3);
+  });
+
+  it('leaves volumes of a shelf without sizes at the look size', () => {
+    const { shelf } = mount();
+    expect(bySlot(shelf, 1).style.getPropertyValue('--bb-spine-w')).toBe('');
+    expect(shelf.pitchAt(1.5)).toBeCloseTo(shelf.pitch(), 9);
+  });
+
   it('pitch is positive', () => {
     expect(mount().shelf.pitch()).toBeGreaterThan(0);
   });

@@ -2,7 +2,16 @@ import './shelf.css';
 import './cover.css';
 import './variants.css';
 import { createBook, dropPrint, ensurePrint, setReal, type BookNode } from './book';
-import { computeRow, restPitch, scaleGeometry, visibleRange, type SlotPose } from './layout';
+import {
+  computeRow,
+  pitchAt,
+  restPitch,
+  scaleGeometry,
+  visibleRange,
+  volumeSize,
+  type SlotPose,
+  type VolumeSize,
+} from './layout';
 import { faceShades, resolveLight, sheenOf, sweepOf } from './light';
 import { resolveVariant } from './variants';
 import type { Geometry, Light, Pose, ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions, Variant } from './types';
@@ -51,6 +60,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let openSlot: number | null = null;
   /** Pose of the centred volume as last drawn. */
   let presented: SlotPose | null = null;
+  /** Each item's volume size at the current scale; null when every volume has the look's size. */
+  let sizes: VolumeSize[] | null = null;
+  const sizeOf = (slot: number): VolumeSize => sizeAt(slot) ?? geometry;
   const nodes = new Map<number, BookNode>();
   const listeners = new Set<(intent: ShelfIntent) => void>();
 
@@ -113,6 +125,32 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     root.style.setProperty('--bb-cover-w', `${geometry.coverWidth}px`);
     root.style.setProperty('--bb-floor-y', `${FLOOR_ROOM}px`);
     scene.style.perspective = `${geometry.perspective}px`;
+    measureSizes();
+  }
+
+  /** Works out each volume's own size at the current scale. A shelf whose items carry no size skips it all. */
+  function measureSizes(): void {
+    const any = items.some((item) => item.thickness !== undefined || item.stature !== undefined);
+    sizes = any ? items.map((item) => volumeSize(geometry, item.thickness, item.stature)) : null;
+    for (const node of nodes.values()) applySize(node);
+  }
+
+  function sizeAt(slot: number): VolumeSize | undefined {
+    return sizes?.[wrap(slot, items.length)];
+  }
+
+  function applySize(node: BookNode): void {
+    const size = sizeAt(node.slot);
+    const style = node.element.style;
+    if (!size) {
+      style.removeProperty('--bb-spine-w');
+      style.removeProperty('--bb-book-h');
+      style.removeProperty('--bb-cover-w');
+      return;
+    }
+    style.setProperty('--bb-spine-w', `${size.spineWidth}px`);
+    style.setProperty('--bb-book-h', `${size.bookHeight}px`);
+    style.setProperty('--bb-cover-w', `${size.coverWidth}px`);
   }
 
   function isReal(slot: number): boolean {
@@ -158,6 +196,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       const item = items[index];
       if (!item) continue;
       const node = createBook(item, index, slot);
+      applySize(node);
       setReal(node, isReal(slot), items.length);
       nodes.set(slot, node);
       row.appendChild(node.element);
@@ -194,7 +233,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const focusInside = row.contains(document.activeElement);
     centre = nextCentre;
 
-    const range = visibleRange(position, geometry, sceneWidth, count, loop);
+    const sized = sizes ? sizeOf : undefined;
+    const range = visibleRange(position, geometry, sceneWidth, count, loop, 2, sized);
     syncNodes(range.from, range.to);
     if (centreChanged) {
       syncSemantics(focusInside);
@@ -210,7 +250,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const scale = geometry.spineWidth / variant.geometry.spineWidth;
 
     presented = null;
-    for (const slotPose of computeRow(position, geometry, range.from, range.to)) {
+    for (const slotPose of computeRow(position, geometry, range.from, range.to, sized)) {
       const node = nodes.get(slotPose.slot);
       if (!node) continue;
       if (slotPose.slot === centre) presented = slotPose;
@@ -368,6 +408,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       for (const node of nodes.values()) node.element.remove();
       nodes.clear();
       centre = Number.NaN;
+      measureSizes();
       render();
     },
     setPose(nextPose) {
@@ -385,7 +426,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       centre = Number.NaN;
       refresh();
     },
-    pitch: () => restPitch(geometry),
+    pitch() {
+      if (!sizes || sizes.length === 0) return restPitch(geometry);
+      return sizes.reduce((sum, size) => sum + size.spineWidth, 0) / sizes.length + geometry.gap;
+    },
+    pitchAt: (position) => pitchAt(position, geometry, sizes ? sizeOf : undefined),
     coverSize: () => ({ width: geometry.coverWidth, height: geometry.bookHeight }),
     coverBox() {
       const cover = nodes.get(centre)?.cover;
@@ -400,15 +445,16 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       // under a pixel, so one layout read gives the centre of the face as drawn.
       const box = cover.getBoundingClientRect();
       const turn = presented.angle * DEG;
-      const half = geometry.spineWidth / 2;
+      const size = sizeOf(centre);
+      const half = size.spineWidth / 2;
       // Depth of the face's centre: the cover hinges on the spine's edge and turns about the spine's middle.
-      const depth = presented.z + half * Math.sin(turn) - (geometry.coverWidth / 2) * Math.cos(turn);
-      const along = light.lamp ? (presented.x + (geometry.coverWidth * Math.sin(turn)) / 2) / geometry.coverWidth : 0;
+      const depth = presented.z + half * Math.sin(turn) - (size.coverWidth / 2) * Math.cos(turn);
+      const along = light.lamp ? (presented.x + (size.coverWidth * Math.sin(turn)) / 2) / geometry.coverWidth : 0;
       return {
         cx: box.left + box.width / 2,
         cy: box.top + box.height / 2,
-        width: geometry.coverWidth,
-        height: geometry.bookHeight,
+        width: size.coverWidth,
+        height: size.bookHeight,
         lean: presented.lean,
         yaw: 90 - presented.angle,
         scale: geometry.perspective / Math.max(1, geometry.perspective - depth),

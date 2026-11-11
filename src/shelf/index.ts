@@ -5,7 +5,21 @@
 export { mountShelf } from './shelf';
 export { createCover, createCoverArt } from './cover-art';
 export { DEFAULT_LAMP, DEFAULT_LIGHT, faceShades, lampReach, sheenOf, sweepOf, type FaceShades } from './light';
-export { computeRow, focusWeight, restPitch, scaleGeometry, slotAdvance, turnedWidth, visibleRange, type SlotPose } from './layout';
+export {
+  computeRow,
+  focusWeight,
+  gapWeight,
+  pitchAt,
+  restPitch,
+  scaleGeometry,
+  slotAdvance,
+  turnedWidth,
+  visibleRange,
+  volumeSize,
+  type SizeOf,
+  type SlotPose,
+  type VolumeSize,
+} from './layout';
 export {
   CLOTHS,
   DEFAULT_VARIANT,

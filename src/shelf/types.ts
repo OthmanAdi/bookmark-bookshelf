@@ -179,8 +179,10 @@ export interface ShelfHandle {
   setVariant(variant: string | Variant): void;
   readonly variant: Variant;
   readonly loop: boolean;
-  /** Distance in px between two neighbouring resting volumes, at the current scale. */
+  /** Mean distance in px between two neighbouring resting volumes, at the current scale. */
   pitch(): number;
+  /** How far the row moves in px for one unit of position near `position`; volumes may differ in thickness. */
+  pitchAt(position: number): number;
   /** Layout size of a cover on the shelf at the current scale, before any turn or lean. */
   coverSize(): { width: number; height: number };
   /** Viewport box of the centred volume's cover right now. Null when there are no items. */

@@ -4,10 +4,12 @@ import {
   focusWeight,
   gapWeight,
   leanSpread,
+  pitchAt,
   restPitch,
   scaleGeometry,
   turnedWidth,
   visibleRange,
+  volumeSize,
 } from './layout';
 import { VARIANTS } from './variants';
 import type { Geometry } from './types';
@@ -163,7 +165,76 @@ describe('computeRow', () => {
   });
 });
 
+describe('volumeSize', () => {
+  it('keeps the look size when an item carries no size', () => {
+    expect(volumeSize(paper)).toEqual({ spineWidth: 58, bookHeight: 340, coverWidth: 206 });
+  });
+
+  it('makes a bare link a slim pamphlet and a long text a thick book', () => {
+    expect(volumeSize(paper, 0).spineWidth).toBeCloseTo(58 * 0.62, 9);
+    expect(volumeSize(paper, 1).spineWidth).toBeCloseTo(58 * 1.22, 9);
+  });
+
+  it('never lets a spine get narrower than 30 px', () => {
+    expect(volumeSize(scaleGeometry(paper, 0.5), 0).spineWidth).toBe(30);
+  });
+
+  it('keeps one cover aspect for every height', () => {
+    const short = volumeSize(paper, undefined, 0);
+    expect(short.bookHeight).toBeCloseTo(306, 9);
+    expect(short.coverWidth / short.bookHeight).toBeCloseTo(paper.coverWidth / paper.bookHeight, 12);
+  });
+});
+
+describe('computeRow with mixed sizes', () => {
+  const mixed = (slot: number) =>
+    volumeSize(paper, [0, 0.9, 0.3, 1, 0.1][((slot % 5) + 5) % 5], [1, 0, 0.5][((slot % 3) + 3) % 3]);
+
+  it('draws the same row as before when every size is the look size', () => {
+    const plain = computeRow(2.37, paper, -4, 9);
+    const sized = computeRow(2.37, paper, -4, 9, () => volumeSize(paper));
+    expect(sized).toEqual(plain);
+  });
+
+  it('centres the presented volume on 0 with its own size', () => {
+    const size = mixed(3);
+    const centre = computeRow(3, paper, 3, 3, mixed)[0]!;
+    const spread = leanSpread(paper, 1, size);
+    expect(centre.x + turnedWidth(paper, centre.angle, size) / 2 - spread / 2).toBeCloseTo(0, 9);
+  });
+
+  it('keeps volumes in order and each far strip rigid, moving at the local pitch on average', () => {
+    for (const start of [0, 3, -2]) {
+      const first = computeRow(start, paper, start - 6, start + 7, mixed);
+      const last = computeRow(start + 1, paper, start - 6, start + 7, mixed);
+      const ends = [0, first.length - 1];
+      const travel = ends.map((index) => first[index]!.x - last[index]!.x);
+      expect((travel[0]! + travel[1]!) / 2).toBeCloseTo(pitchAt(start + 0.5, paper, mixed), 6);
+      for (let step = 1; step < 50; step++) {
+        const position = start + step / 50;
+        const row = computeRow(position, paper, start - 6, start + 7, mixed);
+        for (let index = 1; index < row.length; index++) expect(row[index]!.x).toBeGreaterThan(row[index - 1]!.x);
+        ends.forEach((index, end) => {
+          expect(row[index]!.x).toBeCloseTo(first[index]!.x - travel[end]! * (position - start), 6);
+        });
+      }
+    }
+  });
+
+  it('gives the rest pitch for one size and a local pitch for mixed sizes', () => {
+    expect(pitchAt(4.2, paper)).toBeCloseTo(restPitch(paper), 9);
+    expect(pitchAt(4.2, paper, mixed)).not.toBeCloseTo(restPitch(paper), 3);
+  });
+});
+
 describe('visibleRange', () => {
+  it('reaches further along a row of thin volumes', () => {
+    const thin = visibleRange(0, paper, WIDTH, 100, true, 2, () => volumeSize(paper, 0));
+    const thick = visibleRange(0, paper, WIDTH, 100, true, 2, () => volumeSize(paper, 1));
+    expect(thin.to - thin.from).toBeGreaterThan(thick.to - thick.from);
+    expect((thin.to - thin.from) / 2 - 2).toBeGreaterThanOrEqual(WIDTH / 2 / (58 * 0.62 + paper.gap));
+  });
+
   it('returns an empty range for count 0', () => {
     const range = visibleRange(0, paper, WIDTH, 0, true);
     expect(range.to).toBeLessThan(range.from);
