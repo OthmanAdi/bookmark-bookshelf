@@ -9,6 +9,7 @@
 import type { CoverSpec, Result } from './types';
 import { cleanLine, cleanText } from './clean-text';
 import { fail, ok } from './result';
+import { minutesOf } from './reading-time';
 import { MAX_URL_LENGTH, hasCredentials } from './url-hygiene';
 import { LIMITS, hostnameTitle, normalizeTags } from './validate';
 
@@ -376,4 +377,54 @@ export function readShelfFile(input: unknown): Result<ShelfFileRead> {
     file: { format: SHELF_FILE_FORMAT, version: SHELF_FILE_VERSION, shelf: meta.value, volumes },
     skipped,
   });
+}
+
+export interface ShelfFileSummary {
+  name: string;
+  description?: string;
+  author?: string;
+  due?: string;
+  volumes: number;
+  required: number;
+  /** Total of the lengths that are known. Absent when no volume has one. */
+  minutes?: number;
+  /** How many volumes the total is based on. */
+  minutesKnownFor: number;
+  /** Unique source hosts, sorted, without a leading `www.`. */
+  hosts: string[];
+  firstTitles: string[];
+}
+
+/** What a person sees before accepting a shelf that arrived in a file or a link. */
+export function summariseShelfFile(file: ShelfFile): ShelfFileSummary {
+  const hosts = new Set<string>();
+  let required = 0;
+  let minutes = 0;
+  let known = 0;
+  for (const volume of file.volumes) {
+    if (volume.required !== false) required += 1;
+    const length = minutesOf(volume.text === undefined ? volume : { minutes: volume.minutes, reading: { text: volume.text } });
+    if (length !== undefined) {
+      minutes += length;
+      known += 1;
+    }
+    try {
+      hosts.add(new URL(volume.url).hostname.replace(/^www\./i, '').toLowerCase());
+    } catch {
+      // An address that does not parse has no host to list.
+    }
+  }
+  const summary: ShelfFileSummary = {
+    name: file.shelf.name,
+    volumes: file.volumes.length,
+    required,
+    minutesKnownFor: known,
+    hosts: [...hosts].sort(),
+    firstTitles: file.volumes.slice(0, 3).map((volume) => volume.title),
+  };
+  if (file.shelf.description !== undefined) summary.description = file.shelf.description;
+  if (file.shelf.author !== undefined) summary.author = file.shelf.author;
+  if (file.shelf.due !== undefined) summary.due = file.shelf.due;
+  if (known > 0) summary.minutes = minutes;
+  return summary;
 }

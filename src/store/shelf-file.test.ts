@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ShelfFile, ShelfFileSource } from './shelf-file';
-import { SHELF_FILE_FORMAT, SHELF_FILE_VERSION, readShelfFile, shelfFileName, toShelfFile } from './shelf-file';
+import {
+  SHELF_FILE_FORMAT,
+  SHELF_FILE_VERSION,
+  readShelfFile,
+  shelfFileName,
+  summariseShelfFile,
+  toShelfFile,
+} from './shelf-file';
 
 const OVERRIDE = String.fromCodePoint(0x202e);
 const ZERO_WIDTH = String.fromCodePoint(0x200b);
@@ -460,5 +467,78 @@ describe('type of the result', () => {
   it('is a ShelfFile that can be written straight back', () => {
     const { file }: { file: ShelfFile } = readOk(baseFile());
     expect(JSON.parse(JSON.stringify(file))).toEqual(file);
+  });
+});
+
+describe('summariseShelfFile', () => {
+  const file = (volumes: ShelfFile['volumes'], shelf: Partial<ShelfFile['shelf']> = {}): ShelfFile => ({
+    format: SHELF_FILE_FORMAT,
+    version: SHELF_FILE_VERSION,
+    shelf: { id: 's', name: 'Week 3', revision: 1, ...shelf },
+    volumes,
+  });
+  const v = (n: number, extra: Partial<ShelfFile['volumes'][number]> = {}): ShelfFile['volumes'][number] => ({
+    id: `v${n}`,
+    url: `https://example.org/${n}`,
+    title: `Title ${n}`,
+    ...extra,
+  });
+
+  it('counts volumes, required volumes and the known reading time', () => {
+    const summary = summariseShelfFile(
+      file([v(1, { minutes: 10 }), v(2, { required: false, minutes: 25 }), v(3), v(4, { required: true, text: 'word '.repeat(440) })]),
+    );
+    expect(summary).toMatchObject({ name: 'Week 3', volumes: 4, required: 3, minutes: 37, minutesKnownFor: 3 });
+  });
+
+  it('leaves minutes out when no length is known', () => {
+    const summary = summariseShelfFile(file([v(1), v(2)]));
+    expect(summary.minutesKnownFor).toBe(0);
+    expect(summary).not.toHaveProperty('minutes');
+  });
+
+  it('lists hosts once, sorted, without www', () => {
+    const summary = summariseShelfFile(
+      file([
+        v(1, { url: 'https://www.Zeta.example.org/a' }),
+        v(2, { url: 'https://alpha.example.com/b' }),
+        v(3, { url: 'https://zeta.example.org/c' }),
+        v(4, { url: 'http://WWW.alpha.example.com/d' }),
+      ]),
+    );
+    expect(summary.hosts).toEqual(['alpha.example.com', 'zeta.example.org']);
+  });
+
+  it('lists the first three titles in order', () => {
+    expect(summariseShelfFile(file([v(1), v(2), v(3), v(4)])).firstTitles).toEqual(['Title 1', 'Title 2', 'Title 3']);
+    expect(summariseShelfFile(file([v(1)])).firstTitles).toEqual(['Title 1']);
+  });
+
+  it('carries the shelf details that exist and no others', () => {
+    const full = summariseShelfFile(file([v(1)], { description: 'D', author: 'A', due: '2026-03-31' }));
+    expect(full).toMatchObject({ description: 'D', author: 'A', due: '2026-03-31' });
+    const plain = summariseShelfFile(file([v(1)]));
+    expect(Object.keys(plain).sort()).toEqual(['firstTitles', 'hosts', 'minutesKnownFor', 'name', 'required', 'volumes']);
+  });
+
+  it('describes an empty shelf', () => {
+    expect(summariseShelfFile(file([]))).toEqual({
+      name: 'Week 3',
+      volumes: 0,
+      required: 0,
+      minutesKnownFor: 0,
+      hosts: [],
+      firstTitles: [],
+    });
+  });
+
+  it('works on a file that was read back from text', () => {
+    const made = toShelfFile({
+      shelf: { id: 's', name: 'N' },
+      bookmarks: [volume(1, { minutes: 5 }), volume(2, { required: false })],
+      includeTexts: false,
+    });
+    const back = readOk(JSON.stringify(made)).file;
+    expect(summariseShelfFile(back)).toMatchObject({ volumes: 2, required: 1, minutes: 5, minutesKnownFor: 1, hosts: ['example.org'] });
   });
 });
