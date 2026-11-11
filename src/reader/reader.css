@@ -47,10 +47,7 @@
   align-items: center;
   gap: var(--bb-s-4);
   min-height: var(--bb-reader-bar);
-  padding-inline: max(
-    var(--bb-s-4),
-    calc((100% - var(--bb-reader-max, 76rem)) / 2 + var(--bb-reader-pad-inline, var(--bb-s-6)))
-  );
+  padding-inline: max(var(--bb-s-4), calc((100% - var(--bb-reader-frame)) / 2 + var(--bb-reader-edge)));
   background: var(--bb-sheet);
   border-bottom: var(--bb-hairline) solid var(--bb-rule);
 }
@@ -169,24 +166,61 @@
   transition: none;
 }
 
-/* Layout: one column with the cover first, two columns from 900px */
+/*
+ * Layout. Below 900px the cover sits beside the title block and everything else runs under it, in one
+ * column that is centred with the bar's button on its left edge. From 900px the cover moves to a
+ * column of its own and stays in view.
+ */
+.bb-reader {
+  --bb-reader-edge: var(--bb-s-4);
+  --bb-reader-frame: calc(var(--bb-reader-measure, 35rem) + 2 * var(--bb-s-4));
+}
+
 .bb-reader__layout {
-  display: flex;
-  flex-direction: column;
-  gap: var(--bb-s-5);
-  max-width: 76rem;
+  display: grid;
+  grid-template-columns: var(--bb-reader-cover-w) minmax(0, 1fr);
+  column-gap: var(--bb-s-4);
+  align-content: start;
+  max-width: var(--bb-reader-frame);
   margin: 0 auto;
-  padding: var(--bb-s-5) var(--bb-s-4) var(--bb-s-9);
+  padding: var(--bb-s-5) var(--bb-reader-edge) var(--bb-s-9);
+}
+
+/* The document's own parts become the grid's rows, so the cover can stand beside the first three. */
+.bb-reader__doc {
+  display: contents;
 }
 
 .bb-reader__cover {
-  order: -1;
-  align-self: center;
-  width: min(9rem, 50%);
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  align-self: start;
+}
+
+.bb-reader__saved,
+.bb-reader__title,
+.bb-reader__byline {
+  grid-column: 2;
+}
+
+.bb-reader__note,
+.bb-reader__actions,
+.bb-reader__body {
+  grid-column: 1 / -1;
+}
+
+.bb-reader__layout--bare {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .bb-reader__layout--bare .bb-reader__cover {
   display: none;
+}
+
+.bb-reader__layout--bare .bb-reader__saved,
+.bb-reader__layout--bare .bb-reader__title,
+.bb-reader__layout--bare .bb-reader__byline {
+  grid-column: 1 / -1;
 }
 
 .bb-reader__cover-slot {
@@ -209,16 +243,38 @@
   box-shadow: none;
 }
 
+/* A little more cover where there is room for it; the thumbnail in the bar keeps its size. */
+@media (min-width: 40rem) {
+  .bb-reader {
+    --bb-reader-cover-w: 7.5rem;
+    --bb-reader-thumb-scale: 0.22;
+  }
+
+  .bb-reader__layout {
+    padding-top: var(--bb-s-6);
+  }
+}
+
 @media (min-width: 900px) {
+  .bb-reader {
+    --bb-reader-edge: var(--bb-reader-pad-inline, var(--bb-s-6));
+    --bb-reader-frame: var(--bb-reader-max, 76rem);
+  }
+
   /* Every measure of the desktop layout is a token with a default, so a look can place the cover exactly. */
   .bb-reader__layout {
-    display: grid;
     grid-template-columns: minmax(0, var(--bb-reader-text, 1fr)) var(--bb-reader-cover, 17.8125rem);
     column-gap: var(--bb-reader-gap, var(--bb-s-8));
     justify-content: var(--bb-reader-justify, normal);
     align-items: start;
-    max-width: var(--bb-reader-max, 76rem);
-    padding: var(--bb-reader-pad-top, var(--bb-s-7)) var(--bb-reader-pad-inline, var(--bb-s-6)) var(--bb-s-9);
+    padding-top: var(--bb-reader-pad-top, var(--bb-s-7));
+  }
+
+  .bb-reader__doc {
+    display: block;
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
   }
 
   .bb-reader__layout--bare {
@@ -226,11 +282,10 @@
   }
 
   .bb-reader__cover {
-    order: 0;
-    align-self: start;
+    grid-column: 2;
+    grid-row: 1;
     position: sticky;
     top: var(--bb-reader-cover-top, calc(var(--bb-reader-bar) + var(--bb-s-6)));
-    width: auto;
   }
 
   /* On a short window the cover gives up height before it leaves the screen. */
