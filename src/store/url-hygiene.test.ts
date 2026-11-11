@@ -39,7 +39,7 @@ describe('looksLikeAddress', () => {
     '.org',
     '-bad.example.org',
     'bad-.example.org',
-    'a@b.com',
+    'name@example.org',
     'user:pass@example.org',
     'mailto:a@example.org',
     'javascript:alert(1)',
@@ -73,7 +73,7 @@ describe('hasCredentials', () => {
 
   it('is false for a plain address and for an @ outside the authority', () => {
     expect(hasCredentials(new URL('https://example.org/'))).toBe(false);
-    expect(hasCredentials(new URL('https://example.org/@user?mail=a@b.com'))).toBe(false);
+    expect(hasCredentials(new URL('https://example.org/@user?mail=name@example.org'))).toBe(false);
   });
 });
 
