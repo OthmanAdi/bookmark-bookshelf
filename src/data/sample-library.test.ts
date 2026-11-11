@@ -1,154 +1,135 @@
 import { describe, expect, it } from 'vitest';
-import { SAMPLE_TEXT_NOTICE, sampleLibrary } from './sample-library';
+import {
+  EXAMPLE_IDS,
+  EXAMPLE_SHELF_IDS,
+  SAMPLE_TEXT_NOTICE,
+  isExampleId,
+  isExampleShelfId,
+  sampleLibrary,
+} from './sample-library';
 
 const NOW = new Date('2026-11-10T12:00:00.000Z');
 const CLOTHS = ['ink', 'bone', 'rust', 'moss', 'plum', 'ochre', 'slate', 'teal'];
 const PATTERNS = ['arcs', 'bars', 'dots', 'rays', 'tiles', 'waves'];
 
-const wordCount = (text: string): number => text.split(/\s+/).filter(Boolean).length;
-const blockCount = (text: string): number => text.split(/\n{2,}/).filter((part) => part.trim() !== '').length;
-
 describe('sampleLibrary', () => {
   const lib = sampleLibrary(NOW);
 
-  it('has the expected format, three shelves in order and fourteen bookmarks', () => {
+  it('is a version 2 library with three shelves and fourteen to sixteen links', () => {
     expect(lib.format).toBe('bookmark-bookshelf');
-    expect(lib.version).toBe(1);
-    expect(lib.shelves.map((s) => s.name)).toEqual(['Reading list', 'Craft', 'Reference']);
+    expect(lib.version).toBe(2);
     expect(lib.shelves.map((s) => s.order)).toEqual([0, 1, 2]);
-    expect(lib.bookmarks).toHaveLength(14);
+    expect(lib.bookmarks.length).toBeGreaterThanOrEqual(14);
+    expect(lib.bookmarks.length).toBeLessThanOrEqual(16);
   });
 
-  it('uses unique ids and existing shelves', () => {
+  it('uses unique ids and puts every link on an existing shelf', () => {
     const shelfIds = new Set(lib.shelves.map((s) => s.id));
-    expect(shelfIds.size).toBe(3);
+    expect(shelfIds.size).toBe(lib.shelves.length);
     for (const b of lib.bookmarks) expect(shelfIds.has(b.shelfId)).toBe(true);
     const ids = lib.bookmarks.map((b) => b.id);
     expect(new Set(ids).size).toBe(ids.length);
+    for (const shelf of lib.shelves) expect(lib.bookmarks.some((b) => b.shelfId === shelf.id)).toBe(true);
   });
 
-  it('has https URLs that parse', () => {
+  it('recognises every example link and shelf, and nothing else', () => {
+    expect([...EXAMPLE_IDS].sort()).toEqual(lib.bookmarks.map((b) => b.id).sort());
+    expect([...EXAMPLE_SHELF_IDS].sort()).toEqual(lib.shelves.map((s) => s.id).sort());
     for (const b of lib.bookmarks) {
-      const url = new URL(b.url);
-      expect(url.protocol).toBe('https:');
+      expect(b.id.startsWith('example-')).toBe(true);
+      expect(isExampleId(b.id)).toBe(true);
+      expect(isExampleShelfId(b.id)).toBe(false);
+    }
+    for (const s of lib.shelves) {
+      expect(s.id.startsWith('example-')).toBe(true);
+      expect(isExampleShelfId(s.id)).toBe(true);
+      expect(isExampleId(s.id)).toBe(false);
+    }
+    for (const id of ['', 'example-', 'example-something-else', 'constructor', '3f2b6c1e-0000-4000-8000-000000000000']) {
+      expect(isExampleId(id)).toBe(false);
+      expect(isExampleShelfId(id)).toBe(false);
     }
   });
 
-  it('numbers order 0..n-1 inside each shelf', () => {
+  it('has https addresses that parse and are already in canonical form', () => {
+    for (const b of lib.bookmarks) {
+      const url = new URL(b.url);
+      expect(url.protocol).toBe('https:');
+      expect(url.href).toBe(b.url);
+    }
+  });
+
+  it('numbers order 0..n-1 inside each shelf, in the order the links are listed', () => {
     for (const shelf of lib.shelves) {
       const orders = lib.bookmarks.filter((b) => b.shelfId === shelf.id).map((b) => b.order);
-      expect([...orders].sort((a, b) => a - b)).toEqual(orders.map((_, i) => i));
       expect(orders).toEqual(orders.map((_, i) => i));
     }
   });
 
-  it('keeps titles short and tags lowercase, one to three per bookmark', () => {
+  it('starts with no reading history', () => {
+    expect(lib.progress).toEqual({});
+    expect(lib.done).toEqual({});
+    expect(lib.notes).toEqual({});
+  });
+
+  it('opens on the shelf view in the default look, on the first link of the first shelf', () => {
+    const first = lib.bookmarks.find((b) => b.shelfId === lib.shelves[0]?.id && b.order === 0);
+    expect(lib.session).toEqual({ shelfId: null, focusId: first?.id, openId: null, view: 'shelf', variant: 'paper' });
+  });
+
+  it('shows what the shelf fields do on exactly one shelf, with a due date after now', () => {
+    const described = lib.shelves.filter((s) => s.description !== undefined);
+    expect(described).toHaveLength(1);
+    const [shelf] = described;
+    expect(shelf?.author).toBeTruthy();
+    expect(shelf?.due).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(Date.parse(`${shelf?.due}T23:59:59Z`)).toBeGreaterThan(NOW.getTime());
+    expect(shelf?.lang).toBeUndefined();
+    expect((shelf?.description ?? '').length).toBeLessThanOrEqual(500);
+    expect((shelf?.author ?? '').length).toBeLessThanOrEqual(80);
+  });
+
+  it('marks some links on that shelf optional and gives some a reading time in range', () => {
+    const homework = lib.bookmarks.filter((b) => b.shelfId === lib.shelves.find((s) => s.due)?.id);
+    const optional = homework.filter((b) => b.required === false);
+    expect(optional.length).toBeGreaterThan(0);
+    expect(optional.length).toBeLessThan(homework.length);
     for (const b of lib.bookmarks) {
-      expect(b.title.length).toBeLessThanOrEqual(34);
-      expect(b.tags.length).toBeGreaterThanOrEqual(1);
+      if (b.required !== undefined) expect(b.required).toBe(false);
+      if (b.minutes === undefined) continue;
+      expect(Number.isInteger(b.minutes)).toBe(true);
+      expect(b.minutes).toBeGreaterThanOrEqual(1);
+      expect(b.minutes).toBeLessThanOrEqual(600);
+    }
+    expect(homework.some((b) => b.minutes !== undefined)).toBe(true);
+  });
+
+  it('leaves some links without a note and some without tags, and keeps tags lower case', () => {
+    expect(lib.bookmarks.some((b) => b.note === undefined)).toBe(true);
+    expect(lib.bookmarks.some((b) => b.tags.length === 0)).toBe(true);
+    for (const b of lib.bookmarks) {
       expect(b.tags.length).toBeLessThanOrEqual(3);
       for (const tag of b.tags) expect(tag).toBe(tag.toLowerCase());
-      expect(b.note).toBeTruthy();
     }
   });
 
-  it('gives exactly two bookmarks no reading copy', () => {
-    const without = lib.bookmarks.filter((b) => b.reading === undefined).map((b) => b.id);
-    expect(without).toEqual(['bm-internet-archive', 'bm-wcag']);
-    for (const b of lib.bookmarks) {
-      if (b.reading) {
-        expect(b.reading.format).toBe('markdown-lite');
-        expect(b.reading.savedAt).toBe(b.addedAt);
-      }
-    }
-  });
-
-  it('takes cloth and pattern from the allowed lists, with no equal neighbours', () => {
+  it('takes cloth and pattern from the allowed lists, with no equal neighbours on the whole row', () => {
     for (const b of lib.bookmarks) {
       expect(CLOTHS).toContain(b.cover.cloth);
       expect(PATTERNS).toContain(b.cover.pattern);
       expect(Number.isInteger(b.cover.seed)).toBe(true);
-      expect(b.cover.seed).toBeGreaterThan(0);
     }
     expect(new Set(lib.bookmarks.map((b) => b.cover.cloth))).toEqual(new Set(CLOTHS));
-    for (const shelf of lib.shelves) {
-      const row = lib.bookmarks.filter((b) => b.shelfId === shelf.id).sort((a, b) => a.order - b.order);
-      row.forEach((b, i) => {
-        const next = row[i + 1];
-        if (next) expect(next.cover.cloth).not.toBe(b.cover.cloth);
-      });
-    }
-  });
-
-  it('spreads addedAt over the 60 days before now', () => {
-    const times = lib.bookmarks.map((b) => Date.parse(b.addedAt));
-    for (const t of times) {
-      expect(t).toBeLessThan(NOW.getTime());
-      expect(t).toBeGreaterThan(NOW.getTime() - 60 * 24 * 3600 * 1000);
-    }
-    expect(new Set(times).size).toBe(times.length);
-  });
-
-  it('contains no angle bracket in any text', () => {
-    for (const b of lib.bookmarks) {
-      if (b.reading) expect(b.reading.text.includes('<')).toBe(false);
-    }
-  });
-
-  it('writes markdown-lite with at most one link, pointing at its own bookmark', () => {
-    for (const b of lib.bookmarks) {
-      if (!b.reading) continue;
-      const links = [...b.reading.text.matchAll(/\[[^\]]+\]\((https?:\/\/[^)]+)\)/g)];
-      expect(links.length).toBeLessThanOrEqual(1);
-      for (const link of links) expect(link[1]).toBe(b.url);
-      expect(b.reading.text).toMatch(/^(## |### |- |1\. )/m);
-    }
-  });
-
-  it('sizes the texts: one long, eleven short', () => {
-    const counts = lib.bookmarks.flatMap((b) => (b.reading ? [{ id: b.id, words: wordCount(b.reading.text) }] : []));
-    expect(counts).toHaveLength(12);
-    const longest = counts.reduce((a, b) => (b.words > a.words ? b : a));
-    expect(longest.id).toBe('bm-tsundoku');
-    expect(longest.words).toBeGreaterThanOrEqual(900);
-    expect(longest.words).toBeLessThanOrEqual(1200);
-    const tsundoku = lib.bookmarks.find((b) => b.id === 'bm-tsundoku');
-    expect((tsundoku?.reading?.text.match(/^## /gm) ?? []).length).toBeGreaterThanOrEqual(4);
-    expect((tsundoku?.reading?.text.match(/^## /gm) ?? []).length).toBeLessThanOrEqual(5);
-    for (const c of counts) {
-      if (c.id === 'bm-tsundoku') continue;
-      expect(c.words).toBeGreaterThanOrEqual(180);
-      expect(c.words).toBeLessThanOrEqual(380);
-    }
-  });
-
-  it('saves exactly two reading positions that fit their texts', () => {
-    const entries = Object.entries(lib.progress);
-    expect(entries.map(([id]) => id).sort()).toEqual(['bm-pointer-events', 'bm-tsundoku']);
-    expect(lib.progress['bm-tsundoku']?.percent).toBe(0.34);
-    expect(lib.progress['bm-pointer-events']?.percent).toBe(0.72);
-    for (const [id, p] of entries) {
-      const bookmark = lib.bookmarks.find((b) => b.id === id);
-      expect(bookmark?.reading).toBeDefined();
-      const blocks = blockCount(bookmark?.reading?.text ?? '');
-      expect(p.block).toBeGreaterThanOrEqual(0);
-      expect(p.block).toBeLessThan(blocks);
-      expect(p.ratio).toBeGreaterThanOrEqual(0);
-      expect(p.ratio).toBeLessThanOrEqual(1);
-      expect(Date.parse(p.updatedAt)).toBeLessThan(NOW.getTime());
-      expect(Date.parse(p.updatedAt)).toBeGreaterThan(Date.parse(bookmark?.addedAt ?? ''));
-    }
-  });
-
-  it('starts on the shelf view focused on the Tsundoku volume', () => {
-    expect(lib.session).toEqual({
-      shelfId: null,
-      focusId: 'bm-tsundoku',
-      openId: null,
-      view: 'shelf',
-      variant: 'paper',
+    lib.bookmarks.forEach((b, i) => {
+      const next = lib.bookmarks[i + 1];
+      if (next) expect(next.cover.cloth).not.toBe(b.cover.cloth);
     });
-    expect(lib.bookmarks.some((b) => b.id === lib.session.focusId)).toBe(true);
+  });
+
+  it('dates every link before now, each at a different time', () => {
+    const times = lib.bookmarks.map((b) => Date.parse(b.addedAt));
+    for (const t of times) expect(t).toBeLessThan(NOW.getTime());
+    expect(new Set(times).size).toBe(times.length);
   });
 
   it('returns equal but separate objects on every call', () => {
@@ -156,7 +137,6 @@ describe('sampleLibrary', () => {
     const b = sampleLibrary(NOW);
     expect(a).toEqual(b);
     expect(a).not.toBe(b);
-    expect(a.bookmarks).not.toBe(b.bookmarks);
     expect(a.bookmarks[0]).not.toBe(b.bookmarks[0]);
     expect(a.bookmarks[0]?.tags).not.toBe(b.bookmarks[0]?.tags);
     a.bookmarks[0]?.tags.push('mutated');
@@ -165,9 +145,7 @@ describe('sampleLibrary', () => {
 });
 
 describe('SAMPLE_TEXT_NOTICE', () => {
-  it('is one sentence about original notes', () => {
-    expect(SAMPLE_TEXT_NOTICE).toMatch(/original/);
-    expect(SAMPLE_TEXT_NOTICE).toMatch(/not excerpts/);
-    expect(SAMPLE_TEXT_NOTICE.endsWith('.')).toBe(true);
+  it('says the text was written for the app and is not the linked page', () => {
+    expect(SAMPLE_TEXT_NOTICE).toBe('Example text written for this app. It is not the linked page.');
   });
 });
