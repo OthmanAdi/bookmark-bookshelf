@@ -57,6 +57,10 @@ export interface ReaderLabels {
   emptyTitle: string;
   emptyBody: string;
   progress: (percent: number) => string;
+  /** Names of the two bar buttons that step the text size, and of the group they sit in. */
+  smaller: string;
+  larger: string;
+  textSize: string;
   /** Reading time, for example "6 min". */
   minutes: (minutes: number) => string;
   /** The saved date as a sentence start, for example "Saved 14 Sep 2026". It receives the formatted date. */
@@ -73,6 +77,10 @@ export interface ReaderOptions {
   coverAspect?: number;
   onProgress?: (progress: ReaderProgress) => void;
   onClose?: () => void;
+  /** Body size as a step from 0 to 4 (17, 19, 21, 24 and 28 px). Without it the size follows the screen. */
+  textScale?: number;
+  /** Called with the new step when the person changes the text size. */
+  onTextScale?: (scale: number) => void;
   /** Called with the new reading copy when the person saves the paste panel. */
   onSaveText?: (text: string) => void;
   labels?: Partial<ReaderLabels>;

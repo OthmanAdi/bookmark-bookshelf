@@ -372,6 +372,75 @@ describe('update and destroy', () => {
   });
 });
 
+describe('text size', () => {
+  const sizeOf = (reader: ReaderHandle): string => reader.element.style.getPropertyValue('--bb-reader-size');
+  const press = (name: 'down' | 'up'): void => query<HTMLButtonElement>(`.bb-reader__size--${name}`).click();
+
+  it('has two named buttons in a group in the bar', () => {
+    mount();
+    const group = query('.bb-reader__bar .bb-reader__sizes');
+    expect(group.getAttribute('role')).toBe('group');
+    expect(group.getAttribute('aria-label')).toBe('Text size');
+    expect(query('.bb-reader__size--down').getAttribute('aria-label')).toBe('Smaller text');
+    expect(query('.bb-reader__size--up').getAttribute('aria-label')).toBe('Larger text');
+  });
+
+  it('leaves the size to the screen until a step is given', () => {
+    expect(sizeOf(mount())).toBe('');
+  });
+
+  it('applies the given step and marks the ends', () => {
+    const reader = mount({ textScale: 4 });
+    expect(sizeOf(reader)).toBe('28px');
+    expect(query('.bb-reader__size--up').hasAttribute('aria-disabled')).toBe(true);
+    expect(query('.bb-reader__size--down').hasAttribute('aria-disabled')).toBe(false);
+  });
+
+  it('clamps a step outside 0 to 4', () => {
+    expect(sizeOf(mount({ textScale: 12 }))).toBe('28px');
+    handle?.destroy();
+    expect(sizeOf(mount({ textScale: -1 }))).toBe('17px');
+  });
+
+  it('steps through the sizes and reports each change once', () => {
+    const onTextScale = vi.fn();
+    const reader = mount({ textScale: 1, onTextScale });
+    press('up');
+    expect(sizeOf(reader)).toBe('21px');
+    expect(onTextScale).toHaveBeenLastCalledWith(2);
+    press('down');
+    press('down');
+    expect(sizeOf(reader)).toBe('17px');
+    expect(onTextScale).toHaveBeenCalledTimes(3);
+    press('down');
+    expect(onTextScale).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps the words at the top of the screen when the lines reflow', () => {
+    // Every block is ten times the body size tall, so a larger size moves each block down and makes it taller.
+    const size = (): number => Number.parseFloat(host.querySelector<HTMLElement>('.bb-reader')?.style.getPropertyValue('--bb-reader-size') ?? '17');
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const index = this.getAttribute('data-block');
+      const height = index === null ? 0 : size() * 10;
+      // Content moves up as the sheet scrolls, like a real layout.
+      const scrolled = host.querySelector<HTMLElement>('.bb-reader__sheet')?.scrollTop ?? 0;
+      const top = index === null ? 0 : Number(index) * height - scrolled;
+      return { x: 0, y: top, width: 0, height, top, left: 0, right: 0, bottom: top + height, toJSON: () => ({}) } as DOMRect;
+    });
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(100000);
+    const reader = mount({
+      doc: { ...doc, text: 'one\n\ntwo\n\nthree' },
+      textScale: 0,
+      progress: { block: 1, ratio: 0.5, percent: 0.4 },
+    });
+    expect(reader.scroller.scrollTop).toBeCloseTo(170 + 0.5 * 170, 0);
+    press('up');
+    // Block 1 is still half read: the same fraction of its new height sits at the reading edge.
+    expect(reader.scroller.scrollTop).toBeCloseTo(190 + 0.5 * 190, 0);
+    expect(reader.progress()).toMatchObject({ block: 1, ratio: 0.5 });
+  });
+});
+
 describe('progress', () => {
   it('does not report at mount and offers the last position', () => {
     const onProgress = vi.fn();

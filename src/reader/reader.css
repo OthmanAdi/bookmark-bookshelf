@@ -86,6 +86,36 @@
   white-space: nowrap;
 }
 
+.bb-reader__sizes {
+  display: flex;
+  flex: none;
+  gap: var(--bb-s-1);
+}
+
+.bb-reader__size {
+  min-width: 2.5rem;
+  padding-inline: var(--bb-s-2);
+}
+
+.bb-reader__size[aria-disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.bb-reader__size--down .bb-reader__size-glyph {
+  font-size: 0.8em;
+}
+
+.bb-reader__size--up .bb-reader__size-glyph {
+  font-size: 1.2em;
+}
+
+@media (pointer: coarse) {
+  .bb-reader__size {
+    min-height: 2.75rem;
+  }
+}
+
 .bb-reader__readout {
   flex: none;
   margin-left: auto;

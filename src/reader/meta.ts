@@ -16,6 +16,9 @@ export const defaultReaderLabels: ReaderLabels = {
     'and the original page stays one click away.',
   progress: (percent) => `${percent}% read`,
   minutes: (minutes) => `${minutes} min`,
+  smaller: 'Smaller text',
+  larger: 'Larger text',
+  textSize: 'Text size',
   saved: (date) => `Saved ${date}`,
 };
 

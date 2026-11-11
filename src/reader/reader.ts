@@ -5,6 +5,7 @@ import type { ArticleHandlers } from './article';
 import { resolveLabels } from './meta';
 import { createProgressTracker, measureBlocks } from './progress';
 import { revealFrame } from './reveal';
+import { TEXT_SIZES, normaliseScale, stepScale } from './text-size';
 import { buildShell } from './shell';
 import type { Box, ReaderDoc, ReaderHandle, ReaderOptions, ReaderProgress } from './types';
 
@@ -29,6 +30,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   let body: HTMLElement = dom.createElement('div');
   let editButton: HTMLButtonElement | null = null;
   let destroyed = false;
+  let scale = normaliseScale(options.textScale);
 
   const tracker = createProgressTracker({
     scroller: sheet,
@@ -41,6 +43,25 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
       if (!silent) options.onProgress?.(position);
     },
   });
+
+  function applyScale(): void {
+    if (scale === null) root.style.removeProperty('--bb-reader-size');
+    else root.style.setProperty('--bb-reader-size', `${TEXT_SIZES[scale]}px`);
+    shell.sizeDown.toggleAttribute('aria-disabled', scale === 0);
+    shell.sizeUp.toggleAttribute('aria-disabled', scale === TEXT_SIZES.length - 1);
+  }
+
+  // The same words stay at the top of the screen: the position is put back once the lines have reflowed.
+  function stepText(delta: -1 | 1): void {
+    const measured = Number.parseFloat(dom.defaultView?.getComputedStyle(body).fontSize ?? '') || TEXT_SIZES[0];
+    const next = stepScale(scale, delta, measured);
+    if (next === scale) return;
+    const here = tracker.current();
+    scale = next;
+    applyScale();
+    tracker.restore({ block: here.block, ratio: here.ratio, percent: here.percent });
+    options.onTextScale?.(next);
+  }
 
   function showProgress(position: ReaderProgress): void {
     shell.readout.textContent = labels.progress(Math.round(position.percent * 100));
@@ -150,6 +171,9 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   const closeClick = (): void => options.onClose?.();
   shell.closeButton.addEventListener('click', closeClick);
   root.addEventListener('keydown', onKeydown);
+  shell.sizeDown.addEventListener('click', () => stepText(-1));
+  shell.sizeUp.addEventListener('click', () => stepText(1));
+  applyScale();
 
   host.appendChild(root);
   render(null, false);

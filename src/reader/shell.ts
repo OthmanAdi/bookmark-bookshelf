@@ -14,6 +14,8 @@ export interface ShellRefs {
   barText: HTMLElement;
   /** Small copy of the cover in the bar, where the cover lands when the one beside the text has scrolled away. */
   thumb: HTMLElement;
+  sizeDown: HTMLButtonElement;
+  sizeUp: HTMLButtonElement;
   readout: HTMLElement;
   lineFill: HTMLElement;
   layout: HTMLElement;
@@ -46,6 +48,15 @@ function buildThumb(dom: Document, cover: HTMLElement | null, ratio: string): HT
   return thumb;
 }
 
+function buildSizeButton(dom: Document, className: string, label: string): HTMLButtonElement {
+  const button = el(dom, 'button', `bb-reader__size ${className} bb-button`);
+  button.type = 'button';
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  button.appendChild(el(dom, 'span', 'bb-reader__size-glyph', 'A'));
+  return button;
+}
+
 function buildBar(dom: Document, labels: ReaderLabels, cover: HTMLElement | null, ratio: string) {
   const bar = el(dom, 'header', 'bb-reader__bar');
   const closeButton = el(dom, 'button', 'bb-reader__close bb-button', labels.close);
@@ -58,12 +69,18 @@ function buildBar(dom: Document, labels: ReaderLabels, cover: HTMLElement | null
   barTitle.setAttribute('aria-hidden', 'true');
   const barText = el(dom, 'span', 'bb-reader__bar-text');
   barTitle.append(thumb, barText);
+  const sizes = el(dom, 'div', 'bb-reader__sizes');
+  sizes.setAttribute('role', 'group');
+  sizes.setAttribute('aria-label', labels.textSize);
+  const sizeDown = buildSizeButton(dom, 'bb-reader__size--down', labels.smaller);
+  const sizeUp = buildSizeButton(dom, 'bb-reader__size--up', labels.larger);
+  sizes.append(sizeDown, sizeUp);
   const line = el(dom, 'div', 'bb-reader__line');
   line.setAttribute('aria-hidden', 'true');
   const lineFill = el(dom, 'div', 'bb-reader__line-fill');
   line.appendChild(lineFill);
-  bar.append(closeButton, barTitle, readout, line);
-  return { bar, closeButton, barTitle, barText, thumb, readout, lineFill };
+  bar.append(closeButton, barTitle, sizes, readout, line);
+  return { bar, closeButton, barTitle, barText, thumb, sizeDown, sizeUp, readout, lineFill };
 }
 
 function coverRatio(aspect: number | undefined): string {
@@ -96,7 +113,7 @@ export function buildShell(dom: Document, input: ShellInput): ShellRefs {
   sheet.style.opacity = '0';
   sheet.tabIndex = -1; // clicks inside land here, so Escape and Tab keep working
   const ratio = coverRatio(input.coverAspect);
-  const { bar, closeButton, barTitle, barText, thumb, readout, lineFill } = buildBar(dom, input.labels, input.cover, ratio);
+  const { bar, closeButton, barTitle, barText, thumb, sizeDown, sizeUp, readout, lineFill } = buildBar(dom, input.labels, input.cover, ratio);
   const layout = el(dom, 'div', 'bb-reader__layout');
   if (!input.cover) layout.classList.add('bb-reader__layout--bare');
   const article = el(dom, 'article', 'bb-reader__doc');
@@ -106,5 +123,5 @@ export function buildShell(dom: Document, input: ShellInput): ShellRefs {
   sheet.append(bar, layout);
   windowEl.appendChild(sheet);
   root.appendChild(windowEl);
-  return { root, windowEl, sheet, bar, closeButton, barTitle, barText, thumb, readout, lineFill, layout, article, coverSlot: slot };
+  return { root, windowEl, sheet, bar, closeButton, barTitle, barText, thumb, sizeDown, sizeUp, readout, lineFill, layout, article, coverSlot: slot };
 }
