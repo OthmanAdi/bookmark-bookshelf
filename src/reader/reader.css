@@ -116,6 +116,13 @@
   }
 }
 
+/* On a phone the thumbnail stands for the title: there is no room left to print it. */
+@media (max-width: 32rem) {
+  .bb-reader__bar-text {
+    display: none;
+  }
+}
+
 .bb-reader__readout {
   flex: none;
   margin-left: auto;

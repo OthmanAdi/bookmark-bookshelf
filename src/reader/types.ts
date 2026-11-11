@@ -39,6 +39,12 @@ export interface ReaderProgress {
   percent: number;
 }
 
+/** The link that follows this one on the open shelf. `minutes` is ready to print, for example "6 min". */
+export interface NextLink {
+  title: string;
+  minutes?: string;
+}
+
 export interface Box {
   x: number;
   y: number;
@@ -61,6 +67,11 @@ export interface ReaderLabels {
   smaller: string;
   larger: string;
   textSize: string;
+  /** Names the block after the last paragraph, and the toggle in it. */
+  endOfText: string;
+  markRead: string;
+  /** The button to the following link, for example "Next: Title, about 6 min". `minutes` may be missing. */
+  next: (title: string, minutes?: string) => string;
   /** Reading time, for example "6 min". */
   minutes: (minutes: number) => string;
   /** The saved date as a sentence start, for example "Saved 14 Sep 2026". It receives the formatted date. */
@@ -77,6 +88,14 @@ export interface ReaderOptions {
   coverAspect?: number;
   onProgress?: (progress: ReaderProgress) => void;
   onClose?: () => void;
+  /** Whether the link is marked as read. Shown as the state of the "Mark as read" button. */
+  done?: boolean;
+  /** Called when the person presses "Mark as read". Without it the button is not shown. */
+  onDone?: (done: boolean) => void;
+  /** The link that follows this one. Without it the end of the text offers no next link. */
+  next?: NextLink;
+  /** Called when the person chooses the next link. The reader does not close or change itself. */
+  onNext?: () => void;
   /** Body size as a step from 0 to 4 (17, 19, 21, 24 and 28 px). Without it the size follows the screen. */
   textScale?: number;
   /** Called with the new step when the person changes the text size. */
@@ -105,6 +124,10 @@ export interface ReaderHandle {
    * restored. Null without a cover or before the reader has a layout.
    */
   flightTarget(): Box | null;
+  /** Changes the state of the "Mark as read" button without calling `onDone`. */
+  setDone(done: boolean): void;
+  /** Replaces the next link, or removes it with null. */
+  setNext(next: NextLink | null): void;
   /** Shows or hides the reader's own cover, for a hand-off with a flying book. */
   setCoverVisible(visible: boolean): void;
   /** Moves focus to the close button. */

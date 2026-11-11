@@ -15,6 +15,24 @@ export const SHEET_FADE_END = 0.6;
 /** The header and the text start to enter once the sheet is nearly opaque. */
 export const CONTENT_START = 0.54;
 
+/** Applies the frames of `revealFrame` to the dialog. */
+export function createRevealer(root: HTMLElement, sheet: HTMLElement): (progress: number) => void {
+  const reducedQuery = root.ownerDocument.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null;
+  let last = 0;
+  return (progress) => {
+    const frame = revealFrame(progress, reducedQuery?.matches === true);
+    // Going from closed straight to open (a restored session) shows the text at once instead of letting it rise.
+    if (frame.open && last <= 0) root.dataset.enter = 'instant';
+    else if (!frame.open && !frame.closed) delete root.dataset.enter;
+    last = progress;
+    root.dataset.open = frame.open ? '1' : '0';
+    root.dataset.content = frame.content ? '1' : '0';
+    root.dataset.closed = frame.closed ? '1' : '0';
+    root.style.visibility = frame.closed ? 'hidden' : 'visible';
+    sheet.style.opacity = frame.opacity;
+  };
+}
+
 const clamp01 = (value: number): number => (Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0);
 const round = (value: number): number => Math.round(value * 1000) / 1000;
 

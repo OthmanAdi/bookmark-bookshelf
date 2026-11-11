@@ -2,6 +2,7 @@ export type {
   Block,
   Box,
   Inline,
+  NextLink,
   ReaderDoc,
   ReaderHandle,
   ReaderLabels,
