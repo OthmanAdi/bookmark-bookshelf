@@ -115,7 +115,7 @@
   }
 }
 
-/* ---------- Oak Library: board, back panel, foil lettering ---------- */
+/* ---------- Oak Library: library bindings in deep buckram, gold foil, a wooden shelf ---------- */
 
 :root[data-variant='oak'],
 .bb-shelf[data-variant='oak'] {
@@ -124,23 +124,92 @@
   --bb-sheet: #faf6ec;
   --bb-accent: #8c3b1c;
   --bb-accent-strong: #6f2d14;
+  --bb-bookend: #6e5427;
+  --bb-light-sheen: #fff1d6;
+  /* Gold foil: a pale highlight, the body of the gold and a bright crest. Every stop holds 4.5:1 on a dark cloth. */
+  --bb-foil-1: #f6e4a9;
+  --bb-foil-2: #dcb969;
+  --bb-foil-3: #f9edc4;
+  /* How deep the shelf is in front of the spines: enough to carry the presented volume, which stands forward. */
+  --bb-oak-depth: calc(var(--bb-spine-w) * 1.1);
 }
 
+/* Library buckram is deeper than the cloth of a trade binding. Ink, plum, bone and ochre keep their colour. */
+:root[data-variant='oak'] .bb-cloth--rust,
+.bb-shelf[data-variant='oak'] .bb-cloth--rust {
+  --cloth: #7d3120;
+}
+
+:root[data-variant='oak'] .bb-cloth--moss,
+.bb-shelf[data-variant='oak'] .bb-cloth--moss {
+  --cloth: #33452e;
+}
+
+:root[data-variant='oak'] .bb-cloth--slate,
+.bb-shelf[data-variant='oak'] .bb-cloth--slate {
+  --cloth: #36424e;
+}
+
+:root[data-variant='oak'] .bb-cloth--teal,
+.bb-shelf[data-variant='oak'] .bb-cloth--teal {
+  --cloth: #17484a;
+}
+
+/* Gold does not read on a pale cloth: those are blocked in a dark foil instead. */
+:root[data-variant='oak'] .bb-cloth--bone,
+.bb-shelf[data-variant='oak'] .bb-cloth--bone,
+:root[data-variant='oak'] .bb-cloth--ochre,
+.bb-shelf[data-variant='oak'] .bb-cloth--ochre {
+  --bb-foil-1: #3a2811;
+  --bb-foil-2: #22170a;
+  --bb-foil-3: #3d2b13;
+}
+
+/*
+ * The back panel, darker where the books stand: the gaps between volumes are the deepest shadow on the
+ * shelf, not a strip of lit wood.
+ */
 .bb-shelf[data-variant='oak'] .bb-shelf__backdrop {
   inset: 6px 0 var(--bb-floor-y) 0;
   background:
+    linear-gradient(
+      to top,
+      rgba(20, 10, 2, 0.55),
+      rgba(20, 10, 2, 0.5) calc(var(--bb-book-h) - 12px),
+      rgba(20, 10, 2, 0) calc(var(--bb-book-h) + 30px)
+    ),
     repeating-linear-gradient(90deg, rgba(60, 36, 16, 0.07) 0 2px, rgba(60, 36, 16, 0) 2px 46px),
     linear-gradient(#6b4a2c, #5a3d23);
   box-shadow: inset 0 14px 22px -10px rgba(20, 10, 2, 0.6);
 }
 
+/*
+ * The shelf board. Its top lies in the same 3D space as the volumes, from a front edge well forward of the
+ * spines back under the books to the panel, so the presented volume stands on the board instead of in
+ * front of it. The top sits a pixel under the floor line so the volumes' contact shadows lie on it.
+ */
+.bb-shelf[data-variant='oak'] .bb-shelf__row::before {
+  content: '';
+  position: absolute;
+  left: -75vw;
+  bottom: 0;
+  width: 150vw;
+  height: calc(var(--bb-cover-w) + var(--bb-oak-depth) + 12px);
+  transform-origin: 50% 100%;
+  transform: translateY(1px) translateZ(var(--bb-oak-depth)) rotateX(90deg);
+  background: linear-gradient(to top, #8a6238, #74502b 40%, #4a3017);
+  pointer-events: none;
+}
+
+/*
+ * The front lip. A face parallel to the screen keeps its edges level in perspective, so the flat strip
+ * under the row serves: the top of the board, drawn over it, hides its upper part exactly where the
+ * front edge of the board falls.
+ */
 .bb-shelf[data-variant='oak'] .bb-shelf__floor {
   top: calc(100% - var(--bb-floor-y));
-  height: 20px;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 3px),
-    repeating-linear-gradient(90deg, rgba(40, 22, 8, 0.1) 0 1px, rgba(40, 22, 8, 0) 1px 90px),
-    linear-gradient(#8a6238, #6f4c28);
+  height: calc(var(--bb-floor-y) * 0.9);
+  background: linear-gradient(#7c5731, #6a4826 60%, #5a3c1f);
   box-shadow: 0 10px 14px -8px rgba(26, 18, 8, 0.55);
 }
 
@@ -149,31 +218,82 @@
   background-image:
     linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0) 5%, rgba(0, 0, 0, 0) 95%, rgba(0, 0, 0, 0.22)),
     linear-gradient(90deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 34%, rgba(0, 0, 0, 0) 62%, rgba(0, 0, 0, 0.3));
+  /* Bands, the read check and anything else drawn in the lettering colour are tooled in gold. */
+  color: var(--bb-foil-2);
 }
 
-/* Wider spines would set the title too large to fit the shorter volume. */
+/*
+ * Foil: the gold changes across the height of each letter as a curved, polished surface does. On a
+ * spine the letters stand on their side, so the gradient runs across the spine.
+ */
 .bb-shelf[data-variant='oak'] .bb-spine__title {
-  font-size: max(11px, calc(var(--bb-spine-w) * 0.215));
+  background: linear-gradient(90deg, var(--bb-foil-2), var(--bb-foil-1) 34%, var(--bb-foil-3) 52%, var(--bb-foil-2) 78%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.bb-shelf[data-variant='oak'] .bb-spine__title,
-.bb-shelf[data-variant='oak'] .bb-spine__mark {
-  color: #e7c98a;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+/* The publisher's device, blocked in the same foil with the initial left in the cloth. */
+.bb-shelf[data-variant='oak'] .bb-spine__device::before {
+  background: linear-gradient(135deg, var(--bb-foil-1), var(--bb-foil-2) 55%, var(--bb-foil-3));
 }
 
-.bb-shelf[data-variant='oak'] .bb-cloth--bone .bb-spine__title,
-.bb-shelf[data-variant='oak'] .bb-cloth--bone .bb-spine__mark,
-.bb-shelf[data-variant='oak'] .bb-cloth--ochre .bb-spine__title,
-.bb-shelf[data-variant='oak'] .bb-cloth--ochre .bb-spine__mark {
-  color: #3a2410;
-  text-shadow: none;
+/* A reading slip is a card: cream against the dark panel, where the accent colour would disappear. */
+.bb-shelf[data-variant='oak'] .bb-book__slip {
+  background: #f1e6cc;
 }
 
-.bb-shelf[data-variant='oak'] .bb-spine__sigil {
-  background: #e7c98a;
-  border-radius: 50%;
-  rotate: none;
+/*
+ * The cover: a cloth case. Lettering and rules in gold, the drawing blind-stamped (pressed into the cloth
+ * without ink, so a shade darker than it), no rule over the plate, and a line tooled blind round the board.
+ */
+:root[data-variant='oak'] .bb-cover,
+.bb-shelf[data-variant='oak'] .bb-cover {
+  --bb-cover-ink-1: color-mix(in srgb, var(--cloth) 70%, #000);
+  --bb-cover-ink-2: color-mix(in srgb, var(--cloth) 84%, #000);
+  color: var(--bb-foil-2);
+}
+
+/* Black cloth cannot go darker; there the pressed cloth shows by its sheen. */
+:root[data-variant='oak'] .bb-cover.bb-cloth--ink,
+.bb-shelf[data-variant='oak'] .bb-cover.bb-cloth--ink {
+  --bb-cover-ink-1: color-mix(in srgb, var(--cloth) 88%, var(--cloth-ink));
+  --bb-cover-ink-2: color-mix(in srgb, var(--cloth) 93%, var(--cloth-ink));
+}
+
+:root[data-variant='oak'] .bb-cover:not([data-layout='label']) .bb-cover__title,
+.bb-shelf[data-variant='oak'] .bb-cover:not([data-layout='label']) .bb-cover__title {
+  background: linear-gradient(var(--bb-foil-1), var(--bb-foil-2) 46%, var(--bb-foil-3) 62%, var(--bb-foil-2)) 0 0 / 100% 1.04em;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+:root[data-variant='oak'] .bb-cover[data-layout='plate'] .bb-cover__plate,
+.bb-shelf[data-variant='oak'] .bb-cover[data-layout='plate'] .bb-cover__plate {
+  border-top-color: transparent;
+}
+
+/* The band is blocked in foil with the drawing reversed out in the cloth. */
+:root[data-variant='oak'] .bb-cover[data-layout='band'] .bb-cover__plate,
+.bb-shelf[data-variant='oak'] .bb-cover[data-layout='band'] .bb-cover__plate {
+  background: linear-gradient(var(--bb-foil-1), var(--bb-foil-2) 60%, var(--bb-foil-3));
+}
+
+:root[data-variant='oak'] .bb-cover[data-layout='frame']::before,
+.bb-shelf[data-variant='oak'] .bb-cover[data-layout='frame']::before {
+  border-color: var(--bb-foil-2);
+  outline-color: var(--bb-foil-2);
+}
+
+:root[data-variant='oak'] .bb-cover:not([data-layout='frame'])::before,
+.bb-shelf[data-variant='oak'] .bb-cover:not([data-layout='frame'])::before {
+  content: '';
+  position: absolute;
+  inset: 4.5cqw 4.5cqw 4.5cqw 8.5cqw;
+  border: calc(1px * var(--bb-cover-k, 1)) solid rgba(0, 0, 0, 0.3);
+  box-shadow: calc(1px * var(--bb-cover-k, 1)) calc(1px * var(--bb-cover-k, 1)) 0 rgba(255, 255, 255, 0.08);
+  pointer-events: none;
 }
 
 /* ---------- Night Study: dark ground, one pool of light ---------- */
