@@ -111,12 +111,17 @@
   --bb-r-2: 4px;
   --bb-hairline: 1px;
 
-  /* motion */
-  --bb-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  /*
+   * Motion: three curves and four durations, nothing else. The spring curve overshoots a
+   * little and is for things that rise toward the hand.
+   */
+  --bb-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --bb-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --bb-dur-1: 120ms;
-  --bb-dur-2: 220ms;
-  --bb-dur-3: 360ms;
+  --bb-ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --bb-dur-1: 120ms; /* press */
+  --bb-dur-2: 220ms; /* hover, a small change of state */
+  --bb-dur-3: 360ms; /* menus, dialogs, arrivals */
+  --bb-dur-4: 600ms; /* large moves */
 
   /* layers: the first three order things inside one component, the rest order the page */
   --bb-z-shelf: 1;
