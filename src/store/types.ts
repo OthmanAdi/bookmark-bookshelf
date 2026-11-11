@@ -3,6 +3,9 @@
  * Everything another module needs from the store is declared here.
  */
 
+import type { FoldersImportOptions } from './bulk-import';
+import type { ImportFolder } from './folders-to-library';
+import type { LinkListEntry } from './link-list';
 import type { ShelfFile } from './shelf-file';
 
 export const LIBRARY_FORMAT = 'bookmark-bookshelf' as const;
@@ -102,7 +105,7 @@ export interface Progress {
   updatedAt: string;
 }
 
-export const SORT_MODES = [
+export const SORT_MODE_NAMES = [
   'manual',
   'added-new',
   'added-old',
@@ -112,7 +115,7 @@ export const SORT_MODES = [
   'shortest',
 ] as const;
 
-export type SortMode = (typeof SORT_MODES)[number];
+export type SortMode = (typeof SORT_MODE_NAMES)[number];
 
 export interface Session {
   /** Active shelf filter. `null` means every shelf. */
@@ -369,6 +372,13 @@ export interface Store {
    * that is already saved is changed, and nothing personal comes with the file.
    */
   importShelf(file: unknown): Result<ImportedShelf>;
+  /**
+   * Adds the folders of a browser bookmarks file (see `parseNetscapeBookmarks`) as shelves and links, at most
+   * 5,000 at once. A link whose address is already saved is counted as unchanged and not touched.
+   */
+  importFolders(folders: ImportFolder[], options?: FoldersImportOptions): Result<ImportSummary>;
+  /** Adds the entries of a pasted list (see `parseLinkList`) to one shelf, in the order written. */
+  importLinks(entries: LinkListEntry[], shelfId: string): Result<ImportSummary>;
   /** Accepts JSON text or a parsed value of any supported version. */
   importLibrary(input: unknown, mode: 'replace' | 'merge'): Result<ImportSummary>;
 

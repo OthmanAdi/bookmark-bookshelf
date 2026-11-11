@@ -1,5 +1,5 @@
 import type { LibraryV2, Session } from './types';
-import { SORT_MODES } from './types';
+import { SORT_MODE_NAMES } from './types';
 
 /**
  * Applies the valid parts of a session patch and reports whether anything changed.
@@ -26,6 +26,6 @@ export function applySessionPatch(lib: LibraryV2, patch: Partial<Session>): bool
   if (typeof patch.textScale === 'number' && Number.isFinite(patch.textScale)) {
     set('textScale', Math.min(4, Math.max(0, Math.round(patch.textScale))));
   }
-  if (typeof patch.sort === 'string' && (SORT_MODES as readonly string[]).includes(patch.sort)) set('sort', patch.sort);
+  if (typeof patch.sort === 'string' && (SORT_MODE_NAMES as readonly string[]).includes(patch.sort)) set('sort', patch.sort);
   return changed;
 }

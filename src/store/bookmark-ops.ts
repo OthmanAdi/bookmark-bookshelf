@@ -67,7 +67,11 @@ function applyTextFields(draft: Bookmark, input: BookmarkInput | BookmarkPatch, 
   return ok(undefined);
 }
 
-export function addBookmarkTo(lib: LibraryV2, ctx: OpContext, input: BookmarkInput): Result<Bookmark> {
+/**
+ * Checks an input and builds the link it describes without adding it to the library. `order` is where it will
+ * stand on its shelf; it defaults to the end.
+ */
+export function draftBookmark(lib: LibraryV2, ctx: OpContext, input: BookmarkInput, order?: number): Result<Bookmark> {
   const url = normalizeUrl(input.url);
   if (!url.ok) return url;
   const shelfId = input.shelfId ?? lib.shelves[0]?.id;
@@ -80,13 +84,19 @@ export function addBookmarkTo(lib: LibraryV2, ctx: OpContext, input: BookmarkInp
     title: '',
     tags: [],
     shelfId,
-    order: shelfBookmarks(lib, shelfId).length,
+    order: order ?? shelfBookmarks(lib, shelfId).length,
     addedAt: now,
     updatedAt: now,
     cover: defaultCover(url.value),
   };
   const fields = applyTextFields(draft, { ...input, title: input.title ?? '' }, now);
-  if (!fields.ok) return fields;
+  return fields.ok ? ok(draft) : fields;
+}
+
+export function addBookmarkTo(lib: LibraryV2, ctx: OpContext, input: BookmarkInput): Result<Bookmark> {
+  const drafted = draftBookmark(lib, ctx, input);
+  if (!drafted.ok) return drafted;
+  const draft = drafted.value;
   lib.bookmarks.push(draft);
   sortLibrary(lib);
   return ok(draft);

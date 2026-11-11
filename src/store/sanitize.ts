@@ -9,7 +9,7 @@ import type {
   ShelfOrigin,
   SkippedLink,
 } from './types';
-import { SORT_MODES } from './types';
+import { SORT_MODE_NAMES } from './types';
 import { cleanLine } from './clean-text';
 import { defaultCover, mergeCover } from './cover';
 import { isValidId } from './ids';
@@ -284,6 +284,6 @@ export function readSession(value: unknown, shelfIds: IdMap, bookmarkIds: IdMap)
   if (typeof textScale === 'number' && Number.isFinite(textScale)) {
     session.textScale = Math.min(4, Math.max(0, Math.round(textScale)));
   }
-  if (typeof sort === 'string' && (SORT_MODES as readonly string[]).includes(sort)) session.sort = sort as Session['sort'];
+  if (typeof sort === 'string' && (SORT_MODE_NAMES as readonly string[]).includes(sort)) session.sort = sort as Session['sort'];
   return session;
 }

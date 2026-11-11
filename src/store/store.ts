@@ -35,6 +35,7 @@ import { normalizeProgress } from './progress';
 import { clone, cloneResult, fail, ok } from './result';
 import { readSession } from './sanitize';
 import { applySessionPatch } from './session-ops';
+import { importFoldersInto, importLinksInto } from './bulk-import';
 import { exportShelfFrom, importShelfInto } from './shelf-exchange';
 import { addShelfTo, removeShelfFrom, renameShelfIn, restoreShelfIn, updateShelfIn } from './shelf-ops';
 import { resolveStorage } from './storage';
@@ -288,6 +289,10 @@ export function createStore(options: StoreOptions = {}): Store {
     exportLibrary: () => `${JSON.stringify(clone(lib), null, 2)}\n`,
     exportShelf: (id, { includeTexts }) => exportShelfFrom(lib, id, includeTexts),
     importShelf: (file) => mutate(['shelves', 'bookmarks'], () => importShelfInto(lib, ctx, file)),
+    importFolders: (folders, importOptions) =>
+      mutate(['shelves', 'bookmarks'], () => importFoldersInto(lib, ctx, folders, importOptions)),
+    importLinks: (entries, shelfId) =>
+      mutate(['bookmarks'], () => importLinksInto(lib, ctx, entries, shelfId)),
     importLibrary: (input, mode) => {
       const parsed = migrateLibraryWithReport(input, { now: clock, idFactory: ctx.newId });
       if (!parsed.ok) return parsed;
