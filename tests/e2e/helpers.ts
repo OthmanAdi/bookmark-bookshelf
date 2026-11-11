@@ -195,23 +195,6 @@ export async function focusId(page: Page): Promise<string> {
   return (await shelfOf(page).getAttribute('data-focus-id')) ?? '';
 }
 
-/** True when the row goes round: after the last link the first one follows. */
-export async function rowLoops(page: Page): Promise<boolean> {
-  return (await shelfOf(page).getAttribute('data-loop')) === '1';
-}
-
-/** Presses ArrowRight on the centred volume until `id` is centred, waiting for rest after every step. */
-export async function stepTo(page: Page, id: string): Promise<void> {
-  await centredControl(page).focus();
-  for (let guard = 0; guard < EXAMPLE_COUNT && (await focusId(page)) !== id; guard++) {
-    const before = await focusId(page);
-    await page.keyboard.press('ArrowRight');
-    await expect(shelfOf(page)).not.toHaveAttribute('data-focus-id', before);
-    await expectSettled(page);
-  }
-  expect(await focusId(page)).toBe(id);
-}
-
 /* ---------- stored library ---------- */
 
 /** The library as it is stored right now, or null while nothing in it has changed since the first visit. */
