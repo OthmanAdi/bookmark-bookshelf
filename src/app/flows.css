@@ -357,7 +357,8 @@
 }
 
 .bb-field textarea {
-  min-height: 8rem;
+  /* Three lines of text, as the field asks for: it grows by its handle, not by default. */
+  min-height: calc(3 * 1.5em + 2 * var(--bb-s-3));
   padding: var(--bb-s-3);
   line-height: 1.5;
   resize: vertical;
@@ -743,7 +744,8 @@
 .bb-toasts {
   position: fixed;
   left: max(var(--bb-gutter, var(--bb-s-5)), env(safe-area-inset-left, 0px));
-  bottom: max(var(--bb-s-5), env(safe-area-inset-bottom, 0px));
+  /* On a phone the dock holds the two controls a thumb needs: a toast never sits on them. */
+  bottom: calc(var(--bb-dock-space, 0px) + max(var(--bb-s-5), env(safe-area-inset-bottom, 0px)));
   z-index: var(--bb-z-toast);
   display: grid;
   width: min(100% - 2 * var(--bb-s-4), 30rem);
