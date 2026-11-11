@@ -15,13 +15,21 @@ import type { FlowContext } from './flows';
 
 const SHOWN_HOSTS = 8;
 
+const DUE_OPTIONS: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+
 function dueText(due: string, lang: string | undefined): string {
   const date = new Date(`${due}T12:00:00`);
   if (Number.isNaN(date.getTime())) return due;
   try {
-    return date.toLocaleDateString(lang, { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!lang || /^en(?:-|$)/i.test(lang)) {
+      // English reads day first, as the reader and the line under the row write a date: "20 Nov 2026".
+      const parts = new Intl.DateTimeFormat('en-US', DUE_OPTIONS).formatToParts(date);
+      const part = (type: string): string => parts.find((entry) => entry.type === type)?.value ?? '';
+      return `${part('day')} ${part('month')} ${part('year')}`;
+    }
+    return date.toLocaleDateString(lang, DUE_OPTIONS);
   } catch {
-    return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    return due;
   }
 }
 
