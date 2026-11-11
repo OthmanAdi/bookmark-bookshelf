@@ -702,3 +702,5 @@ renderAll();
 bookshelf.motion.subscribe(() => syncStage());
 applyView();
 flows.handleAddress();
+// A shelf link pasted into a tab where the app is already open changes only the fragment, which loads nothing.
+window.addEventListener('hashchange', () => flows.handleAddress());
