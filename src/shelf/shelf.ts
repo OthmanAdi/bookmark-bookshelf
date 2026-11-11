@@ -1,4 +1,5 @@
 import './shelf.css';
+import './cover.css';
 import './variants.css';
 import { createBook, dropCover, ensureCover, setReal, type BookNode } from './book';
 import { computeRow, restPitch, scaleGeometry, visibleRange } from './layout';
