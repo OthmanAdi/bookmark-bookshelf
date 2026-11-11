@@ -178,6 +178,48 @@
   --flow-danger: var(--bb-danger, color-mix(in srgb, #c0341c 62%, var(--bb-ink)));
 }
 
+.bb-dialog[open] {
+  animation: bb-dialog-in var(--bb-dur-2) var(--bb-ease-out);
+}
+
+.bb-dialog[open]::backdrop {
+  animation: bb-backdrop-in var(--bb-dur-2) var(--bb-ease-out);
+}
+
+.bb-dialog.is-closing {
+  animation: bb-dialog-out var(--bb-dur-1) var(--bb-ease-out) forwards;
+}
+
+.bb-dialog.is-closing::backdrop {
+  animation: bb-backdrop-out var(--bb-dur-1) var(--bb-ease-out) forwards;
+}
+
+@keyframes bb-dialog-in {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+  }
+}
+
+@keyframes bb-dialog-out {
+  to {
+    opacity: 0;
+    translate: 0 0.375rem;
+  }
+}
+
+@keyframes bb-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes bb-backdrop-out {
+  to {
+    opacity: 0;
+  }
+}
+
 .bb-dialog--small {
   width: min(100% - 2rem, 24rem);
 }
@@ -626,6 +668,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .bb-dialog[open],
+  .bb-dialog[open]::backdrop,
+  .bb-dialog.is-closing,
+  .bb-dialog.is-closing::backdrop {
+    animation: none;
+  }
+
   .bb-toast {
     animation: none;
   }

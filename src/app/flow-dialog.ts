@@ -29,9 +29,39 @@ export interface FlowDialog {
 
 let serial = 0;
 
-/** Closes a dialog the way every dialog closes. Kept in one place so a leaving motion can be added once. */
+const LEAVE_MS = 120;
+const watched = new WeakSet<HTMLDialogElement>();
+
+function movesAllowed(dialog: HTMLDialogElement): boolean {
+  if (typeof dialog.getAnimations !== 'function') return false;
+  return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Closes a dialog the way every dialog closes: it fades out over a moment and then closes, or closes at
+ * once when the person asked for less motion. Kept in one place so every dialog leaves the same way.
+ */
 export function closeDialog(dialog: HTMLDialogElement): void {
-  if (dialog.open) dialog.close();
+  if (!dialog.open || dialog.classList.contains('is-closing')) return;
+  if (!movesAllowed(dialog)) {
+    dialog.close();
+    return;
+  }
+  dialog.classList.add('is-closing');
+  setTimeout(() => {
+    dialog.classList.remove('is-closing');
+    if (dialog.open) dialog.close();
+  }, LEAVE_MS);
+}
+
+/** Makes Escape leave through `closeDialog`, so it fades like every other way out. */
+export function leaveOnEscape(dialog: HTMLDialogElement): void {
+  if (watched.has(dialog)) return;
+  watched.add(dialog);
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closeDialog(dialog);
+  });
 }
 
 export function createDialog(options: DialogOptions): FlowDialog {
@@ -47,6 +77,7 @@ export function createDialog(options: DialogOptions): FlowDialog {
   const actions = make('div', 'bb-dialog__actions');
   form.append(heading, body, actions);
   dialog.appendChild(form);
+  leaveOnEscape(dialog);
 
   let opener: HTMLElement | null = null;
   let settle: () => void = () => undefined;

@@ -1,7 +1,7 @@
 import { CLOTHS, PATTERNS } from '../shelf';
 import type { Bookmark, BookmarkInput, Store } from '../store';
 import { button, make, must, option, toast } from './dom';
-import { askToDiscard, closeDialog } from './flow-dialog';
+import { askToDiscard, closeDialog, leaveOnEscape } from './flow-dialog';
 import { clearErrorOnInput, ensureHint, errorElement, groupOf, markRequired, setFieldError } from './flow-fields';
 import { titleFromAddress } from './flow-title';
 
@@ -49,6 +49,7 @@ export function createEditor(
   const more = form.querySelector<HTMLDetailsElement>('details');
 
   let editingId: string | null = null;
+  leaveOnEscape(dialog);
   let untouched = '';
   let opener: HTMLElement | null = null;
   let keepOpen = false;
@@ -272,6 +273,7 @@ export function askText(heading: string, label: string, initial: string, validat
   errorElement(input, error);
   setFieldError(input, null, error);
   const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  leaveOnEscape(dialog);
 
   return new Promise((resolve) => {
     let answer: string | null = null;
