@@ -11,6 +11,7 @@ import { askText } from './editor';
 import { createFlows } from './flows';
 import { renderList } from './list-view';
 import { createMenu } from './menu';
+import { createSearch, findLinks } from './search';
 import { createStageCaption, type LinkView } from './shell-stage';
 import { createShelfTabs } from './shell-tabs';
 import { renderViewMenu, type ViewMode } from './shell-view-menu';
@@ -312,6 +313,50 @@ createMenu({
 });
 
 must<HTMLButtonElement>('#add').addEventListener('click', () => flows.addLink());
+
+/* ---------- search ---------- */
+
+/** Brings a link to the centre of the row, or to its place in the list, opening its shelf when another one is open. */
+function bringToCentre(id: string): void {
+  const bookmark = store.get(id);
+  if (!bookmark) return;
+  const open = store.session().shelfId;
+  if (open !== null && open !== bookmark.shelfId) openShelf(bookmark.shelfId);
+  if (store.session().view === 'list') {
+    const entry = [...listHost.querySelectorAll<HTMLElement>('.bb-list__row')].find((item) => item.dataset.id === id);
+    entry?.scrollIntoView({ block: 'center', behavior: bookshelf.motion.state.reduced ? 'auto' : 'smooth' });
+    entry?.querySelector<HTMLElement>('.bb-list__title')?.focus({ preventScroll: true });
+    return;
+  }
+  // Focus rides along with the centre as the row travels, so it ends on the link that was asked for.
+  bookshelf.shelf.focusCurrent();
+  bookshelf.show(id);
+}
+
+const searchInput = must<HTMLInputElement>('#search');
+let searchOrigin: HTMLElement | null = null;
+searchInput.addEventListener('focus', (event) => {
+  searchOrigin = event.relatedTarget instanceof HTMLElement ? event.relatedTarget : null;
+});
+
+createSearch(
+  {
+    input: searchInput,
+    popup: must<HTMLElement>('#search-popup'),
+    list: must<HTMLElement>('#search-results'),
+    empty: must<HTMLElement>('#search-empty'),
+    status: must<HTMLElement>('#search-status'),
+  },
+  {
+    find: (query) => findLinks(store.bookmarks(null), new Map(store.shelves().map((shelf) => [shelf.id, shelf.name])), query),
+    choose: bringToCentre,
+    leave: () => {
+      const origin = searchOrigin;
+      if (origin && origin.isConnected && origin.getClientRects().length > 0) origin.focus({ preventScroll: true });
+      else bookshelf.shelf.focusCurrent();
+    },
+  },
+);
 
 /* ---------- the Library menu ---------- */
 

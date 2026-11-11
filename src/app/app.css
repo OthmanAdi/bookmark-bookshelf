@@ -106,6 +106,130 @@
   min-width: 0;
 }
 
+/* ---------- search ---------- */
+
+.bb-search {
+  position: relative;
+  flex: 0 1 18rem;
+  min-width: 10rem;
+}
+
+.bb-search__field {
+  width: 100%;
+  height: var(--bb-control-h, 2.5rem);
+  padding: 0 var(--bb-s-6) 0 calc(var(--bb-s-3) + 1.5rem);
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: var(--bb-r-1);
+  background: var(--bb-paper-raised);
+  color: var(--bb-ink);
+  font-family: var(--bb-font-serif);
+  font-size: var(--bb-text-body);
+}
+
+.bb-search__field::placeholder {
+  color: var(--bb-ink-soft);
+  opacity: 1;
+}
+
+.bb-search__icon {
+  position: absolute;
+  top: 50%;
+  left: var(--bb-s-3);
+  translate: 0 -50%;
+  fill: none;
+  stroke: var(--bb-ink-soft);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+/* The key that brings focus here, shown only while the field is idle. */
+.bb-search__key {
+  position: absolute;
+  top: 50%;
+  right: var(--bb-s-2);
+  translate: 0 -50%;
+  min-width: 1.25rem;
+  padding: 0 var(--bb-s-1);
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: var(--bb-r-1);
+  color: var(--bb-ink-soft);
+  font-family: var(--bb-font-mono);
+  font-size: var(--bb-text-micro);
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+}
+
+.bb-search__field:focus ~ .bb-search__key,
+.bb-search__field:not(:placeholder-shown) ~ .bb-search__key {
+  display: none;
+}
+
+.bb-search__popup {
+  position: absolute;
+  top: calc(100% + var(--bb-s-1));
+  right: 0;
+  z-index: var(--bb-z-chrome);
+  width: max(100%, 22rem);
+  max-width: calc(100vw - 2 * var(--bb-gutter, 1.25rem));
+  padding: var(--bb-s-2);
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: var(--bb-r-2);
+  background: var(--bb-paper-raised);
+  color: var(--bb-ink);
+  box-shadow: 0 18px 40px -18px color-mix(in srgb, var(--bb-ink) 55%, transparent);
+}
+
+.bb-search__popup[hidden] {
+  display: none;
+}
+
+.bb-search__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bb-search__option {
+  display: grid;
+  gap: var(--bb-s-1);
+  padding: var(--bb-s-2) var(--bb-s-3);
+  border-radius: var(--bb-r-1);
+  cursor: pointer;
+}
+
+.bb-search__option[aria-selected='true'] {
+  background: var(--bb-rule);
+}
+
+.bb-search__title {
+  font-size: var(--bb-text-ui, 0.9375rem);
+  font-weight: 500;
+  line-height: 1.33;
+}
+
+.bb-search__where {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--bb-s-3);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+}
+
+.bb-search__empty {
+  padding: var(--bb-s-2) var(--bb-s-3);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+}
+
+@media (forced-colors: active) {
+  .bb-search__option[aria-selected='true'] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
 /* ---------- menus ---------- */
 
 .bb-menu {

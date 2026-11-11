@@ -19,6 +19,17 @@
           <span>Bookmark Bookshelf</span>
         </a>
         <div class="bb-app__tools">
+          <div class="bb-search" role="search">
+            <label class="bb-visually-hidden" for="search">Search your links</label>
+            <svg class="bb-search__icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3.5 3.5" /></svg>
+            <input id="search" class="bb-search__field" type="search" placeholder="Search your links" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-keyshortcuts="/" />
+            <kbd class="bb-search__key" aria-hidden="true">/</kbd>
+            <div id="search-popup" class="bb-search__popup" hidden>
+              <ul id="search-results" class="bb-search__list"></ul>
+              <p id="search-empty" class="bb-search__empty" hidden></p>
+            </div>
+            <p id="search-status" class="bb-visually-hidden" role="status" aria-live="polite"></p>
+          </div>
           <div class="bb-menu">
             <button id="view-button" type="button" class="bb-button bb-button--quiet bb-menu__button" aria-haspopup="menu">
               View
