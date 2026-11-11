@@ -70,6 +70,23 @@ describe('add', () => {
     expect(saved[0]?.created).toBe(true);
   });
 
+  it('names a link without a title after the end of its address', () => {
+    editor().add();
+    input('url').value = 'https://example.org/essays/why-we-keep-tabs-open.html';
+    input('url').dispatchEvent(new Event('input'));
+    expect(document.getElementById('hint-title')?.textContent).toContain('Why we keep tabs open');
+    (document.getElementById('editor-save') as HTMLButtonElement).click();
+    expect(saved[0]?.bookmark.title).toBe('Why we keep tabs open');
+  });
+
+  it('keeps a title the person typed', () => {
+    editor().add();
+    input('url').value = 'https://example.org/essays/why-we-keep-tabs-open.html';
+    input('title').value = 'My own title';
+    (document.getElementById('editor-save') as HTMLButtonElement).click();
+    expect(saved[0]?.bookmark.title).toBe('My own title');
+  });
+
   it('saves and stays open for the next link', () => {
     editor().add();
     input('url').value = 'https://example.org/one';

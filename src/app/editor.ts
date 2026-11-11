@@ -3,6 +3,7 @@ import type { Bookmark, BookmarkInput, Store } from '../store';
 import { button, make, must, option, toast } from './dom';
 import { askConfirm, closeDialog } from './flow-dialog';
 import { clearErrorOnInput, ensureHint, errorElement, markRequired, setFieldError } from './flow-fields';
+import { titleFromAddress } from './flow-title';
 
 /**
  * Add and edit dialog. One native <dialog> with a plain form. Every rule lives
@@ -62,7 +63,14 @@ export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created
     clearErrorOnInput(control);
   }
   markRequired(url);
-  ensureHint(titleInput, 'Leave this empty and the title is taken from the address.');
+  const titleHint = ensureHint(titleInput, 'Leave this empty and the title is taken from the address.');
+  const showTitleHint = (): void => {
+    const suggestion = titleFromAddress(url.value);
+    titleHint.textContent = suggestion
+      ? `Leave this empty and the title becomes “${suggestion}”.`
+      : 'Leave this empty and the title is taken from the address.';
+  };
+  url.addEventListener('input', showTitleHint);
 
   const status = form.querySelector<HTMLElement>('.bb-dialog__status') ?? make('p', 'bb-dialog__status');
   status.setAttribute('role', 'status');
@@ -121,6 +129,7 @@ export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created
     remove.hidden = !bookmark;
     saveMore.hidden = Boolean(bookmark);
     if (more) more.open = Boolean(bookmark);
+    showTitleHint();
     untouched = values();
   }
 
@@ -130,7 +139,7 @@ export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created
     if (pattern.value) cover.pattern = pattern.value;
     return {
       url: url.value,
-      title: titleInput.value.trim() || undefined,
+      title: titleInput.value.trim() || titleFromAddress(url.value) || undefined,
       author: author.value.trim() || undefined,
       note: note.value.trim() || undefined,
       tags: tags.value.split(','),
