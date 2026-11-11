@@ -91,9 +91,10 @@ label,
   display: none !important;
 }
 
+/* Instant, never animated: the ring must be there the moment focus arrives. */
 :focus-visible {
-  outline: 2px solid var(--bb-focus);
-  outline-offset: 2px;
+  outline: var(--bb-focus-width) solid var(--bb-focus-ring);
+  outline-offset: var(--bb-focus-offset);
 }
 
 /*
@@ -253,8 +254,37 @@ textarea.bb-input {
   }
 }
 
+/*
+ * Forced colours strip backgrounds, which is where selected and pressed states live, so
+ * those states take the system highlight instead.
+ */
 @media (forced-colors: active) {
-  .bb-button {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+
+  .bb-button,
+  .bb-select,
+  .bb-input {
     border-color: ButtonText;
+  }
+
+  button[aria-pressed='true'],
+  [role='tab'][aria-selected='true'],
+  [role='radio'][aria-checked='true'],
+  [role='menuitemradio'][aria-checked='true'],
+  [role='option'][aria-selected='true'],
+  [aria-current='true'] {
+    forced-color-adjust: none;
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .bb-button[disabled],
+  .bb-button[aria-disabled='true'] {
+    border-color: GrayText;
+    color: GrayText;
+    opacity: 1;
   }
 }
