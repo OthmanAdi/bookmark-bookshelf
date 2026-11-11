@@ -22,7 +22,7 @@ import {
   restoreBookmarkTo,
   updateBookmarkIn,
 } from './bookmark-ops';
-import { defaultIdFactory } from './ids';
+import { defaultIdFactory, ownValue } from './ids';
 import { mergeLibrary } from './merge';
 import { migrateLibrary } from './migrate';
 import { orderedBookmarks } from './ordering';
@@ -147,7 +147,7 @@ export function createStore(options: StoreOptions = {}): Store {
     removeShelf: (id, moveTo) => mutate(['shelves', 'bookmarks'], () => removeShelfFrom(lib, id, moveTo)),
 
     progress: (id): Progress | undefined => {
-      const found = lib.progress[id];
+      const found = ownValue(lib.progress, id);
       return found ? clone(found) : undefined;
     },
     setProgress: (id, value) => {
@@ -160,7 +160,7 @@ export function createStore(options: StoreOptions = {}): Store {
       commit(
         ['progress'],
         () => {
-          const existed = lib.progress[id] !== undefined;
+          const existed = Object.hasOwn(lib.progress, id);
           delete lib.progress[id];
           return existed;
         },

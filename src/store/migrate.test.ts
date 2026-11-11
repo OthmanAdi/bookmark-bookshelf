@@ -80,7 +80,13 @@ describe('migrateLibrary version 1', () => {
       { id: 'b1', url: 'https://duplicate-id.com' },
     );
     const result = migrated(doc);
-    expect(result.bookmarks.map((b) => b.id)).toEqual(['b1']);
+    expect(result.bookmarks.map((b) => b.url).sort()).toEqual([
+      'https://duplicate-id.com/',
+      'https://example.com/',
+      'https://no-id.com/',
+    ]);
+    expect(result.bookmarks.find((b) => b.url === 'https://example.com/')?.id).toBe('b1');
+    expect(new Set(result.bookmarks.map((b) => b.id)).size).toBe(3);
   });
 
   it('reassigns dangling shelf ids to the first shelf and re-indexes', () => {
@@ -113,10 +119,13 @@ describe('migrateLibrary version 1', () => {
     expect(result.session.view).toBe('shelf');
   });
 
-  it('repairs shelves: skips duplicates by name, creates a shelf when none are usable', () => {
+  it('repairs shelves: skips duplicates by name, renumbers a repeated id, creates a shelf when none are usable', () => {
     const doc = validV1();
     doc.shelves.push({ id: 's3', name: 'FIRST', order: 2 }, { id: 's1', name: 'Again', order: 3 });
-    expect(migrated(doc).shelves.map((s) => s.id)).toEqual(['s1', 's2']);
+    const repaired = migrated(doc).shelves;
+    expect(repaired.map((s) => s.name)).toEqual(['First', 'Second', 'Again']);
+    expect(new Set(repaired.map((s) => s.id)).size).toBe(3);
+    expect(repaired.slice(0, 2).map((s) => s.id)).toEqual(['s1', 's2']);
 
     const empty = { ...validV1(), shelves: [] };
     const result = migrated(empty);

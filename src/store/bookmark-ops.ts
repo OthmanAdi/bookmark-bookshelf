@@ -1,5 +1,6 @@
 import type { Bookmark, BookmarkInput, BookmarkPatch, LibraryV1, Progress, Result } from './types';
 import { defaultCover, mergeCover } from './cover';
+import { ownValue } from './ids';
 import { placeBookmark, shelfBookmarks, sortLibrary } from './ordering';
 import { clone, notFound, ok } from './result';
 import { normalizeUrl } from './url';
@@ -101,7 +102,7 @@ export function updateBookmarkIn(lib: LibraryV1, ctx: OpContext, id: string, pat
 export function removeBookmarkFrom(lib: LibraryV1, id: string): { bookmark: Bookmark; progress?: Progress } | undefined {
   const bookmark = findBookmark(lib, id);
   if (!bookmark) return undefined;
-  const progress = lib.progress[id];
+  const progress = ownValue(lib.progress, id);
   lib.bookmarks.splice(lib.bookmarks.indexOf(bookmark), 1);
   delete lib.progress[id];
   if (lib.session.focusId === id) lib.session.focusId = null;

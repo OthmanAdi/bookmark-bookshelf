@@ -1,5 +1,6 @@
 import type { Bookmark, ImportSummary, LibraryV1 } from './types';
 import type { OpContext } from './bookmark-ops';
+import { ownValue } from './ids';
 import { shelfBookmarks, sortLibrary } from './ordering';
 import { clone } from './result';
 
@@ -62,7 +63,7 @@ export function mergeLibrary(lib: LibraryV1, incoming: LibraryV1, ctx: OpContext
       order: shelfBookmarks(lib, shelfId).length,
     };
     lib.bookmarks.push(copy);
-    const progress = incoming.progress[source.id];
+    const progress = ownValue(incoming.progress, source.id);
     if (progress) lib.progress[copy.id] = clone(progress);
     added += 1;
   }
