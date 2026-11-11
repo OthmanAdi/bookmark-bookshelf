@@ -2,7 +2,7 @@
 
 Bookmark Bookshelf is an open-source 3D bookmark manager. Your saved links stand as volumes on an interactive bookshelf that you can drag, open and read.
 
-[Open the live demo](https://othmanadi.github.io/bookmark-bookshelf/) or go straight to [the app](https://othmanadi.github.io/bookmark-bookshelf/app.html). You do not need an account, and your library stays in your browser.
+There is no hosted demo yet, so the quickest way to see it is to run it locally. You do not need an account, and your library stays in your browser.
 
 ![The shelf being dragged, a volume opened, read and closed again](docs/media/shelf-demo.gif)
 
@@ -25,7 +25,7 @@ Then open `http://127.0.0.1:5173/` for the homepage or `http://127.0.0.1:5173/ap
 
 ### To use it
 
-Open [the app](https://othmanadi.github.io/bookmark-bookshelf/app.html), or run it locally with the commands above, and choose "Add a link". Paste the link, and if you want to read it in the app, paste the text too. Everything is stored in your browser's local storage. "Export library" in the footer gives you a JSON file you can keep or move to another browser.
+Run it locally with the commands above, open `http://127.0.0.1:5173/app.html` and choose "Add a link". Paste the link, and if you want to read it in the app, paste the text too. Everything is stored in your browser's local storage. "Export library" in the footer gives you a JSON file you can keep or move to another browser.
 
 ### To take one part into your own project
 
@@ -105,7 +105,7 @@ The reader shows text you saved with a link. It never fetches a page for you, be
 | `npm run test:e2e` | 81 browser tests (Playwright on desktop Chromium, phone-sized Chromium with touch, and a WebKit smoke run). Run `npx playwright install chromium webkit` once first |
 | `npm run check` | Type check, unit tests and build |
 
-The build is a folder of static files with relative URLs, so it can be served from any path. The live site at https://othmanadi.github.io/bookmark-bookshelf/ is built and deployed by the workflow in [`.github/workflows/pages.yml`](.github/workflows/pages.yml), which sets `SITE_ORIGIN` to that address. With `SITE_ORIGIN` set, the build adds the canonical link, absolute sharing URLs, `robots.txt` and `sitemap.xml`. Without it, every page is marked `noindex`, so a copy deployed somewhere else does not compete with the original until you give it its own address.
+The build is a folder of static files with relative URLs, so it can be served from any path. A hosted demo is not published yet. The workflow in [`.github/workflows/pages.yml`](.github/workflows/pages.yml) is ready to build the site and deploy it to GitHub Pages once Pages is switched on for the repository, and it sets `SITE_ORIGIN` to the address the site will have. With `SITE_ORIGIN` set, the build adds the canonical link, absolute sharing URLs, `robots.txt` and `sitemap.xml`. Without it, every page is marked `noindex`.
 
 ## Limits
 

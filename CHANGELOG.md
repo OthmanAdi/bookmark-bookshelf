@@ -2,7 +2,7 @@
 
 ## 0.1.0 (2026-11-11)
 
-This is the first public release, so everything is new.
+This is the first release, so everything is new.
 
 ### Added
 

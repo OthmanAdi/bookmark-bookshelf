@@ -5,7 +5,7 @@
   "description": "Saved links as volumes on an interactive 3D shelf, with an honest in-app reader. Four reusable modules: shelf, motion, store, reader.",
   "license": "Apache-2.0",
   "author": "OthmanAdi",
-  "homepage": "https://othmanadi.github.io/bookmark-bookshelf/",
+  "homepage": "https://github.com/OthmanAdi/bookmark-bookshelf#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/OthmanAdi/bookmark-bookshelf.git"
