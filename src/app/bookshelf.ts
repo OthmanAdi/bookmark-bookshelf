@@ -255,7 +255,8 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
 
   const stopMotion = motion.subscribe((state) => {
     const time = state.openTime;
-    shelf.setPose({ position: state.position, open: state.open, reduced: state.reduced, velocity: state.velocity });
+    // The engine counts in milliseconds; the shelf leans its volumes by volumes a second.
+    shelf.setPose({ position: state.position, open: state.open, reduced: state.reduced, velocity: state.velocity * 1000 });
     if (flight) {
       if (coverLeavesOnMove && state.open < 1) {
         reader?.setCoverVisible(false);
@@ -471,16 +472,16 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
   function refresh(): void {
     const keepId = current()?.id ?? store.session().focusId;
     const items = listItems();
-    const index = Math.max(
-      0,
-      bookmarks.findIndex((bookmark) => bookmark.id === keepId),
-    );
+    const found = bookmarks.findIndex((bookmark) => bookmark.id === keepId);
     // A link that was not in the library a moment ago was just added: it drops in, so the eye finds it.
     // A whole file of new links simply stands there.
     const all = store.bookmarks(null);
     const added = all.filter((bookmark) => !knownIds.has(bookmark.id)).map((bookmark) => bookmark.id);
     knownIds = new Set(all.map((bookmark) => bookmark.id));
     shelf.setItems(items, added.length > 0 && added.length <= ARRIVE_LIMIT ? { arrive: added } : undefined);
+    // When the presented link is gone the shelf has already presented the one that took its place.
+    const kept = Number(shelf.element.dataset.focus);
+    const index = found >= 0 ? found : Number.isInteger(kept) && kept >= 0 && kept < items.length ? kept : 0;
     motion.setCount(items.length, index);
     lastFocusId = null;
     shelf.setPose({ position: motion.state.position, open: motion.state.open, reduced: motion.state.reduced });
