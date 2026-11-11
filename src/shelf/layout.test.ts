@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeRow,
   focusWeight,
+  gapWeight,
   leanSpread,
   restPitch,
   scaleGeometry,
@@ -40,9 +41,24 @@ describe('focusWeight', () => {
     }
   });
 
-  it('is exactly half way between two slots for both of them', () => {
+  it('is the same for both slots half way between them, and less than half', () => {
     expect(focusWeight(2.5, 2)).toBe(focusWeight(2.5, 3));
-    expect(focusWeight(2.5, 2)).toBe(0.5);
+    expect(focusWeight(2.5, 2)).toBeGreaterThan(0);
+    expect(focusWeight(2.5, 2)).toBeLessThan(0.5);
+  });
+
+  it('finishes the turn before the next slot is reached', () => {
+    expect(focusWeight(4.78, 4)).toBe(0);
+    expect(focusWeight(4.77, 4)).toBeGreaterThan(0);
+  });
+});
+
+describe('gapWeight', () => {
+  it('starts making room before the turn starts', () => {
+    expect(gapWeight(4.8, 4)).toBeGreaterThan(0);
+    expect(focusWeight(4.8, 4)).toBe(0);
+    expect(gapWeight(4.9, 4)).toBe(0);
+    expect(gapWeight(4, 4)).toBe(1);
   });
 });
 
@@ -93,8 +109,31 @@ describe('computeRow', () => {
     expect(left.weight).toBe(right.weight);
     expect(left.angle).toBe(right.angle);
     expect(left.lean).toBe(right.lean);
-    expect(left.weight).toBe(0.5);
   });
+
+  it.each(Object.entries(VARIANTS))(
+    'keeps the far row rigid while a volume passes the centre (%s)',
+    (_name, variant) => {
+      const geometry = variant.geometry;
+      const pitch = restPitch(geometry);
+      for (const offset of [4, -4]) {
+        const start = poseAt(3, geometry, 3 + offset).x;
+        let previous = start;
+        let backwards = 0;
+        let worst = 0;
+        for (let step = 1; step <= 200; step++) {
+          const position = 3 + step / 200;
+          const x = poseAt(position, geometry, 3 + offset).x;
+          backwards = Math.max(backwards, x - previous);
+          worst = Math.max(worst, Math.abs(x - (start - pitch * (position - 3))));
+          previous = x;
+        }
+        // It only ever moves against the travel, as one rigid strip with the position.
+        expect(backwards).toBeLessThanOrEqual(1e-9);
+        expect(worst).toBeLessThan(0.5);
+      }
+    },
+  );
 
   it('moves smoothly: a tiny change in position gives a tiny change in every x', () => {
     const epsilon = 1e-6;
@@ -118,8 +157,9 @@ describe('computeRow', () => {
     const centre = poseAt(1, night, 1);
     expect(centre.lift).toBe(night.focusLift);
     expect(centre.z).toBe(night.focusPush);
-    const half = poseAt(1.5, night, 1);
-    expect(half.lift).toBeCloseTo(night.focusLift / 2, 9);
+    const part = poseAt(1.3, night, 1);
+    expect(part.lift).toBeCloseTo(night.focusLift * part.weight, 9);
+    expect(part.z).toBeCloseTo(night.focusPush * part.weight, 9);
   });
 });
 

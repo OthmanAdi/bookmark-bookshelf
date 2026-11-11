@@ -9,7 +9,7 @@ import type { Geometry } from './types';
  */
 export interface SlotPose {
   slot: number;
-  /** Focus weight: 1 at the centre, 0 one slot away, smooth in between. */
+  /** Focus weight: 1 at the centre, 0 most of a step away, smooth in between. */
   weight: number;
   /** Turn toward the viewer in degrees: 0 shows the spine, `focusAngle` shows the cover. */
   angle: number;
@@ -25,13 +25,28 @@ export interface SlotPose {
 
 const DEG = Math.PI / 180;
 
+/**
+ * A volume finishes its turn this far from its slot, in steps. Turning over the whole step would make the
+ * two volumes in transition need far more room half way than at either end, and the rest of the row would
+ * swell outward and pull back every time a volume passes the centre.
+ */
+const TURN_SPAN = 0.78;
+/** Neighbours begin to make room a little before the turn starts. */
+const GAP_SPAN = 0.9;
+
 function smooth(t: number): number {
   const x = Math.min(1, Math.max(0, t));
   return x * x * (3 - 2 * x);
 }
 
+/** How far a volume is turned toward the viewer: 1 at its slot, 0 from `TURN_SPAN` away. */
 export function focusWeight(position: number, slot: number): number {
-  return smooth(1 - Math.abs(position - slot));
+  return smooth(1 - Math.abs(position - slot) / TURN_SPAN);
+}
+
+/** How much extra room the row gives a volume near the centre: 1 at its slot, 0 from `GAP_SPAN` away. */
+export function gapWeight(position: number, slot: number): number {
+  return smooth(1 - Math.abs(position - slot) / GAP_SPAN);
 }
 
 /** Distance between two neighbouring resting volumes. */
@@ -50,31 +65,52 @@ export function leanSpread(geometry: Geometry, weight: number): number {
   return geometry.bookHeight * Math.abs(Math.sin(weight * geometry.focusLean * DEG));
 }
 
-/** Room one slot occupies along the row for a given focus weight. */
-export function slotAdvance(geometry: Geometry, weight: number): number {
+/** Room one slot occupies along the row for a given focus weight and, when it differs, gap weight. */
+export function slotAdvance(geometry: Geometry, weight: number, gap = weight): number {
   const angle = weight * geometry.focusAngle;
-  return turnedWidth(geometry, angle) + leanSpread(geometry, weight) + geometry.gap + weight * 2 * geometry.focusGap;
+  return turnedWidth(geometry, angle) + leanSpread(geometry, weight) + geometry.gap + gap * 2 * geometry.focusGap;
 }
 
 /**
- * Poses for every slot from `from` to `to` inclusive. The volume at `position`
- * sits at x = 0; while travelling between two slots the row is blended between
- * the two centred layouts, so nothing jumps.
+ * Poses for every slot from `from` to `to` inclusive. The volume at `position` sits at x = 0.
+ *
+ * Between two slots only the two volumes either side of `position` turn. Everything left of them and
+ * everything right of them moves as one rigid strip, in step with the position, so the row stays under
+ * the hand. The two turning volumes share the room between the strips: their own widths change with the
+ * turn, and the gaps around them take up the difference. Those gaps never close, because a turned volume
+ * is narrower than the room its slot gives it at rest.
  */
 export function computeRow(position: number, geometry: Geometry, from: number, to: number): SlotPose[] {
   const base = Math.floor(position);
   const fraction = position - base;
 
   const weightOf = (slot: number): number => focusWeight(position, slot);
-  const advanceOf = (slot: number): number => slotAdvance(geometry, weightOf(slot));
+  const bodyOf = (weight: number): number =>
+    turnedWidth(geometry, weight * geometry.focusAngle) + leanSpread(geometry, weight);
+  const roomOf = (gap: number): number => geometry.gap + gap * 2 * geometry.focusGap;
+
+  // The two layouts this step travels between: `base` presented, then `base + 1` presented.
+  const presented = bodyOf(1) + roomOf(1);
+  const resting = bodyOf(0) + roomOf(0);
+  const spanStart = presented + resting;
+  const spanEnd = resting + presented;
+  const span = spanStart + (spanEnd - spanStart) * fraction;
+  const bodies = bodyOf(weightOf(base)) + bodyOf(weightOf(base + 1));
+  const rooms = roomOf(gapWeight(position, base)) + roomOf(gapWeight(position, base + 1));
+  const share = rooms > 1e-6 ? Math.max(0, (span - bodies) / rooms) : 1;
+
+  const advanceOf = (slot: number): number => {
+    const room = roomOf(gapWeight(position, slot));
+    return bodyOf(weightOf(slot)) + (slot === base || slot === base + 1 ? room * share : room);
+  };
 
   // Centres measured from the left edge of slot `base`.
-  const baseCentre = advanceOf(base) / 2;
-  const nextCentre = advanceOf(base) + advanceOf(base + 1) / 2;
+  const baseCentre = presented / 2;
+  const nextCentre = resting + presented / 2;
   const origin = baseCentre + (nextCentre - baseCentre) * fraction;
 
   const centres = new Map<number, number>();
-  centres.set(base, baseCentre);
+  centres.set(base, advanceOf(base) / 2);
   let cursor = advanceOf(base);
   for (let slot = base + 1; slot <= to; slot++) {
     const advance = advanceOf(slot);
