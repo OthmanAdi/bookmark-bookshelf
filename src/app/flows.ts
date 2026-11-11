@@ -1,5 +1,7 @@
 import type { Bookshelf } from './bookshelf';
+import { toast } from './dom';
 import { createEditor, type LinkPreset } from './editor';
+import { removeExampleLinks } from './flow-examples';
 import type { Store } from '../store';
 
 /**
@@ -52,7 +54,12 @@ export function createFlows(context: FlowContext): Flows {
     describeShelf: () => undefined,
     removeShelf: () => undefined,
     sendPageHere: () => undefined,
-    removeExamples: () => undefined,
+    removeExamples() {
+      const result = removeExampleLinks(store);
+      if (!result) return toast('There are no examples left to remove.');
+      const noun = result.links === 1 ? 'link' : 'links';
+      toast(`Removed ${result.links} example ${noun}.`, { label: 'Undo', run: result.undo });
+    },
     handleAddress: () => undefined,
   };
 }
