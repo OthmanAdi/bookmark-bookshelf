@@ -419,6 +419,26 @@
   display: none;
 }
 
+/* ---------- take links out ---------- */
+
+.bb-takeout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--bb-s-3) var(--bb-s-4);
+  padding-top: var(--bb-s-4);
+  border-top: var(--bb-hairline) solid var(--bb-rule);
+}
+
+.bb-takeout__title {
+  font-weight: 600;
+}
+
+.bb-takeout__about {
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+}
+
 /* ---------- hand-in summary ---------- */
 
 .bb-summary {
@@ -563,6 +583,11 @@
 }
 
 @media (max-width: 40rem) {
+  .bb-takeout {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
   .bb-list {
     width: calc(100% - 2 * var(--bb-s-4));
   }

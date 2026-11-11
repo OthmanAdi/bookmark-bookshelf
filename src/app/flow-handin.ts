@@ -3,6 +3,7 @@ import { handInSummary } from '../store/hand-in';
 import { minutesOf } from '../store/reading-time';
 import { button, copyText, downloadText, make, toast } from './dom';
 import { createDialog } from './flow-dialog';
+import { fileSlug } from './flow-files';
 import { buildPrintPage, printPage } from './flow-print';
 
 /**
@@ -24,17 +25,9 @@ export function summaryOf(store: Store, shelfId: string, date: Date = new Date()
   });
 }
 
-/** A file name made of the shelf name: lower case, words joined with hyphens. */
+/** A file name made of the shelf name. */
 export function summaryFileName(shelfName: string): string {
-  const slug = shelfName
-    .normalize('NFKD')
-    .replace(/\p{M}+/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60)
-    .replace(/-+$/g, '');
-  return `${slug || 'shelf'}-summary.txt`;
+  return `${fileSlug(shelfName)}-summary.txt`;
 }
 
 export function handInFlow(store: Store, shelfId: string): void {

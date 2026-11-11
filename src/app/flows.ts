@@ -4,6 +4,7 @@ import { createEditor, type LinkPreset } from './editor';
 import { clearAddress, readAddress } from './flow-address';
 import { sendPageHereFlow } from './flow-bookmarklet';
 import { removeExampleLinks } from './flow-examples';
+import { takeLinksOutFlow } from './flow-export';
 import { handInFlow } from './flow-handin';
 import { printShelf } from './flow-print';
 import { describeShelfFlow, removeShelfFlow } from './flow-shelf';
@@ -28,6 +29,8 @@ export interface Flows {
   editLink(id: string): void;
   /** Opens the dialog for bringing many links in, optionally with files that were dropped on the page. */
   bringLinksIn(files?: File[]): void;
+  /** Opens the dialog for saving the library, a bookmarks file or a Markdown list. */
+  takeLinksOut(): void;
   shareShelf(shelfId: string): void;
   handIn(shelfId: string): void;
   /** Prints the links of one shelf as a plain numbered list, without the app around it. */
@@ -89,6 +92,7 @@ export function createFlows(context: FlowContext): Flows {
     addLink: (preset) => editor.add(preset),
     editLink: (id) => editor.edit(id),
     bringLinksIn: () => undefined,
+    takeLinksOut: () => takeLinksOutFlow(store),
     shareShelf: () => undefined,
     handIn: (shelfId) => handInFlow(store, shelfId),
     printShelf: (shelfId) => printShelf(store, shelfId),
