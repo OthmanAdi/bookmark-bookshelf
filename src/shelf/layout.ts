@@ -13,10 +13,16 @@ export interface SlotPose {
   weight: number;
   /** Turn toward the viewer in degrees: 0 shows the spine, `focusAngle` shows the cover. */
   angle: number;
-  /** Lean in degrees, about the foot of the volume. */
+  /** Lean in degrees, about the foot corner the volume leans toward. Negative leans left. */
   lean: number;
-  /** Pivot (centre of the spine at the floor) relative to the centre of the row, in px. */
+  /** Centre of the spine at the floor, before the lean, relative to the centre of the row, in px. */
   x: number;
+  /**
+   * The foot corner the volume leans on, as an offset from `x` along the row once the volume is turned.
+   * Drawn as `translate(x + corner) rotateZ(lean) translateX(-corner) rotateY(-angle)`, so that corner
+   * stays on the floor and nothing passes through it.
+   */
+  corner: number;
   /** Upward lift in px. */
   lift: number;
   /** Push toward the viewer in px. */
@@ -118,6 +124,9 @@ export function pitchAt(position: number, geometry: Geometry, sizeOf?: SizeOf): 
  * the hand. The two turning volumes share the room between the strips: their own widths change with the
  * turn, and the gaps around them take up the difference. Those gaps never close, because a turned volume
  * is narrower than the room its slot gives it at rest.
+ *
+ * A leaning volume pivots on the foot corner it leans toward and gives up its gap on that side, so at
+ * full turn its head rests against its neighbour instead of on air.
  */
 export function computeRow(
   position: number,
@@ -128,6 +137,7 @@ export function computeRow(
 ): SlotPose[] {
   const base = Math.floor(position);
   const fraction = position - base;
+  const side = Math.sign(geometry.focusLean);
 
   const sizes = new Map<number, VolumeSize>();
   const sizeAt = (slot: number): VolumeSize | undefined => {
@@ -143,7 +153,9 @@ export function computeRow(
   const bodyOf = (slot: number, weight: number): number =>
     turnedWidth(geometry, weight * geometry.focusAngle, sizeAt(slot)) + leanSpread(geometry, weight, sizeAt(slot));
   const roomOf = (gap: number): number => geometry.gap + gap * 2 * geometry.focusGap;
-  const presentedOf = (slot: number): number => bodyOf(slot, 1) + roomOf(1);
+  // What a leaning volume gives up on its lean side: at full weight its own gap and its neighbour's.
+  const tuckOf = (weight: number): number => (side === 0 ? 0 : weight * (geometry.gap + geometry.focusGap));
+  const presentedOf = (slot: number): number => bodyOf(slot, 1) + roomOf(1) - tuckOf(1);
   const restingOf = (slot: number): number => bodyOf(slot, 0) + roomOf(0);
 
   // The two layouts this step travels between: `base` presented, then `base + 1` presented.
@@ -151,51 +163,66 @@ export function computeRow(
   const spanEnd = restingOf(base) + presentedOf(base + 1);
   const span = spanStart + (spanEnd - spanStart) * fraction;
   const bodies = bodyOf(base, weightOf(base)) + bodyOf(base + 1, weightOf(base + 1));
+  const tucks = tuckOf(weightOf(base)) + tuckOf(weightOf(base + 1));
   const rooms = roomOf(gapWeight(position, base)) + roomOf(gapWeight(position, base + 1));
-  const share = rooms > 1e-6 ? Math.max(0, (span - bodies) / rooms) : 1;
+  const share = rooms > 1e-6 ? Math.max(0, (span - bodies + tucks) / rooms) : 1;
 
-  const advanceOf = (slot: number): number => {
+  const roomAt = (slot: number): number => {
     const room = roomOf(gapWeight(position, slot));
-    return bodyOf(slot, weightOf(slot)) + (slot === base || slot === base + 1 ? room * share : room);
+    return slot === base || slot === base + 1 ? room * share : room;
   };
+  const advanceOf = (slot: number): number => bodyOf(slot, weightOf(slot)) + roomAt(slot) - tuckOf(weightOf(slot));
+  /** From the left edge of a slot to the left edge of the volume in it. */
+  const insetOf = (room: number, weight: number): number => room / 2 - (side < 0 ? tuckOf(weight) : 0);
 
-  // Centres measured from the left edge of slot `base`.
-  const baseCentre = presentedOf(base) / 2;
-  const nextCentre = restingOf(base) + presentedOf(base + 1) / 2;
+  // The presented volume is centred on 0 at both ends of the step; in between the origin moves evenly.
+  // Measured from the left edge of slot `base`.
+  const baseCentre = insetOf(roomOf(1), 1) + bodyOf(base, 1) / 2;
+  const nextCentre = restingOf(base) + insetOf(roomOf(1), 1) + bodyOf(base + 1, 1) / 2;
   const origin = baseCentre + (nextCentre - baseCentre) * fraction;
 
-  const centres = new Map<number, number>();
-  centres.set(base, advanceOf(base) / 2);
+  const lefts = new Map<number, number>();
+  lefts.set(base, 0);
   let cursor = advanceOf(base);
   for (let slot = base + 1; slot <= to; slot++) {
-    const advance = advanceOf(slot);
-    centres.set(slot, cursor + advance / 2);
-    cursor += advance;
+    lefts.set(slot, cursor);
+    cursor += advanceOf(slot);
   }
   cursor = 0;
   for (let slot = base - 1; slot >= from; slot--) {
-    const advance = advanceOf(slot);
-    centres.set(slot, cursor - advance / 2);
-    cursor -= advance;
+    cursor -= advanceOf(slot);
+    lefts.set(slot, cursor);
   }
 
   const poses: SlotPose[] = [];
   for (let slot = from; slot <= to; slot++) {
     const weight = weightOf(slot);
     const angle = weight * geometry.focusAngle;
-    const centre = (centres.get(slot) ?? 0) - origin;
     const lean = weight * geometry.focusLean;
-    const cover = sizeAt(slot)?.coverWidth ?? geometry.coverWidth;
-    // The pivot is the foot of the spine. A turned volume grows to the right of its pivot and a
-    // leaning one reaches sideways at its head, so shift the pivot to keep the whole volume centred in its slot.
-    const pivot =
-      centre - (cover * Math.sin(angle * DEG)) / 2 - (Math.sign(lean) * leanSpread(geometry, weight, sizeAt(slot))) / 2;
+    const own = sizeAt(slot);
+    const spine = own?.spineWidth ?? geometry.spineWidth;
+    const cover = own?.coverWidth ?? geometry.coverWidth;
+    const radians = angle * DEG;
+    // Foot corners of the turned volume, measured from the middle of its spine.
+    const leftFoot = -(spine / 2) * Math.cos(radians);
+    const rightFoot = (spine / 2) * Math.cos(radians) + cover * Math.sin(radians);
+    const left = (lefts.get(slot) ?? 0) + insetOf(roomAt(slot), weight) - origin;
+    const spread = leanSpread(geometry, weight, own);
+    // Leaning left, the head reaches `spread` past the left foot; leaning right, past the right foot.
+    const corner = lean < 0 ? leftFoot : lean > 0 ? rightFoot : 0;
+    const x =
+      lean < 0
+        ? left + spread - leftFoot
+        : lean > 0
+          ? left + turnedWidth(geometry, angle, own) - rightFoot
+          : left - leftFoot;
     poses.push({
       slot,
       weight,
       angle,
       lean,
-      x: pivot,
+      x,
+      corner,
       lift: weight * geometry.focusLift,
       z: weight * geometry.focusPush,
     });

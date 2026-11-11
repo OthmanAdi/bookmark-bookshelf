@@ -165,6 +165,72 @@ describe('computeRow', () => {
   });
 });
 
+/** Screen corners of a volume drawn as the shelf draws it, without perspective. Up is negative y. */
+function corners(pose: ReturnType<typeof poseAt>, geometry: Geometry) {
+  const a = (pose.angle * Math.PI) / 180;
+  const t = (pose.lean * Math.PI) / 180;
+  const leftFoot = -(geometry.spineWidth / 2) * Math.cos(a);
+  const rightFoot = (geometry.spineWidth / 2) * Math.cos(a) + geometry.coverWidth * Math.sin(a);
+  const place = (u: number, v: number) => {
+    const du = u - pose.corner;
+    return { x: pose.x + pose.corner + du * Math.cos(t) - v * Math.sin(t), y: du * Math.sin(t) + v * Math.cos(t) };
+  };
+  return {
+    leftFoot: place(leftFoot, 0),
+    rightFoot: place(rightFoot, 0),
+    leftHead: place(leftFoot, -geometry.bookHeight),
+    rightHead: place(rightFoot, -geometry.bookHeight),
+  };
+}
+
+describe('the presented pose', () => {
+  it.each([-5, -4.4, -2, 3, 5])('keeps both feet on or above the floor at a lean of %s degrees', (lean) => {
+    for (const focusAngle of [84, 90]) {
+      const geometry = { ...paper, focusLean: lean, focusAngle };
+      for (const position of [3, 3.1, 3.3, 3.5]) {
+        const feet = corners(poseAt(position, geometry, 3), geometry);
+        expect(feet.leftFoot.y).toBeLessThanOrEqual(1e-9);
+        expect(feet.rightFoot.y).toBeLessThanOrEqual(1e-9);
+        expect(Math.max(feet.leftFoot.y, feet.rightFoot.y)).toBeGreaterThan(-1e-9);
+      }
+    }
+  });
+
+  it.each([
+    ['paper', -4.4],
+    ['oak', -2],
+    ['pocket', 3],
+  ])('rests the head of the presented volume on its neighbour (%s)', (name, lean) => {
+    const geometry = { ...VARIANTS[name]!.geometry, focusLean: lean, focusAngle: 84 };
+    const centre = corners(poseAt(5, geometry, 5), geometry);
+    if (lean < 0) {
+      const neighbour = poseAt(5, geometry, 4);
+      expect(Math.abs(centre.leftHead.x - (neighbour.x + geometry.spineWidth / 2))).toBeLessThan(1);
+    } else {
+      const neighbour = poseAt(5, geometry, 6);
+      expect(Math.abs(centre.rightHead.x - (neighbour.x - geometry.spineWidth / 2))).toBeLessThan(1);
+    }
+  });
+
+  it('never lets two volumes overlap while one passes the centre', () => {
+    for (const name of Object.keys(VARIANTS)) {
+      const geometry = { ...VARIANTS[name]!.geometry, focusAngle: 84 };
+      for (let step = 0; step <= 40; step++) {
+        const position = 2 + step / 40;
+        const row = computeRow(position, geometry, 0, 5).map((pose) => corners(pose, geometry));
+        for (let index = 1; index < row.length; index++) {
+          const before = row[index - 1]!;
+          const after = row[index]!;
+          // Compare at the foot and at the head, where a lean brings two volumes closest.
+          expect(Math.min(after.leftFoot.x, after.leftHead.x)).toBeGreaterThan(
+            Math.max(before.rightFoot.x, before.rightHead.x) - 1,
+          );
+        }
+      }
+    }
+  });
+});
+
 describe('volumeSize', () => {
   it('keeps the look size when an item carries no size', () => {
     expect(volumeSize(paper)).toEqual({ spineWidth: 58, bookHeight: 340, coverWidth: 206 });

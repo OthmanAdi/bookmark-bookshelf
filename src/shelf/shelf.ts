@@ -266,8 +266,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       const style = node.element.style;
       style.visibility = reach === 0 ? 'hidden' : '';
       style.transform =
-        `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ` +
-        `rotateZ(${slotPose.lean}deg) rotateY(${-slotPose.angle}deg)`;
+        slotPose.lean === 0
+          ? `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) rotateY(${-slotPose.angle}deg)`
+          : `translate3d(${slotPose.x + slotPose.corner + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ` +
+            `rotateZ(${slotPose.lean}deg) translateX(${-slotPose.corner}px) rotateY(${-slotPose.angle}deg)`;
       style.zIndex = slotPose.weight > 0 ? '2' : '';
 
       // Distance of the volume's middle from the centre of the row, in cover widths, for a lamp.
