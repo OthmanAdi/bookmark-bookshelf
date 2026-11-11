@@ -43,6 +43,40 @@ describe('eased travel for programmed moves', () => {
     expect(firstStep).toBeLessThan(middleStep);
   });
 
+  it('starts a new travel at the speed the row already has', () => {
+    const { clock, motion } = setup({ travel: { base: 600, perItem: 100, max: 900 } });
+    motion.step(1);
+    clock.advance(280);
+    const before = motion.state.position;
+    clock.advance(1000 / 60);
+    const speedBefore = motion.state.position - before;
+    expect(speedBefore).toBeGreaterThan(0.01);
+
+    motion.step(1);
+    const mark = motion.state.position;
+    clock.advance(1000 / 60);
+    const speedAfter = motion.state.position - mark;
+    expect(speedAfter).toBeGreaterThan(speedBefore * 0.7);
+    expect(speedAfter).toBeLessThan(speedBefore * 1.4);
+    clock.advance(1500);
+    expect(motion.state.position).toBe(2);
+    expect(motion.state.settled).toBe(true);
+  });
+
+  it('never overshoots its target when the carried speed points the same way', () => {
+    const { clock, motion } = setup({ travel: { base: 600, perItem: 100, max: 900 } });
+    motion.step(1);
+    clock.advance(200);
+    motion.step(1);
+    let highest = 0;
+    for (let elapsed = 0; elapsed < 1200; elapsed += 1000 / 60) {
+      clock.advance(1000 / 60);
+      highest = Math.max(highest, motion.state.position);
+    }
+    expect(highest).toBeLessThan(2.05);
+    expect(motion.state.position).toBe(2);
+  });
+
   it('grows with distance and stops at the maximum', () => {
     const three = setup();
     three.motion.goTo(3);

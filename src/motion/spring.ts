@@ -3,7 +3,7 @@
  * stable when a frame is late. Unit mass.
  */
 export interface SpringConfig {
-  /** Higher is faster. 150 settles in roughly 0.55 s when critically damped. */
+  /** Higher is faster. 200 reaches 95% of a one-unit move in about 340 ms when critically damped. */
   stiffness: number;
   /** 1 is critically damped (no overshoot). Below 1 overshoots. */
   dampingRatio: number;
@@ -13,7 +13,7 @@ export interface SpringConfig {
 }
 
 export const SETTLE_SPRING: SpringConfig = {
-  stiffness: 150,
+  stiffness: 200,
   dampingRatio: 1,
   restDistance: 0.0008,
   restSpeed: 0.0004,

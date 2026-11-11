@@ -90,6 +90,17 @@ describe('stepSpring', () => {
     expect(state).toEqual({ value: 0, velocity: 0 });
   });
 
+  it('reaches 95 percent of a unit move in about 340 ms at the default stiffness', () => {
+    const state: SpringState = { value: 0, velocity: 0 };
+    let elapsed = 0;
+    while (state.value < 0.95 && elapsed < 2000) {
+      stepSpring(state, 1, 1000 / 60);
+      elapsed += 1000 / 60;
+    }
+    expect(elapsed).toBeGreaterThan(310);
+    expect(elapsed).toBeLessThan(370);
+  });
+
   it('settles within about a second at the default stiffness', () => {
     const state: SpringState = { value: 0, velocity: 0 };
     const values = settle(state, 3, 1000 / 60);

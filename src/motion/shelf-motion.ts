@@ -32,7 +32,8 @@ export interface ShelfMotionState {
 
 /**
  * Eased travel for programmed moves (arrow keys, arrow buttons, picking a spine).
- * Duration in ms is `min(max, base + perItem * (items - 1))`, eased in and out.
+ * Duration in ms is `min(max, base + perItem * (items - 1))`, eased in and out. A travel that begins while the
+ * row is moving starts at the speed the row has and slows into the new target.
  */
 export interface TravelTiming {
   base: number;
@@ -108,7 +109,10 @@ const FIRST_FRAME_MS = 1000 / 60;
 interface Travel {
   from: number;
   to: number;
-  start: number;
+  /** Items per millisecond when the travel began. */
+  velocity: number;
+  /** Null until the first frame of the travel. */
+  start: number | null;
   span: number;
 }
 
@@ -187,8 +191,11 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   }
 
   function stepTravel(active: Travel, time: number, dt: number): boolean {
+    if (active.start === null) active.start = time - FIRST_FRAME_MS;
     const t = active.span <= 0 ? 1 : clamp((time - active.start) / active.span, 0, 1);
-    const next = active.from + (active.to - active.from) * easeInOutCubic(t);
+    // The second term is a Hermite tangent: it carries the starting speed in and is zero, with zero slope, at t = 1.
+    const carried = active.velocity * active.span * t * (1 - t) * (1 - t);
+    const next = active.from + (active.to - active.from) * easeInOutCubic(t) + carried;
     state.velocity = dt > 0 ? (next - state.position) / dt : 0;
     state.position = next;
     if (t < 1) return false;
@@ -258,7 +265,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     if (timing.travel && distance > 0) {
       const { base, perItem, max } = timing.travel;
       const span = Math.min(max, base + perItem * Math.max(0, distance - 1));
-      travel = { from: state.position, to: state.target, start: clock.now(), span };
+      travel = { from: state.position, to: state.target, velocity: state.velocity, start: null, span };
     } else {
       travel = null;
     }
