@@ -10,11 +10,11 @@ export const SAMPLE_TEXTS: Record<string, string> = {
 
 \`https://library.example.org:8443/catalogue/search?q=maps&page=2#results\`
 
-Scheme \`https\`. Authority \`library.example.org:8443\`, which is a host and then a port. Path \`/catalogue/search\`. Query \`q=maps&page=2\`, everything after the question mark. Fragment \`results\`, everything after the hash sign.
+Scheme \`https\`. Authority \`library.example.org:8443\`, which is a host and then a port. Path \`/catalogue/search\`. Query \`q=maps&page=2\`, between the question mark and the hash sign. Fragment \`results\`, everything after the hash sign.
 
 ## Scheme
 
-Everything before the first colon. It says how to fetch the thing. On the web that is nearly always \`https\` or \`http\`, and the s means the connection is encrypted. Other schemes exist: \`mailto:\` opens a new email instead of loading a page. Upper or lower case makes no difference, but everyone writes it in lower case.
+Everything before the first colon. It says how to fetch the thing. On the web that is nearly always \`https\` or \`http\`, and the s means the connection is encrypted. Other schemes exist: \`mailto:\` opens a new email instead of loading a page. Upper or lower case makes no difference, and it is normally written in lower case.
 
 ## Authority (host, sometimes a port)
 
@@ -53,7 +53,7 @@ A link inside a page can leave out the start. On \`https://example.com/atlas/ind
 Do any sites still need the \`www\`? Every one I tried works without it.
 `,
 
-  'example-web-storage-api': `\`localStorage\` keeps strings under string keys, per origin, until something deletes them. \`sessionStorage\` has the same methods but belongs to one tab: a reload keeps it, closing the tab ends it, and a second tab gets its own.
+  'example-web-storage-api': `\`localStorage\` keeps strings under string keys, per origin, until something deletes them. \`sessionStorage\` has the same methods but belongs to one tab, and each tab gets its own. It survives a reload and ends when the tab closes.
 
 Origin means scheme, host and port together. \`https://example.com\` and \`http://example.com\` don’t share storage, and neither do \`example.com\` and \`www.example.com\`.
 
@@ -82,9 +82,9 @@ Quick check in the console: \`localStorage.setItem('hello', 'world')\`, reload, 
 
 The notebook is a school exercise book with squared paper, the kind with a plain card cover that goes soft at the corners. I write the date, then the sentence, then where it came from. Under it I sometimes add a line of my own, and sometimes nothing. The pages are numbered at the top in pencil, and the last six are kept free for an index: a word and a page number.
 
-A highlight costs nothing. One drag of a finger and the line turns yellow, and the reading carries on as if nothing had happened. Because it cost nothing I highlighted generously, and a year of it produced several thousand lines that I had marked and never thought about again. A copied sentence costs about a minute, more if it is long or my hand is tired. That price does the sorting for me. Before I start writing I have to decide that this sentence is worth a minute, and most sentences are not, even good ones. The notebook ends up holding perhaps one line for every fifty I would once have highlighted, and I can say why each one is there.
+A highlight costs nothing. One drag of a finger and the line turns yellow, and the reading carries on. Because it was free I highlighted generously, and a year of it produced several thousand lines that I had marked and never thought about again. A copied sentence costs about a minute, more if it is long or my hand is tired. That price does the sorting for me. Before I start writing I have to decide that this sentence is worth a minute, and most sentences are not, even good ones. The notebook ends up holding perhaps one line for every fifty I would once have highlighted, and I can say why each one is there.
 
-Copying also slows the reading down to the speed of a pen, and at that speed I see things I missed. A comma I had read straight past turns out to be holding the whole sentence up. A word I took for a loose synonym turns out to be the exact one. More often than I like to admit, I get halfway through copying something and realise it is less good than I thought: the rhythm carried me along, and the claim underneath is ordinary. Those half-copied lines stay in the book with a line through them. I used to tear such pages out. Now I think they are some of the most useful entries, because they show me what kind of sentence fools me.
+Copying also slows the reading down to the speed of a pen, and at that speed I see things I missed. A comma I had read straight past turns out to be holding the whole sentence up. A word I took for a loose synonym is the exact one. More often than I like to admit, I get halfway through copying something and realise it is less good than I thought: the rhythm carried me along, and the claim underneath is ordinary. Those half-copied lines stay in the book with a line through them. I used to tear such pages out. Now I think they are some of the most useful entries, because they show me what kind of sentence fools me.
 
 Here is one that survived:
 
@@ -92,17 +92,17 @@ Here is one that survived:
 
 Arnold Bennett wrote it in a short book about how to use the hours that work leaves over, and he meant it as a reason to keep the morning train for something slower than the news. I copied it into my phone on a train, in the middle of scrolling through the news, and into the book that evening. Underneath I wrote the date and “the same goes for most of what I read on this phone”. I still think that is true, and I still read the news on the train. The entry has not changed the habit, though I notice the habit more.
 
-The obvious objection is that a paper notebook cannot be searched. That is true, and I mind it less than I expected. I rarely need to find a particular sentence. When I do, I usually remember roughly when I read it, the dates get me close, and the index at the back does the rest. Copying also helps me remember. A sentence I have written out by hand is one I can often recite a month later, and I could not recite a single one of my old highlights.
+The obvious objection is that a paper notebook cannot be searched. That is true, and I mind it less than I expected. I rarely need to find a particular sentence. When I do, I usually remember roughly when I read it, and between the dates and the index at the back I find it. Copying also helps me remember. A sentence I have written out by hand is one I can often recite a month later, and I could not recite a single one of my old highlights.
 
-Most of what I copy now comes from a screen, and on paper the difference disappears. A line from an unsigned web page and a line from a famous essay look the same in my handwriting, and I read them back with the same eyes. More than once the unsigned one has held up better. I like that the book has no way of knowing which sentences came with a reputation.
+Most of what I copy now comes from a screen, and in my handwriting a line from an unsigned web page looks exactly like a line from a famous essay. I read them back with the same eyes. More than once the unsigned one has held up better. I like that the book has no way of knowing which sentences came with a reputation.
 
 I keep the book in the order I read, with no headings and no sections for topics. I tried topics once, with a page each for work, for cooking, for the garden and for whatever did not fit, and I spent more time deciding where a sentence belonged than thinking about what it said. A chronological book looks messy. It also keeps a line about grief next to a line about bread because I read them in the same week, and sometimes the two of them start a conversation I would never have arranged on purpose.
 
 Once a year, usually in the slow days between Christmas and the new year, I read the whole book from the first page. The early entries embarrass me a little. Some of what I copied two years ago now seems obvious, and a few lines I copied with real excitement I no longer understand at all. That embarrassment is the best record I have of how my reading has changed. A list of finished books only tells me what I got through, while the notebook keeps the places where I stopped.
 
-A few practical habits have settled in. I copy exactly, including punctuation I would not have chosen, and put my own words underneath, never mixed in. I note the source well enough to find it again, which for a book means the page and for anything online means the full address, written out, because a title on its own is often not enough to find a page a few years later. And I write in pen, so that I can’t tidy the book later into something I wish I had read.
+I copy exactly, including punctuation I would not have chosen, and put my own words on a separate line underneath. For a book I note the page, and for anything online I write out the full address, because a title on its own is often not enough to find a page a few years later. The pen is deliberate too: it means I can’t tidy the book later into something I wish I had read.
 
-The current book has ninety-six pages and I am on page seventy-one. The next one is already in the drawer, the same squared kind, because the squares keep my lines straight on the train.
+The current book has ninety-six pages and I am on page seventy-one. The next one is already in the drawer, the same squared kind, because the squares keep my lines straight when I write on my knee.
 `,
 
   'example-paper-size': `Before a worksheet goes to the copier:
