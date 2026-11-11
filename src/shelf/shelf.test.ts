@@ -584,6 +584,161 @@ describe('mountShelf intents', () => {
   });
 });
 
+describe('mountShelf changing the items', () => {
+  const byId = (shelf: ShelfHandle): Map<string, HTMLElement> =>
+    new Map(books(shelf).map((book) => [book.dataset.id ?? '', book]));
+
+  it('keeps the volume of every item that stays, and its printed cover', () => {
+    // Each item carries its own mark, as a host with a catalogue gives it, so moving it changes nothing printed.
+    const items = makeItems(5).map((item, index) => ({ ...item, mark: String(index + 10) }));
+    const { shelf } = mount({ items });
+    const before = byId(shelf);
+    const print = bySlot(shelf, 0).querySelector('.bb-cover');
+    // One leaves, one arrives and the rest change places.
+    shelf.setItems([items[3]!, items[0]!, { id: 'new', title: 'New' }, items[4]!, items[2]!]);
+    const after = byId(shelf);
+    for (const id of ['id-0', 'id-2', 'id-3', 'id-4']) expect(after.get(id)).toBe(before.get(id));
+    expect(after.has('id-1')).toBe(false);
+    expect(before.get('id-1')?.isConnected).toBe(false);
+    expect(after.get('new')).toBeDefined();
+    expect(after.get('id-0')?.querySelector('.bb-cover')).toBe(print);
+    expect(after.get('id-3')?.dataset.slot).toBe('0');
+    expect(after.get('id-3')?.dataset.index).toBe('0');
+  });
+
+  it('goes on presenting the volume that was presented, wherever it now stands', () => {
+    const { shelf } = mount();
+    const items = makeItems(5);
+    shelf.setPose({ position: 2, open: 0 });
+    shelf.setItems([items[4]!, items[3]!, items[1]!, items[0]!, items[2]!]);
+    expect(shelf.element.dataset.focusId).toBe('id-2');
+    expect(shelf.element.dataset.focus).toBe('4');
+    expect(shelf.element.querySelector('.bb-book.is-centre')?.getAttribute('data-id')).toBe('id-2');
+  });
+
+  it('presents the volume that takes the place of one that left', () => {
+    const { shelf } = mount();
+    const items = makeItems(5);
+    shelf.setPose({ position: 2, open: 0 });
+    shelf.setItems(items.filter((item) => item.id !== 'id-2'));
+    expect(shelf.element.dataset.focusId).toBe('id-3');
+    shelf.setPose({ position: 3, open: 0 });
+    shelf.setItems(items.filter((item) => item.id !== 'id-2' && item.id !== 'id-4'));
+    expect(shelf.element.dataset.focusId).toBe('id-3');
+  });
+
+  it('keeps the volumes in the order of the shelf in the document', () => {
+    const { shelf } = mount();
+    const items = makeItems(5);
+    const order = [items[4]!, items[2]!, items[0]!, items[3]!, items[1]!];
+    shelf.setItems(order);
+    expect(books(shelf).map((book) => book.dataset.id)).toEqual(order.map((item) => item.id));
+  });
+
+  it('keeps the real volumes of a looping row in shelf order while it travels', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    const realOrder = (): number[] =>
+      books(shelf)
+        .filter((book) => book.getAttribute('aria-hidden') === null)
+        .map((book) => Number(book.dataset.index));
+    for (const position of [0, 1, 2, 3, 17, 39, 40, -3]) {
+      shelf.setPose({ position, open: 0 });
+      const order = realOrder();
+      expect(order).toEqual([...order].sort((one, other) => one - other));
+      expect(new Set(order).size).toBe(order.length);
+    }
+  });
+
+  it('leaves keyboard focus on the same control when its volume stays', () => {
+    const { shelf } = mount();
+    const items = makeItems(5);
+    shelf.setPose({ position: 1, open: 0 });
+    shelf.focusCurrent();
+    const control = document.activeElement;
+    expect(control?.classList.contains('bb-book__control')).toBe(true);
+    shelf.setItems([items[3]!, items[4]!, items[1]!, items[0]!]);
+    expect(document.activeElement).toBe(control);
+    expect(control?.closest<HTMLElement>('.bb-book')?.dataset.id).toBe('id-1');
+    expect((control as HTMLButtonElement).tabIndex).toBe(0);
+  });
+
+  it('moves keyboard focus to the neighbour when the focused volume leaves', () => {
+    const { shelf } = mount();
+    shelf.setPose({ position: 1, open: 0 });
+    shelf.focusCurrent();
+    shelf.setItems(makeItems(5).filter((item) => item.id !== 'id-1'));
+    expect(document.activeElement?.closest<HTMLElement>('.bb-book')?.dataset.id).toBe('id-2');
+  });
+
+  it('letters a volume again in place when its item reads differently', () => {
+    const { shelf } = mount();
+    const book = bySlot(shelf, 1);
+    const control = book.querySelector('.bb-book__control');
+    const faces = book.querySelector('.bb-book__body');
+    const items = makeItems(5);
+    shelf.setItems(items.map((item) => (item.id === 'id-1' ? { ...item, title: 'Another name', cloth: 'moss' } : item)));
+    expect(bySlot(shelf, 1)).toBe(book);
+    expect(book.querySelector('.bb-book__control')).toBe(control);
+    expect(book.querySelector('.bb-book__body')).not.toBe(faces);
+    expect(book.querySelector('.bb-spine__title')?.textContent).toContain('Another');
+    expect(book.classList.contains('bb-cloth--moss')).toBe(true);
+    expect(control?.getAttribute('aria-label')).toContain('Another name');
+  });
+
+  it('moves the reading slip without making the faces again', () => {
+    const { shelf } = mount();
+    const book = bySlot(shelf, 0);
+    const faces = book.querySelector('.bb-book__body');
+    const print = book.querySelector('.bb-cover');
+    const items = makeItems(5);
+    shelf.setItems(items.map((item) => (item.id === 'id-0' ? { ...item, progress: 0.5 } : item)));
+    expect(book.querySelector('.bb-book__body')).toBe(faces);
+    expect(book.querySelector('.bb-cover')).toBe(print);
+    expect(book.querySelector<HTMLElement>('.bb-book__slip')?.style.getPropertyValue('--bb-slip')).toBe('0.500');
+    expect(book.querySelector('.bb-book__control')?.getAttribute('aria-label')).toContain('50 percent read');
+    shelf.setItems(items.map((item) => (item.id === 'id-0' ? { ...item, progress: 1, done: true } : item)));
+    expect(book.querySelector('.bb-book__slip')).toBeNull();
+    expect(book.classList.contains('is-done')).toBe(true);
+    // The printed cover carries the mark of a link that was read, so it is printed again.
+    expect(book.querySelector('.bb-cover')).not.toBe(print);
+    expect(book.querySelector('.bb-cover')?.hasAttribute('data-done')).toBe(true);
+  });
+
+  it('says the place of each volume again when the row gets longer', () => {
+    const { shelf } = mount();
+    shelf.setItems([{ id: 'first', title: 'First' }, ...makeItems(5)]);
+    const label = (id: string): string =>
+      shelf.element.querySelector(`.bb-book[data-id="${id}"] .bb-book__control`)?.getAttribute('aria-label') ?? '';
+    expect(label('id-0')).toContain('Volume 2 of 6');
+    expect(label('first')).toContain('Volume 1 of 6');
+  });
+
+  it('keeps every volume and the focus when the row starts to loop', () => {
+    const { shelf } = mount();
+    const before = byId(shelf);
+    shelf.focusCurrent();
+    const control = document.activeElement;
+    shelf.setItems(makeItems(40));
+    expect(shelf.loop).toBe(true);
+    const kept = books(shelf).filter((book) => before.get(book.dataset.id ?? '') === book);
+    expect(kept).toHaveLength(5);
+    expect(document.activeElement).toBe(control);
+  });
+
+  it('keeps every volume and the focus when the look changes, and prints the cover for the new look', () => {
+    const { shelf } = mount();
+    const before = books(shelf);
+    const print = bySlot(shelf, 0).querySelector('.bb-cover');
+    shelf.focusCurrent();
+    const control = document.activeElement;
+    shelf.setVariant('oak');
+    expect(books(shelf)).toEqual(before);
+    expect(document.activeElement).toBe(control);
+    expect(bySlot(shelf, 0).querySelector('.bb-cover')).not.toBeNull();
+    expect(bySlot(shelf, 0).querySelector('.bb-cover')).not.toBe(print);
+  });
+});
+
 describe('mountShelf items, variants and teardown', () => {
   it('setItems([]) shows the empty message and sets data-empty', () => {
     const { shelf } = mount();

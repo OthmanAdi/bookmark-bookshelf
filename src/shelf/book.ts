@@ -15,6 +15,10 @@ export interface BookNode {
   slot: number;
   index: number;
   item: ShelfItem;
+  /** Everything of the volume that can be seen: its faces, rings and slip. */
+  body: HTMLElement;
+  /** How many places from the presented volume it stood when it was last taken out of its slot. */
+  offset: number;
   /** The lettering on the spine; the shelf fits it to the spine's size. */
   title: HTMLElement;
   /** Where the title's text goes: the title itself, or the paper label pasted on it. */
@@ -54,13 +58,13 @@ export function markFor(item: ShelfItem, index: number): string {
   return item.mark ?? String(index + 1).padStart(2, '0');
 }
 
-export function createBook(item: ShelfItem, index: number, slot: number): BookNode {
-  const element = document.createElement('li');
-  element.className = `bb-book bb-cloth--${resolveCloth(item.cloth)}`;
-  element.dataset.slot = String(slot);
-  element.dataset.index = String(index);
-  element.dataset.id = item.id;
+/** The parts of a volume that are made from its item and made again when the item looks different. */
+type Dress = Pick<
+  BookNode,
+  'body' | 'title' | 'words' | 'treatment' | 'spineShade' | 'cover' | 'coverShade' | 'back' | 'backShade'
+>;
 
+function dress(item: ShelfItem, index: number): Dress {
   const body = span('bb-book__body');
   body.setAttribute('aria-hidden', 'true');
 
@@ -90,15 +94,6 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   // The spine clips its own lettering, so its ring stands beside it in the same plane.
   body.appendChild(span('bb-book__ring bb-book__ring--spine'));
 
-  if (item.done) element.classList.add('is-done');
-  const progress = Math.min(1, Math.max(0, item.progress ?? 0));
-  if (progress > 0 && !item.done) {
-    // A slip of card standing in the pages: how far it sits from the front board is how far the reading got.
-    const slip = span('bb-book__slip');
-    slip.style.setProperty('--bb-slip', progress.toFixed(3));
-    body.appendChild(slip);
-  }
-
   // Both boards are plain cloth, so they cost two spans and no decision about when to show them: the
   // browser culls whichever faces away. Only the printed cover is built on demand.
   const cover = span('bb-book__cover bb-book__board bb-book__board--front');
@@ -110,9 +105,91 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   body.append(cover, back);
   // A face drops whatever its children paint outside its own box, so the cover's ring is a plane of its own.
   body.appendChild(span('bb-book__ring bb-book__ring--cover'));
+  return { body, title, words, treatment, spineShade, cover, coverShade, back, backShade };
+}
 
-  element.appendChild(body);
-  return { element, slot, index, item, title, words, treatment, spineShade, cover, coverShade, back, backShade, print: null, turn: 0, shades: [-1, -1, -1], control: null };
+/** How far the reading of an item has got, 0 to 1; 0 once it is marked as read, which shows a check instead. */
+function slipOf(item: ShelfItem): number {
+  return item.done ? 0 : Math.min(1, Math.max(0, item.progress ?? 0));
+}
+
+/** Shows what is known about the reading of the item: a check for a volume marked as read, a slip for one in progress. */
+function markReading(node: BookNode): void {
+  node.element.classList.toggle('is-done', node.item.done === true);
+  const progress = slipOf(node.item);
+  let slip = [...node.body.children].find((part): part is HTMLElement => part.classList.contains('bb-book__slip'));
+  if (progress <= 0) {
+    slip?.remove();
+    return;
+  }
+  if (!slip) {
+    // A slip of card standing in the pages: how far it sits from the front board is how far the reading got.
+    slip = span('bb-book__slip');
+    node.body.insertBefore(slip, node.cover);
+  }
+  slip.style.setProperty('--bb-slip', progress.toFixed(3));
+}
+
+export function createBook(item: ShelfItem, index: number, slot: number): BookNode {
+  const element = document.createElement('li');
+  element.className = `bb-book bb-cloth--${resolveCloth(item.cloth)}`;
+  element.dataset.slot = String(slot);
+  element.dataset.index = String(index);
+  element.dataset.id = item.id;
+  const parts = dress(item, index);
+  element.appendChild(parts.body);
+  const node: BookNode = { element, slot, index, item, ...parts, offset: 0, print: null, turn: 0, shades: [-1, -1, -1], control: null };
+  markReading(node);
+  return node;
+}
+
+function sameOutline(one: readonly number[] | undefined, other: readonly number[] | undefined): boolean {
+  if (one === other) return true;
+  if (!one || !other || one.length !== other.length) return false;
+  return one.every((value, index) => value === other[index]);
+}
+
+/** Whether two items, each at its place in the row, are lettered and printed alike. */
+function sameFaces(one: ShelfItem, oneIndex: number, other: ShelfItem, otherIndex: number): boolean {
+  return (
+    one.title === other.title &&
+    one.source === other.source &&
+    one.author === other.author &&
+    one.cloth === other.cloth &&
+    one.pattern === other.pattern &&
+    one.seed === other.seed &&
+    one.lang === other.lang &&
+    markFor(one, oneIndex) === markFor(other, otherIndex) &&
+    sameOutline(one.outline, other.outline)
+  );
+}
+
+/**
+ * Gives a volume that stays in the row its item as it is now, and its new place. The list item, its
+ * control and whatever keyboard focus it holds are kept. Faces are made again only when the item is
+ * lettered or printed differently; otherwise they stay, the printed cover included.
+ */
+export function redress(node: BookNode, item: ShelfItem, index: number, slot: number): void {
+  const previous = node.item;
+  const alike = sameFaces(previous, node.index, item, index);
+  node.item = item;
+  node.index = index;
+  node.slot = slot;
+  node.element.dataset.slot = String(slot);
+  node.element.dataset.index = String(index);
+  node.element.dataset.id = item.id;
+  if (!alike) {
+    const parts = dress(item, index);
+    node.body.replaceWith(parts.body);
+    Object.assign(node, parts);
+    node.print = null;
+    node.shades = [-1, -1, -1];
+    node.element.className = node.element.className.replace(/\bbb-cloth--\S+/, `bb-cloth--${resolveCloth(item.cloth)}`);
+  } else if (previous.done !== item.done) {
+    // The printed cover says whether the link has been read.
+    dropPrint(node);
+  }
+  markReading(node);
 }
 
 /** A bookend at one end of a row that does not loop: a thin plate standing across the row. */
@@ -200,4 +277,11 @@ export function setReal(node: BookNode, real: boolean, count: number, hint?: str
     node.control = null;
   }
   if (!real) node.element.setAttribute('aria-hidden', 'true');
+}
+
+/** Says the volume's name again after its item, its place or the length of the row has changed. */
+export function relabel(node: BookNode, count: number): void {
+  if (!node.control) return;
+  const label = describe(node.item, node.index, count);
+  if (node.control.getAttribute('aria-label') !== label) node.control.setAttribute('aria-label', label);
 }

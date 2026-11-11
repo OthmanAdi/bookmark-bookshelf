@@ -7,6 +7,8 @@ import {
   dropPrint,
   ensurePrint,
   letterSpine,
+  redress,
+  relabel,
   setReal,
   type BookendNode,
   type BookNode,
@@ -120,10 +122,19 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let titleFont: TitleFont = { family: 'serif', weight: '600', letterSpacing: 0, upper: false };
   let spineParts = 1.45;
   const nodes = new Map<number, BookNode>();
+  /**
+   * Volumes taken out of their slots because the items or the kind of row changed, by item id. The next
+   * frame takes each volume it needs from here before it builds one, so nothing that stays is built again.
+   */
+  let pool: Map<string, BookNode[]> | null = null;
+  /** A volume was added, or a copy became the real one: the order in the document has to be checked. */
+  let disordered = false;
+  /** What the volumes are called is out of date: an item, its place or the length of the row changed. */
+  let labelsStale = false;
   const listeners = new Set<(intent: ShelfIntent) => void>();
   /** Set once mounting is done, so a host is never called back before it has the handle. */
   let mounted = false;
-  /** Keyboard focus was in the row when its volumes were rebuilt: put it back on the centre. */
+  /** Keyboard focus was in the row when its volumes were placed again: make sure it ends on the centre. */
   let refocus = false;
   const bookends = { start: createBookend('start'), end: createBookend('end') };
 
@@ -214,15 +225,83 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     root.dataset.fixed = fixed ? '1' : '0';
     if (next === loop) return;
     loop = next;
-    // Slots mean something else in the other kind of row, so every volume is built again.
-    refocus = refocus || row.contains(document.activeElement);
-    for (const node of nodes.values()) node.element.remove();
-    nodes.clear();
-    centre = Number.NaN;
+    // Slots mean something else in the other kind of row, so every volume is placed again.
+    repool();
     if (mounted) options.onLoopChange?.(loop);
   }
 
-  /** Works out each volume's own size at the current scale. A shelf whose items carry no size skips it all. */
+  /** Takes every volume out of its slot, to be placed again by the item it shows. */
+  function repool(): void {
+    refocus = refocus || row.contains(document.activeElement);
+    labelsStale = true;
+    openSlot = null;
+    if (nodes.size === 0) return;
+    pool ??= new Map();
+    for (const node of nodes.values()) {
+      node.offset = node.slot - centre;
+      const waiting = pool.get(node.item.id);
+      if (waiting) waiting.push(node);
+      else pool.set(node.item.id, [node]);
+    }
+    nodes.clear();
+    centre = Number.NaN;
+  }
+
+  /** The waiting volume that shows `item`, to stand in `slot`. Of several copies, the one that stood nearest. */
+  function claim(item: ShelfItem, slot: number): BookNode | undefined {
+    const waiting = pool?.get(item.id);
+    if (!waiting || waiting.length === 0) return undefined;
+    const want = slot - centre;
+    let best = 0;
+    for (let index = 0; index < waiting.length; index++) {
+      const node = waiting[index]!;
+      // The copy that holds keyboard focus goes on being the one that is presented.
+      if (slot === centre && node.control !== null && node.control === document.activeElement) return waiting.splice(index, 1)[0];
+      if (Math.abs(node.offset - want) < Math.abs(waiting[best]!.offset - want)) best = index;
+    }
+    return waiting.splice(best, 1)[0];
+  }
+
+  /** Whatever is still waiting shows an item that has left the row, or stands out of sight. */
+  function emptyPool(): void {
+    if (!pool) return;
+    for (const waiting of pool.values()) for (const node of waiting) node.element.remove();
+    pool = null;
+  }
+
+  /**
+   * Keeps the volumes in the document in the order of the shelf, the real one of each item before any
+   * copy, so the row reads in order to assistive technology. The volume that holds keyboard focus is never
+   * moved, since moving an element takes focus off it: the others are put around it.
+   */
+  function orderRow(): void {
+    disordered = false;
+    if (nodes.size === 0) return;
+    const count = items.length;
+    const rank = (node: BookNode): number => (node.control ? node.index : count + node.slot + 1e9);
+    const wanted = [...nodes.values()].sort((one, other) => rank(one) - rank(other));
+    const held = document.activeElement;
+    const pivot = Math.max(
+      0,
+      wanted.findIndex((node) => node.control !== null && node.control === held),
+    );
+    if (!wanted[pivot]!.element.isConnected) row.appendChild(wanted[pivot]!.element);
+    for (let index = pivot - 1; index >= 0; index--) {
+      const element = wanted[index]!.element;
+      const next = wanted[index + 1]!.element;
+      if (element.nextElementSibling !== next) row.insertBefore(element, next);
+    }
+    for (let index = pivot + 1; index < wanted.length; index++) {
+      const element = wanted[index]!.element;
+      const after = wanted[index - 1]!.element.nextElementSibling;
+      if (after !== element) row.insertBefore(element, after);
+    }
+  }
+
+  /**
+   * Works out each volume's own size at the current scale. A shelf whose items carry no size skips it all.
+   * Volumes waiting to be placed again get theirs when they are placed.
+   */
   function measureSizes(): void {
     const any = items.some((item) => item.thickness !== undefined || item.stature !== undefined);
     sizes = any ? items.map((item) => volumeSize(geometry, item.thickness, item.stature)) : null;
@@ -300,10 +379,15 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   /** Keeps exactly one operable control per item and one tab stop for the whole row. */
   function syncSemantics(moveFocus: boolean): void {
     for (const node of nodes.values()) {
-      setReal(node, isReal(node.slot), items.length, hint.id);
+      const real = isReal(node.slot);
+      if (real !== (node.control !== null)) disordered = true;
+      setReal(node, real, items.length, hint.id);
+      if (labelsStale) relabel(node, items.length);
       if (node.control) node.control.tabIndex = node.slot === centre ? 0 : -1;
       node.element.classList.toggle('is-centre', node.slot === centre);
     }
+    labelsStale = false;
+    if (disordered) orderRow();
     if (moveFocus) nodes.get(centre)?.control?.focus({ preventScroll: true });
   }
 
@@ -368,13 +452,16 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       const index = wrap(slot, items.length);
       const item = items[index];
       if (!item) continue;
-      const node = createBook(item, index, slot);
+      let node = claim(item, slot);
+      if (node) redress(node, item, index, slot);
+      else node = createBook(item, index, slot);
       applySize(node);
       fitSpine(node);
       setReal(node, isReal(slot), items.length, hint.id);
       nodes.set(slot, node);
-      row.appendChild(node.element);
+      disordered = true;
     }
+    emptyPool();
   }
 
   /** Most volumes hold still in most frames: write a shade only when it has visibly changed. */
@@ -406,6 +493,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     if (count === 0) {
       for (const node of nodes.values()) node.element.remove();
       nodes.clear();
+      emptyPool();
       placeBookend(bookends.start, null);
       placeBookend(bookends.end, null);
       captionFade?.cancel();
@@ -438,6 +526,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       refocus = false;
       syncCaption();
     }
+    if (disordered) orderRow();
 
     const opening = pose.open > 0;
     if (opening && openSlot === null) openSlot = centre;
@@ -641,11 +730,13 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       return fixed;
     },
     setItems(nextItems) {
+      const kept = items[wrap(centre, items.length)]?.id;
+      const place = Number.isNaN(centre) ? 0 : wrap(centre, items.length);
+      repool();
       items = nextItems.slice();
-      refocus = refocus || row.contains(document.activeElement);
-      for (const node of nodes.values()) node.element.remove();
-      nodes.clear();
-      centre = Number.NaN;
+      // The presented volume stays presented while it is on the shelf; once it is gone, the one in its place is.
+      const index = kept === undefined ? -1 : items.findIndex((item) => item.id === kept);
+      pose = { ...pose, position: index >= 0 ? index : Math.min(place, Math.max(0, items.length - 1)) };
       measureSizes();
       decideRow();
       render();
@@ -659,10 +750,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       light = resolveLight(variant.light);
       root.dataset.variant = variant.name;
       root.style.setProperty('--bb-light-tint', light.tint);
-      refocus = refocus || row.contains(document.activeElement);
-      for (const node of nodes.values()) node.element.remove();
-      nodes.clear();
-      centre = Number.NaN;
+      // Every volume stays; its cover is printed again for the proportions of the new look.
+      for (const node of nodes.values()) dropPrint(node);
       refresh();
     },
     pitch() {
