@@ -68,7 +68,6 @@ test.describe('reading on a phone', () => {
   });
 
   test('on a small phone the reader keeps its two actions in one row', async ({ page }) => {
-    test.fixme(true, 'With a long site name on "Open original" (developer.mozilla.org) the two actions wrap onto two rows at 360 px.');
     await page.setViewportSize({ width: 360, height: 640 });
     await openApp(page);
     await centredControl(page).focus();

@@ -118,7 +118,6 @@ test.describe('the reader', () => {
   });
 
   test('moving along the bar with Tab leaves the text where it is', async ({ page }) => {
-    test.fixme(true, 'Each press of Tab along the bar of the reader scrolls the text up by most of a screen, and the reading place is lost.');
     await openApp(page);
     await openCentredWithKeyboard(page);
     await scrollSheet(page, 900);

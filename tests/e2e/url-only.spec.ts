@@ -86,7 +86,6 @@ test.describe('a link with no text', () => {
   });
 
   test('a text that was only pasted, not read, is offered as "Read"', async ({ page }) => {
-    test.fixme(true, 'Typing in the field of a link with no text is kept as a reading place, so the shelf offers "Resume at 52%" or "Read again" for a text nobody has read.');
     await openApp(page);
     await addLink(page, { url: URL_ONLY, title: 'Only a link' });
     await primaryAction(page).click();
