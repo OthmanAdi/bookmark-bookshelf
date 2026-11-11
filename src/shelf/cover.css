@@ -11,7 +11,7 @@
   position: absolute;
   inset: 0;
   display: block;
-  container-type: inline-size;
+  container: bb-cover / inline-size;
   /*
    * --bb-cover-k is the size of this cover relative to the one on the shelf. A cover shown larger on its
    * own (beside the reader) sets it, so shadow, corners and hairlines match the flying volume that was
@@ -297,4 +297,27 @@
   right: 14cqw;
   bottom: 11cqw;
   left: 19cqw;
+}
+
+/* ---------- small covers: what cannot be read at 9 px is left off, never set smaller ---------- */
+
+@container bb-cover (width < 170px) {
+  .bb-cover__foot {
+    display: none;
+  }
+
+  .bb-cover__author {
+    font-size: max(9px, 5.6cqw);
+  }
+}
+
+/*
+ * A thumbnail is the jacket in miniature: cloth, layout and plate, with no type. At this size a title
+ * could only be cut short, and whatever shows a thumbnail names the link beside it.
+ */
+@container bb-cover (width < 120px) {
+  .bb-cover__title,
+  .bb-cover__author {
+    display: none;
+  }
 }
