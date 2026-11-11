@@ -47,8 +47,9 @@ Several contracts changed. The full list is in [CHANGELOG.md](../CHANGELOG.md) u
 | Check | Result |
 |---|---|
 | `npx tsc --noEmit` | clean |
-| `npx vitest run` | 2023 unit tests pass in 90 files |
-| `npx vite build` | static build. The app page loads about 226 kB of JavaScript before compression (about 82 kB gzipped), with the example library and its texts included |
+| `npx vitest run` | 2088 unit tests pass in 91 files |
+| `npx playwright test` | 260 browser tests pass: desktop Chromium, phone-sized Chromium with touch, and a WebKit smoke run |
+| `npx vite build` | static build. The app page loads about 234 kB of JavaScript before compression (about 85 kB gzipped), with the example library and its texts included |
 
 ## Licence
 

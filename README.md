@@ -104,7 +104,7 @@ They meet in [`src/app/bookshelf.ts`](src/app/bookshelf.ts). Contracts and wirin
 | `npm run dev` | Development server on `127.0.0.1:5173` |
 | `npm run build` | Type check, then a static build in `dist/` |
 | `npm test` | Unit tests (Vitest with happy-dom) |
-| `npm run test:e2e` | Browser tests (Playwright). Run `npx playwright install chromium webkit` once first |
+| `npm run test:e2e` | Browser tests (Playwright), 260 in 0.2.0. Run `npx playwright install chromium webkit` once first |
 | `npm run check` | Type check, unit tests and build |
 
 ## How it came about and licence
