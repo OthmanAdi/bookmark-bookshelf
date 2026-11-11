@@ -2,6 +2,7 @@ import type { Bookshelf } from './bookshelf';
 import { toast } from './dom';
 import { createEditor, type LinkPreset } from './editor';
 import { clearAddress, readAddress } from './flow-address';
+import { sendPageHereFlow } from './flow-bookmarklet';
 import { removeExampleLinks } from './flow-examples';
 import { describeShelfFlow, removeShelfFlow } from './flow-shelf';
 import type { Store } from '../store';
@@ -82,7 +83,7 @@ export function createFlows(context: FlowContext): Flows {
     handIn: () => undefined,
     describeShelf: (shelfId) => describeShelfFlow(context, shelfId),
     removeShelf: (shelfId) => void removeShelfFlow(context, shelfId),
-    sendPageHere: () => undefined,
+    sendPageHere: () => sendPageHereFlow(),
     removeExamples() {
       const result = removeExampleLinks(store);
       if (!result) return toast('There are no examples left to remove.');

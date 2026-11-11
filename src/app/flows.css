@@ -356,6 +356,50 @@
   color: var(--bb-ink);
 }
 
+/* ---------- send the current page here ---------- */
+
+.bb-bookmarklet__row {
+  display: flex;
+  justify-content: center;
+  padding: var(--bb-s-4) 0;
+}
+
+.bb-bookmarklet {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 var(--bb-s-5);
+  border: var(--bb-hairline) dashed var(--bb-rule-strong);
+  border-radius: var(--bb-r-2);
+  background: var(--bb-paper-raised);
+  color: var(--bb-ink);
+  font-size: var(--bb-text-ui, 0.9375rem);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: grab;
+}
+
+.bb-bookmarklet:hover {
+  border-style: solid;
+}
+
+.bb-bookmarklet__code {
+  width: 100%;
+  padding: var(--bb-s-3);
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: var(--bb-r-1);
+  background: var(--bb-paper-raised);
+  color: var(--bb-ink);
+  font-family: var(--bb-font-mono);
+  font-size: var(--bb-text-small);
+  overflow-wrap: anywhere;
+  resize: none;
+}
+
+.bb-bookmarklet__code[hidden] {
+  display: none;
+}
+
 /* ---------- toasts ---------- */
 
 .bb-toasts {

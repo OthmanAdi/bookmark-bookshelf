@@ -122,8 +122,8 @@ export function toast(message: string, action?: { label: string; run: () => void
   run();
 }
 
-export function downloadText(filename: string, text: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+export function downloadText(filename: string, text: string, type = 'application/json'): void {
+  const url = URL.createObjectURL(new Blob([text], { type }));
   const link = make('a');
   link.href = url;
   link.download = filename;
@@ -131,4 +131,29 @@ export function downloadText(filename: string, text: string): void {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Puts text on the clipboard. Resolves false when the browser refuses, so the caller can offer the text to select instead. */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Fall through to the older route, which needs a selected text field.
+  }
+  const field = make('textarea');
+  field.value = text;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.appendChild(field);
+  field.select();
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } catch {
+    copied = false;
+  }
+  field.remove();
+  return copied;
 }
