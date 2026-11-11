@@ -48,6 +48,16 @@ describe('VARIANTS', () => {
     expect(VARIANTS.paper?.light).toEqual(DEFAULT_LIGHT);
   });
 
+  it('presents a volume a little short of square and never off the floor', () => {
+    for (const variant of Object.values(VARIANTS)) {
+      expect(variant.geometry.focusAngle, variant.name).toBeGreaterThanOrEqual(80);
+      expect(variant.geometry.focusAngle, variant.name).toBeLessThan(90);
+      expect(variant.geometry.focusLift, variant.name).toBe(0);
+    }
+    expect(VARIANTS.paper?.geometry.focusAngle).toBe(84);
+    expect(VARIANTS.night?.geometry.focusAngle).toBe(86);
+  });
+
   it('makes oak the only row with two ends', () => {
     expect(VARIANTS.oak?.loop).toBe(false);
     expect(VARIANTS.paper?.loop).toBe(true);

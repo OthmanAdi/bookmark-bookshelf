@@ -14,7 +14,8 @@ const paperGeometry: Geometry = {
   coverWidth: 206,
   gap: 10,
   focusGap: 14,
-  focusAngle: 90,
+  // Short of square to the viewer, so the spine still shows as a lit band at the joint and the volume keeps its body.
+  focusAngle: 84,
   focusLean: -4.4,
   focusPush: 0,
   focusLift: 0,
@@ -69,14 +70,16 @@ export const VARIANTS: Record<string, Variant> = {
   night: {
     name: 'night',
     label: 'Night Study',
-    summary: 'A dark ground with a pool of light at the centre. The centred volume lifts and comes forward.',
+    summary: 'A dark room with one lamp over the middle of the shelf. The centred volume slides forward into its light.',
     geometry: {
       ...paperGeometry,
       gap: 12,
       focusGap: 22,
+      focusAngle: 86,
       focusLean: 0,
+      // Slid forward along the shelf toward the lamp, never lifted off it.
       focusPush: 70,
-      focusLift: 14,
+      focusLift: 0,
       perspective: 1300,
     },
     motion: steadyMotion,
