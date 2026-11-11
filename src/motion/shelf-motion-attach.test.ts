@@ -63,6 +63,27 @@ describe('motion.attach drag', () => {
     expect(motion.state.position).toBeCloseTo(3, 10);
   });
 
+  it('sleeps while the pointer is held still and wakes on the next move', () => {
+    const { clock, motion, fire } = setup();
+    const listener = vi.fn();
+    motion.subscribe(listener);
+    fire('pointerdown', { x: 500, t: 0 });
+    fire('pointermove', { x: 400, t: 20 });
+    clock.advance(100);
+    const calls = listener.mock.calls.length;
+    expect(motion.state.dragging).toBe(true);
+    expect(motion.state.settled).toBe(false);
+    clock.advance(1000);
+    expect(listener).toHaveBeenCalledTimes(calls);
+    expect(clock.pending()).toBe(0);
+
+    fire('pointermove', { x: 350, t: 1200 });
+    expect(clock.pending()).toBe(1);
+    clock.advance(50);
+    expect(listener.mock.calls.length).toBeGreaterThan(calls);
+    expect(motion.state.position).toBeCloseTo(1.5, 10);
+  });
+
   it('settles on a whole index after a slow release', () => {
     const { clock, motion, drag, fire } = setup();
     drag(-130);

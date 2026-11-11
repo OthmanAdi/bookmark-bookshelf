@@ -244,7 +244,27 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     state.overscroll = state.position - clamp(state.position, 0, count - 1);
   }
 
+  // What listeners last saw. A frame that leaves all of it as it was costs them nothing.
+  const emitted = { ...state };
+
+  function differsFromEmitted(): boolean {
+    return (
+      state.position !== emitted.position ||
+      state.velocity !== emitted.velocity ||
+      state.target !== emitted.target ||
+      state.focus !== emitted.focus ||
+      state.overscroll !== emitted.overscroll ||
+      state.open !== emitted.open ||
+      state.openTime !== emitted.openTime ||
+      state.openTarget !== emitted.openTarget ||
+      state.dragging !== emitted.dragging ||
+      state.settled !== emitted.settled ||
+      state.reduced !== emitted.reduced
+    );
+  }
+
   function emit(): void {
+    Object.assign(emitted, state);
     for (const listener of listeners) listener(state);
   }
 
@@ -322,8 +342,10 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     const openResting = stepOpen(time);
     syncOverscroll();
     state.settled = positionResting && openResting && !state.dragging;
-    emit();
-    if (!state.settled) frame = clock.request(tick);
+    if (differsFromEmitted()) emit();
+    // A held pointer or wheel moves nothing between events: sleep, and let the next event wake the loop.
+    const moving = !openResting || (!state.dragging && !positionResting);
+    if (moving) frame = clock.request(tick);
   }
 
   function goTo(index: number, goOptions: { immediate?: boolean } = {}): void {

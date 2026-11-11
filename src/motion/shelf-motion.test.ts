@@ -407,6 +407,43 @@ describe('subscribe', () => {
     expect(listener.mock.calls[0]?.[0]).toBe(motion.state);
   });
 
+  it('calls only on frames that changed something', () => {
+    const { clock, motion } = setup();
+    const listener = vi.fn();
+    motion.subscribe(listener);
+    motion.goTo(3);
+    clock.advance(3000);
+    const afterMove = listener.mock.calls.length;
+    expect(afterMove).toBeGreaterThan(5);
+    expect(motion.state.settled).toBe(true);
+
+    // Aiming at where the row already is moves nothing and says nothing.
+    motion.goTo(3);
+    clock.advance(500);
+    expect(listener).toHaveBeenCalledTimes(afterMove);
+    expect(clock.pending()).toBe(0);
+  });
+
+  it('reports each distinct frame of a move exactly once', () => {
+    const { clock, motion } = setup();
+    const seen: number[] = [];
+    motion.subscribe((state) => void seen.push(state.position));
+    motion.goTo(2);
+    clock.advance(400);
+    for (let index = 1; index < seen.length; index++) expect(seen[index]).not.toBe(seen[index - 1]);
+  });
+
+  it('reports the settle itself, which is a change of its own', () => {
+    const { clock, motion } = setup();
+    const settled: boolean[] = [];
+    motion.subscribe((state) => void settled.push(state.settled));
+    motion.goTo(1);
+    clock.advance(3000);
+    expect(settled[0]).toBe(true);
+    expect(settled.includes(false)).toBe(true);
+    expect(settled[settled.length - 1]).toBe(true);
+  });
+
   it('stops calling after unsubscribe', () => {
     const { clock, motion } = setup();
     const listener = vi.fn();
