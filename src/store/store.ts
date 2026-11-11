@@ -31,6 +31,7 @@ import type { LoadedLibrary } from './persistence';
 import { loadLibrary, saveLibrary } from './persistence';
 import { normalizeProgress } from './progress';
 import { clone, cloneResult, ok } from './result';
+import { readSession } from './sanitize';
 import { applySessionPatch } from './session-ops';
 import { addShelfTo, removeShelfFrom, renameShelfIn, updateShelfIn } from './shelf-ops';
 import { resolveStorage } from './storage';
@@ -140,12 +141,33 @@ export function createStore(options: StoreOptions = {}): Store {
     if (progressTimer !== undefined) save();
   }
 
+  /** What other tabs can change that this tab shows. Reading position and the session are not part of it. */
+  function shownContent(library: LibraryV2): string {
+    return JSON.stringify([library.shelves, library.bookmarks, library.done, library.notes]);
+  }
+
+  /**
+   * Takes over what another tab saved. This tab keeps its own session and any reading position it has not
+   * written yet, and only announces `external` when the links, shelves, done marks or notes differ, so a tab
+   * that merely moved its focus cannot disturb what someone is typing here.
+   */
   function reloadFromStorage(): void {
-    cancelProgressTimer();
     const next = load();
+    const differs = shownContent(next.library) !== shownContent(lib);
+    const own = lib;
     lib = next.library;
     readOnly = next.readOnly;
-    notify('external');
+    if (progressTimer !== undefined) {
+      for (const [id, position] of Object.entries(own.progress)) {
+        const theirs = ownValue(lib.progress, id);
+        if (lib.bookmarks.some((link) => link.id === id) && (!theirs || theirs.updatedAt < position.updatedAt)) {
+          lib.progress[id] = position;
+        }
+      }
+    }
+    const known = (items: Array<{ id: string }>): Map<string, string> => new Map(items.map((item) => [item.id, item.id]));
+    lib.session = readSession(own.session, known(lib.shelves), known(lib.bookmarks));
+    if (differs) notify('external');
   }
 
   const onStorageEvent = (event: StorageEvent): void => {
