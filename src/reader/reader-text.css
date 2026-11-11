@@ -19,7 +19,8 @@
   font-size: min(var(--bb-text-heading), 1.5rem);
   font-weight: 500;
   line-height: var(--bb-leading-tight);
-  overflow-wrap: anywhere;
+  hyphens: auto;
+  overflow-wrap: break-word;
 }
 
 .bb-reader__byline {
@@ -68,7 +69,10 @@
   margin-top: var(--bb-s-5);
   font-size: var(--bb-reader-size, var(--bb-text-read));
   line-height: var(--bb-leading-read);
-  overflow-wrap: anywhere;
+  /* Words break at their syllables in the language of the text, and a long address still cannot push the column wider. */
+  hyphens: auto;
+  hyphenate-limit-chars: 7 4 3;
+  overflow-wrap: break-word;
 }
 
 .bb-reader__body > :first-child {
@@ -119,6 +123,7 @@
 }
 
 .bb-reader__body pre {
+  hyphens: manual;
   padding: var(--bb-s-3) var(--bb-s-4);
   overflow-x: auto;
   border-radius: var(--bb-r-2);

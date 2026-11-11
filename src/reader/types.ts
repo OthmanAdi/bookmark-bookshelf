@@ -30,6 +30,8 @@ export interface ReaderDoc {
   tags?: string[];
   /** Reading copy in markdown-lite. Missing or empty shows the paste panel. */
   text?: string;
+  /** BCP 47 language of the text, for example `de`. It sets hyphenation and the format of the saved date. */
+  lang?: string;
 }
 
 /** Same shape as the store's progress without the timestamp, so the two modules stay independent. */

@@ -55,6 +55,12 @@ export function hostnameOf(url: string): string {
   }
 }
 
+/** A language tag the platform can use, or an empty string for anything that is not one. */
+export function cleanLang(value: string | undefined): string {
+  const tag = (value ?? '').trim();
+  return tag.length <= 12 && /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$/.test(tag) ? tag : '';
+}
+
 export interface SavedDate {
   text: string;
   iso: string;

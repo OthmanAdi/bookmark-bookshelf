@@ -2,7 +2,7 @@ import './reader.css';
 import './reader-text.css';
 import { buildArticleParts, fillBody } from './article';
 import type { ArticleHandlers } from './article';
-import { resolveLabels } from './meta';
+import { cleanLang, resolveLabels } from './meta';
 import { buildEnd } from './end';
 import { buildNotes } from './notes';
 import type { End } from './end';
@@ -123,6 +123,9 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     const parts = buildArticleParts(dom, { source, labels, titleId, canEdit, handlers });
     shell.article.replaceChildren(...parts.nodes);
     body = parts.body;
+    const lang = cleanLang(source.lang);
+    if (lang) shell.article.lang = lang;
+    else shell.article.removeAttribute('lang');
     editButton = parts.editButton;
     shell.barText.textContent = source.title;
     titleWatch.watch(shell.article.querySelector('h1'));
@@ -164,6 +167,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   host.appendChild(root);
   render(null, false);
   tracker.sync(true);
+  showProgress(tracker.current());
   if (options.progress) tracker.restore(options.progress);
 
   const settle = (): void => {

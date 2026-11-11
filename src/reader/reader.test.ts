@@ -71,6 +71,7 @@ describe('structure', () => {
     expect(query('.bb-reader__byline').textContent).toBe('Jo Writer');
     expect(query('.bb-reader__note').textContent).toBe('Read on the train');
     expect(query('.bb-reader__readout').getAttribute('aria-live')).toBe('off');
+    expect(query('.bb-reader__readout').textContent).toBe('100% read');
     const article = query('.bb-reader__doc').textContent ?? '';
     expect(article.match(/example\.com/g)).toHaveLength(1);
     expect(query('.bb-reader__open').textContent).toContain('example.com');
@@ -189,6 +190,32 @@ describe('flight target', () => {
     expect(query('.bb-reader__thumb').hasAttribute('data-cover-hidden')).toBe(true);
     reader.setCoverVisible(true);
     expect(query('.bb-reader__thumb').hasAttribute('data-cover-hidden')).toBe(false);
+  });
+});
+
+describe('language', () => {
+  it('sets the language of the text on the article only', () => {
+    mount({ doc: { ...doc, lang: 'de' } });
+    expect(query('.bb-reader__doc').getAttribute('lang')).toBe('de');
+    expect(query('.bb-reader').hasAttribute('lang')).toBe(false);
+  });
+
+  it('inherits the page language without one, and ignores anything that is not a language tag', () => {
+    mount();
+    expect(query('.bb-reader__doc').hasAttribute('lang')).toBe(false);
+    handle?.update({ ...doc, lang: 'not a tag <b>' });
+    expect(query('.bb-reader__doc').hasAttribute('lang')).toBe(false);
+    handle?.update({ ...doc, lang: 'pt-BR' });
+    expect(query('.bb-reader__doc').getAttribute('lang')).toBe('pt-BR');
+    handle?.update(doc);
+    expect(query('.bb-reader__doc').hasAttribute('lang')).toBe(false);
+  });
+
+  it('formats the saved date in that language', () => {
+    mount({ doc: { ...doc, lang: 'de' } });
+    expect(query('.bb-reader__saved time').textContent).toMatch(/^4\. M\S+ 2026$/);
+    handle?.update({ ...doc, lang: 'en' });
+    expect(query('.bb-reader__saved time').textContent).toBe('4 Mar 2026');
   });
 });
 

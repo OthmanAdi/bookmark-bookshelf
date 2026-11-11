@@ -1,5 +1,5 @@
 import { el } from './dom';
-import { estimateMinutes, formatSavedDate, hostnameOf } from './meta';
+import { cleanLang, estimateMinutes, formatSavedDate, hostnameOf } from './meta';
 import { parseMarkdownLite, safeHttpUrl } from './parse';
 import { renderBlocks } from './render';
 import type { ReaderDoc, ReaderLabels } from './types';
@@ -26,7 +26,7 @@ export interface ArticleInput {
 
 /** One sentence-case line: when it was saved and how long it takes to read. */
 function buildSavedLine(dom: Document, source: ReaderDoc, labels: ReaderLabels): HTMLElement | null {
-  const saved = formatSavedDate(source.addedAt, dom.documentElement.lang);
+  const saved = formatSavedDate(source.addedAt, cleanLang(source.lang) || dom.documentElement.lang);
   const minutes = source.text?.trim() ? labels.minutes(estimateMinutes(source.text)) : '';
   if (!saved && !minutes) return null;
   const line = el(dom, 'p', 'bb-reader__saved');

@@ -118,6 +118,10 @@
 
 /* On a phone the thumbnail stands for the title: there is no room left to print it. */
 @media (max-width: 32rem) {
+  .bb-reader__bar {
+    gap: var(--bb-s-2);
+  }
+
   .bb-reader__bar-text {
     display: none;
   }

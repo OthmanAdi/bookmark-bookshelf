@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultReaderLabels, estimateMinutes, formatSavedDate, hostnameOf, resolveLabels } from './meta';
+import { cleanLang, defaultReaderLabels, estimateMinutes, formatSavedDate, hostnameOf, resolveLabels } from './meta';
 
 describe('estimateMinutes', () => {
   const words = (count: number) => Array.from({ length: count }, () => 'word').join(' ');
@@ -31,6 +31,17 @@ describe('labels and helpers', () => {
     expect(JSON.stringify(Object.values(defaultReaderLabels).filter((v) => typeof v === 'string'))).not.toMatch(
       /[–—]|\s-\s/,
     );
+  });
+
+  it('keeps only language tags the platform can use', () => {
+    expect(cleanLang(' de ')).toBe('de');
+    expect(cleanLang('pt-BR')).toBe('pt-BR');
+    expect(cleanLang('zh-Hant-TW')).toBe('zh-Hant-TW');
+    expect(cleanLang('english')).toBe('');
+    expect(cleanLang('e')).toBe('');
+    expect(cleanLang('de_DE')).toBe('');
+    expect(cleanLang('a-very-long-tag-here')).toBe('');
+    expect(cleanLang(undefined)).toBe('');
   });
 
   it('strips www from the hostname and tolerates garbage', () => {
