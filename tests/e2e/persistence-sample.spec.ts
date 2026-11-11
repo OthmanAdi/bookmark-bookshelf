@@ -70,7 +70,6 @@ test.describe('an example keeps its place', () => {
   });
 
   test('the action under the row follows the reading place: Read, Resume at a percent, Read again', async ({ page }) => {
-    test.fixme(true, 'Back on the shelf after reading, the action keeps the words it had before the reader opened until the page is reloaded.');
     await openApp(page);
     // The examples come with no reading history.
     await expect(primaryAction(page)).toHaveText('Read');

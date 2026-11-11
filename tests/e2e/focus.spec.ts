@@ -139,7 +139,6 @@ test.describe('focus never falls to the page', () => {
   });
 
   test('removing a row from the list moves focus to the row that takes its place', async ({ page }) => {
-    test.fixme(true, 'After a link is removed from the list, focus jumps up to the shelf tabs instead of the row that moved into its place.');
     await openApp(page);
     await showList(page);
     const third = listRows(page).nth(2);
@@ -201,7 +200,6 @@ test.describe('focus never falls to the page', () => {
   });
 
   test('the view in use keeps its plain name in the menu', async ({ page }) => {
-    test.fixme(true, 'The tick drawn beside the chosen view is read out as part of its name ("check mark Shelf"), so the name changes with the choice.');
     await openApp(page);
     await viewButton(page).click();
     await expect(page.getByRole('group', { name: 'View' }).getByRole('menuitemradio', { checked: true })).toHaveAccessibleName('Shelf');

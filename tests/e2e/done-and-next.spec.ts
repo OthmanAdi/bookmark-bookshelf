@@ -77,7 +77,6 @@ test.describe('done and next', () => {
   });
 
   test('at the end of a text on one shelf, "Next" opens the link that follows', async ({ page }) => {
-    test.fixme(true, 'Pressing "Next" shows the next text for a moment and then drops back to the shelf.');
     await openApp(page);
     await openShelf(page, HOMEWORK.id);
     await openCentredWithKeyboard(page);
@@ -96,7 +95,6 @@ test.describe('done and next', () => {
   });
 
   test('"Next" says how long the link that follows takes', async ({ page }) => {
-    test.fixme(true, 'The button at the end of a text names the next link but leaves out its reading time ("Next: Web Storage API" instead of "…, about 2 min").');
     await openApp(page);
     await openShelf(page, HOMEWORK.id);
     await openCentredWithKeyboard(page);

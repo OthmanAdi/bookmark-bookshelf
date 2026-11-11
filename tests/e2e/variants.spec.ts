@@ -150,7 +150,6 @@ test.describe('looks', () => {
   });
 
   test('a chosen look survives a reload', async ({ page }) => {
-    test.fixme(true, 'Until a link has been added or changed, a reload puts the look back to Paper Row (or to Night Study where the system is dark).');
     await openApp(page);
     for (const look of ['oak', 'night', 'pocket', 'paper'] as const) {
       await chooseLook(page, look);
@@ -164,7 +163,6 @@ test.describe('looks', () => {
   });
 
   test('the page loads in the chosen look and never in another one first', async ({ page }) => {
-    test.fixme(true, 'A reload first paints Paper Row (or Night Study where the system is dark) and then changes to the chosen look.');
     await noteLooksWhileLoading(page);
     await openApp(page);
     expect(await looksWhileLoading(page)).toEqual(['paper']);
@@ -187,7 +185,6 @@ test.describe('looks', () => {
     });
 
     test('choosing a light look is kept after a reload', async ({ page }) => {
-      test.fixme(true, 'Where the system is dark, a reload goes back to Night Study until a link has been added or changed.');
       await openApp(page);
       await chooseLook(page, 'paper');
       await reloadApp(page);
