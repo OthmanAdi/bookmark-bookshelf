@@ -65,8 +65,12 @@
   --bb-accent: #2446b4;
   --bb-accent-strong: #1b3690;
   --bb-accent-ink: #f6f7fb;
-  /* The focus ring must stand apart from the cobalt accent it often sits on. */
-  --bb-focus: #c2410c;
+  /*
+   * Focus is cobalt, never a red that could pass for an error. The ring stands clear of the control it
+   * marks, on the ground: 6.76:1 on the page, 7.26:1 on raised paper, 7.46:1 on the sheet.
+   */
+  --bb-focus: #2446b4;
+  --bb-focus-ring: #2446b4;
   /* The page a volume opens to: warm, uncoated paper. */
   --bb-sheet: #faf6ee;
 }
@@ -124,6 +128,13 @@
   --bb-sheet: #faf6ec;
   --bb-accent: #8c3b1c;
   --bb-accent-strong: #6f2d14;
+  /*
+   * Blue focus, as far from the error red as the page allows: 4.41:1 on the page, 5.35:1 on the sheet.
+   * Where it crosses the dark board the cream halo carries it (7.37:1 against the board).
+   */
+  --bb-focus: #1c5fd4;
+  --bb-focus-ring: #1c5fd4;
+  --bb-focus-halo: #faf6ec;
   --bb-bookend: #6e5427;
   --bb-light-sheen: #fff1d6;
   /* Gold foil: a pale highlight, the body of the gold and a bright crest. Every stop holds 4.5:1 on a dark cloth. */
@@ -312,6 +323,7 @@
   --bb-accent-strong: #c98f27;
   --bb-accent-ink: #17140c;
   --bb-focus: #8ab4ff;
+  --bb-focus-ring: #8ab4ff;
 }
 
 .bb-shelf[data-variant='night'] {
@@ -358,7 +370,9 @@
   --bb-accent: #1d4ed8;
   --bb-accent-strong: #173fae;
   --bb-accent-ink: #f8fafc;
-  --bb-focus: #b5301a;
+  /* Focus in the look's blue, never a red that could pass for an error: 5.93:1 on the page, 6.37:1 on the sheet. */
+  --bb-focus: #1d4ed8;
+  --bb-focus-ring: #1d4ed8;
 }
 
 :root[data-variant='pocket'] .bb-cloth--ink,

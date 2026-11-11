@@ -179,3 +179,65 @@ describe('a look dresses a cover the same wherever it stands', () => {
     }
   });
 });
+
+describe('colour roles of each look', () => {
+  const css = [join(import.meta.dirname, '..', 'styles', 'tokens.css'), join(import.meta.dirname, 'variants.css')]
+    .map((file) => readFileSync(file, 'utf8'))
+    .join('\n');
+
+  const rgb = (colour: string): [number, number, number] => {
+    const hex = colour.trim().replace('#', '');
+    const full = hex.length === 3 ? [...hex].map((digit) => digit + digit).join('') : hex;
+    return [0, 2, 4].map((at) => parseInt(full.slice(at, at + 2), 16)) as [number, number, number];
+  };
+  const luminance = (colour: string): number => {
+    const [r, g, b] = rgb(colour).map((value) => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+  };
+  const contrast = (one: string, other: string): number => {
+    const [light, dark] = [luminance(one), luminance(other)].sort((a, b) => b - a);
+    return (light! + 0.05) / (dark! + 0.05);
+  };
+  const hue = (colour: string): number => {
+    const [r, g, b] = rgb(colour).map((value) => value / 255) as [number, number, number];
+    const max = Math.max(r, g, b);
+    const span = max - Math.min(r, g, b);
+    if (span === 0) return 0;
+    const sector = max === r ? ((g - b) / span) % 6 : max === g ? (b - r) / span + 2 : (r - g) / span + 4;
+    return (sector * 60 + 360) % 360;
+  };
+
+  let roles: (look: string) => Record<string, string>;
+
+  beforeAll(() => {
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.head.appendChild(style);
+    roles = (look) => {
+      document.documentElement.dataset.variant = look;
+      const computed = getComputedStyle(document.documentElement);
+      const read = (name: string): string => computed.getPropertyValue(name).trim();
+      const values = Object.fromEntries(
+        ['--bb-focus-ring', '--bb-danger', '--bb-paper', '--bb-paper-raised', '--bb-sheet'].map((name) => [name, read(name)]),
+      );
+      delete document.documentElement.dataset.variant;
+      return values;
+    };
+  });
+
+  it.each(Object.keys(VARIANTS))('%s: the focus ring holds 3:1 on every ground of the look', (look) => {
+    const role = roles(look);
+    for (const ground of ['--bb-paper', '--bb-paper-raised', '--bb-sheet']) {
+      expect(contrast(role['--bb-focus-ring']!, role[ground]!), `${look} ring on ${ground}`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it.each(Object.keys(VARIANTS))('%s: focus can never be mistaken for an error', (look) => {
+    const role = roles(look);
+    const apart = Math.abs(hue(role['--bb-focus-ring']!) - hue(role['--bb-danger']!));
+    expect(Math.min(apart, 360 - apart), look).toBeGreaterThanOrEqual(90);
+  });
+});
