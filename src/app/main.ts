@@ -5,6 +5,7 @@ import { sampleLibrary } from '../data/sample-library';
 import { listVariants } from '../shelf';
 import { createStore, type Bookmark, type Store } from '../store';
 import { minutesOf } from '../store/reading-time';
+import type { StatsVolume } from '../store/stats';
 import { createBookshelf } from './bookshelf';
 import { downloadText, must, toast } from './dom';
 import { askText } from './editor';
@@ -13,6 +14,7 @@ import { renderList } from './list-view';
 import { createMenu } from './menu';
 import { createSearch, findLinks } from './search';
 import { createStageCaption, type LinkView } from './shell-stage';
+import { firstToRead, renderStatus, statusLine } from './status';
 import { createShelfTabs } from './shell-tabs';
 import { renderViewMenu, type ViewMode } from './shell-view-menu';
 
@@ -53,11 +55,13 @@ const bookshelf = createBookshelf({
       lastOpenedId = bookmark.id;
       return;
     }
+    // Reading moved the place and maybe the status of the shelf.
+    if (ready) renderShelfStatus();
     // In list view the row that opened the reader may have been redrawn while it was open. Find it again by id.
     if (store.session().view !== 'list' || document.activeElement !== document.body || !lastOpenedId) return;
     const rows = listHost.querySelectorAll<HTMLElement>('.bb-list__row');
-    const row = [...rows].find((entry) => entry.dataset.id === lastOpenedId);
-    row?.querySelector<HTMLElement>('.bb-list__title')?.focus({ preventScroll: true });
+    const entry = [...rows].find((item) => item.dataset.id === lastOpenedId);
+    entry?.querySelector<HTMLElement>('.bb-list__title')?.focus({ preventScroll: true });
   },
 });
 
@@ -85,7 +89,7 @@ function isDone(id: string): boolean {
 const minutesCache = new Map<string, { savedAt: string; minutes: number | undefined }>();
 
 function minutesFor(bookmark: Bookmark): number | undefined {
-  const savedAt = bookmark.reading?.savedAt ?? '';
+  const savedAt = `${bookmark.minutes ?? ''}|${bookmark.reading?.savedAt ?? ''}`;
   const cached = minutesCache.get(bookmark.id);
   if (cached && cached.savedAt === savedAt) return cached.minutes;
   const minutes = minutesOf(bookmark);
@@ -179,10 +183,35 @@ function shelfNameError(value: string, ownId?: string): string | null {
   return taken ? 'A shelf with that name already exists.' : null;
 }
 
+const statusContext = {
+  percentOf: (id: string) => store.progress(id)?.percent ?? 0,
+  isDone,
+};
+
+/** What the status line needs about each link, with lengths taken from the cache rather than counted again. */
+function statsVolumes(links: readonly Bookmark[]): StatsVolume[] {
+  return links.map((link) => ({ id: link.id, title: link.title, required: link.required, minutes: minutesFor(link) }));
+}
+
+/** Opens a shelf where its work is: on the first link still to read. */
 function openShelf(id: string | null): void {
   if (store.session().shelfId === id) return;
   bookshelf.setShelf(id);
+  if (id !== null) {
+    const next = firstToRead(statsVolumes(store.bookmarks(id)), statusContext);
+    if (next) bookshelf.show(next, { immediate: true });
+  }
   renderAll();
+}
+
+const statusArea = must<HTMLElement>('#status-area');
+const shelfStatus = must<HTMLElement>('#shelf-status');
+
+function renderShelfStatus(): void {
+  const id = openShelfId();
+  const links = id ? store.bookmarks(id) : [];
+  renderStatus(shelfStatus, links.length > 0 ? statusLine(statsVolumes(links), statusContext) : null, bringToCentre);
+  statusArea.hidden = shelfStatus.hidden;
 }
 
 const shelfTabs = createShelfTabs(must<HTMLElement>('#tabs'), openShelf, { reduced: () => bookshelf.motion.state.reduced });
@@ -277,6 +306,7 @@ function applyView(): void {
 function renderAll(): void {
   row = store.bookmarks(store.session().shelfId);
   renderTabs();
+  renderShelfStatus();
   syncStage(true);
   if (store.session().view === 'list') renderListView();
 }
@@ -389,7 +419,9 @@ removeExamplesItem.addEventListener('click', () => flows.removeExamples());
 store.subscribe((event) => {
   if (event.reason === 'session') return;
   if (event.reason === 'progress') {
-    if (!bookshelf.isOpen()) syncStage(true);
+    if (bookshelf.isOpen()) return;
+    syncStage(true);
+    renderShelfStatus();
     return;
   }
   renderAll();

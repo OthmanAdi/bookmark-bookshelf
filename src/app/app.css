@@ -54,6 +54,49 @@
   grid-area: stage;
 }
 
+/* Quiet lines under the tabs: the state of the open shelf, and the note about examples. */
+.bb-app__status {
+  grid-area: status;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: var(--bb-s-1);
+  padding: var(--bb-s-2) var(--bb-gutter, clamp(1.25rem, 2.5vw, 2.5rem)) 0;
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  line-height: 1.43;
+  text-align: center;
+}
+
+.bb-app__status-line {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bb-app__status-line[hidden] {
+  display: none;
+}
+
+/* The next title reads as a link in the sentence and acts as a button. */
+.bb-app__next {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bb-ink);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  touch-action: manipulation;
+}
+
+.bb-app__next:hover {
+  text-decoration-thickness: 2px;
+}
+
 .bb-app__chrome[data-view='list'] {
   height: auto;
   min-height: 100dvh;
@@ -701,6 +744,23 @@
   .bb-app__bar {
     flex-wrap: wrap;
     padding-block: var(--bb-s-2);
+  }
+
+  .bb-app__tools {
+    flex-wrap: wrap;
+  }
+
+  .bb-search {
+    flex-basis: 100%;
+  }
+
+  .bb-app__status {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .bb-app__status-line {
+    white-space: normal;
   }
 
   .bb-app__shelves {
