@@ -3,6 +3,8 @@
  * Everything another module needs from the store is declared here.
  */
 
+import type { ShelfFile } from './shelf-file';
+
 export const LIBRARY_FORMAT = 'bookmark-bookshelf' as const;
 export const LIBRARY_VERSION = 2 as const;
 export const DEFAULT_STORAGE_KEY = 'bookmark-bookshelf:library';
@@ -236,6 +238,17 @@ export interface RemovedShelf {
   wasActive: boolean;
 }
 
+/** What a received shelf became. */
+export interface ImportedShelf {
+  shelfId: string;
+  /** The name it was given, which differs from the file's when that name was taken. */
+  name: string;
+  /** Links added to the new shelf. */
+  added: number;
+  /** Links in the file that could not be used. */
+  skipped: SkippedLink[];
+}
+
 export interface StoreOptions {
   /** Defaults to `localStorage` when it works, otherwise an in-memory store. */
   storage?: KeyValueStorage;
@@ -344,6 +357,18 @@ export interface Store {
 
   /** Pretty-printed JSON of the versioned library, safe to save as a file. */
   exportLibrary(): string;
+  /**
+   * The file for one shelf: its details and links in shelf order, with texts only when `includeTexts` is
+   * true. Reading position, done marks and private notes are never part of it. Serialise it with
+   * `JSON.stringify`; `shelfFileName` gives the file name.
+   */
+  exportShelf(id: string, options: { includeTexts: boolean }): Result<ShelfFile>;
+  /**
+   * Adds the shelf in a shelf file (text, parsed value, or what `readShelfFile` returned) as one new shelf with
+   * a new id, named "Name (2)" when the name is taken. Every link gets a new id and keeps file order. Nothing
+   * that is already saved is changed, and nothing personal comes with the file.
+   */
+  importShelf(file: unknown): Result<ImportedShelf>;
   /** Accepts JSON text or a parsed value of any supported version. */
   importLibrary(input: unknown, mode: 'replace' | 'merge'): Result<ImportSummary>;
 
