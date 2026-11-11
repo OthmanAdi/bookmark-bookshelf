@@ -1,0 +1,11 @@
+{
+  "name": "bookshelf",
+  "displayName": "Bookmark Bookshelf",
+  "description": "Build a 3D bookmark shelf, its drag motion engine, local store or reader into your project.",
+  "author": { "name": "OthmanAdi", "url": "https://github.com/OthmanAdi" },
+  "homepage": "https://othmanadi.github.io/bookmark-bookshelf/",
+  "repository": "https://github.com/OthmanAdi/bookmark-bookshelf",
+  "license": "Apache-2.0",
+  "keywords": ["bookmarks", "bookshelf", "css-3d", "typescript", "local-first"],
+  "skills": ["./.agents/skills/"]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "bookmark-bookshelf",
+  "description": "The Bookmark Bookshelf agent skill.",
+  "owner": { "name": "OthmanAdi" },
+  "plugins": [
+    {
+      "name": "bookshelf",
+      "source": "./",
+      "description": "Build a 3D bookmark shelf, its motion engine, store or reader into your project."
+    }
+  ]
+}
