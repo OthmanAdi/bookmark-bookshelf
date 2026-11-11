@@ -1,5 +1,6 @@
 import '../styles/base.css';
 import './app.css';
+import './flows.css';
 import { sampleLibrary } from '../data/sample-library';
 import { listVariants } from '../shelf';
 import { createStore, type Bookmark } from '../store';
