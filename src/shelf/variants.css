@@ -639,3 +639,26 @@
   height: 10px;
   background: linear-gradient(rgba(26, 24, 21, 0.3), rgba(26, 24, 21, 0));
 }
+
+/* ---------- forced colours: what a look adds must not hide what the system colours show ---------- */
+
+@media (forced-colors: active) {
+  /* A look's own slip colour would outrank the system highlight and could vanish against the page. */
+  .bb-shelf[data-variant] .bb-book__slip {
+    background: Highlight;
+  }
+
+  /* Foil is a gradient seen through the letters; in system colours the letters take the text colour. */
+  :root[data-variant='oak'] .bb-cover:not([data-layout='label']) .bb-cover__title,
+  .bb-shelf[data-variant='oak'] .bb-cover:not([data-layout='label']) .bb-cover__title {
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: CanvasText;
+  }
+
+  /* The shelf board and the lamp's pool are shading only. */
+  .bb-shelf[data-variant] .bb-shelf__row::before {
+    display: none;
+  }
+}
