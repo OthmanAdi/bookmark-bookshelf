@@ -504,6 +504,18 @@ function renderAll(): void {
 function rescueFocus(): void {
   if (document.activeElement && document.activeElement !== document.body) return;
   if (bookshelf.isOpen()) return;
+  if (store.session().view === 'list' && lastListFocus) {
+    // The row is the same link if it is still there, otherwise the one that moved into its place.
+    const rows = [...listHost.querySelectorAll<HTMLElement>('.bb-list__row')];
+    const same = rows.find((row) => row.dataset.id === lastListFocus?.id);
+    const row = same ?? rows[Math.min(lastListFocus.index, rows.length - 1)];
+    const part = same ? row?.querySelector<HTMLElement>(`[data-part="${lastListFocus.part}"]`) : null;
+    const target = part ?? row?.querySelector<HTMLElement>('.bb-list__title');
+    if (target) {
+      target.focus({ preventScroll: true });
+      return;
+    }
+  }
   const candidates = [
     must<HTMLElement>('#action-primary'),
     emptyAdd,
@@ -511,6 +523,16 @@ function rescueFocus(): void {
   ];
   candidates.find((element) => element !== null && element.getClientRects().length > 0)?.focus({ preventScroll: true });
 }
+
+// Where focus last stood in the list, so a dialog opened from a row can give it back to that place.
+let lastListFocus: { id: string; part: string; index: number } | null = null;
+listHost.addEventListener('focusin', (event) => {
+  const active = event.target instanceof HTMLElement ? event.target : null;
+  const row = active?.closest<HTMLElement>('.bb-list__row');
+  if (!active || !row?.dataset.id) return;
+  const rows = [...listHost.querySelectorAll<HTMLElement>('.bb-list__row')];
+  lastListFocus = { id: row.dataset.id, part: active.dataset.part ?? 'title', index: rows.indexOf(row) };
+});
 
 // `close` does not bubble, but a listener in the capture phase hears it from every dialog.
 document.addEventListener('close', () => window.setTimeout(rescueFocus, 0), true);
