@@ -120,8 +120,9 @@ export interface VariantMotion {
 /**
  * Where the light of a look comes from. `x` and `z` are a direction in the floor plane (x to the right,
  * z toward the viewer), `ambient` is the share of light a face gets when it is turned fully away, and
- * `tint` is the colour of shade. With `lamp`, the light is a point above the centre of the row and
- * falls off with distance along the row, measured in cover widths.
+ * `tint` is the colour of shade. With `lamp`, the light is a point instead: `x` and `z` are where it
+ * stands, in cover widths from the centre of the row, each volume is lit from its own side of it, and
+ * its light falls off along the row as `1 / (1 + (distance / reach)^2)`, never below `floor`.
  */
 export interface Light {
   x: number;

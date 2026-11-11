@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LIGHT, faceShades, resolveLight } from './light';
+import { DEFAULT_LAMP, DEFAULT_LIGHT, faceShades, lampReach, resolveLight } from './light';
 import type { Light } from './types';
 
 describe('faceShades with the default light', () => {
@@ -38,11 +38,48 @@ describe('faceShades with the default light', () => {
     }
   });
 
-  it('dims every face where the light does not reach', () => {
-    const full = faceShades(DEFAULT_LIGHT, 0);
-    const far = faceShades(DEFAULT_LIGHT, 0, 0.7);
-    expect(far.spine).toBeCloseTo(0.3, 6);
-    expect(far.back).toBeGreaterThan(full.back);
+  it('ignores where a volume stands', () => {
+    expect(faceShades(DEFAULT_LIGHT, 30, 4)).toEqual(faceShades(DEFAULT_LIGHT, 30, 0));
+  });
+});
+
+describe('faceShades under a lamp', () => {
+  it('leaves the presented cover under the lamp its own colour', () => {
+    expect(faceShades(DEFAULT_LAMP, 90, 0).front).toBeCloseTo(0, 6);
+  });
+
+  it('dims volumes the further they stand from the lamp, the same on both sides', () => {
+    let previous = faceShades(DEFAULT_LAMP, 0, 0).spine;
+    for (const offset of [0.5, 1, 2, 3, 5]) {
+      const left = faceShades(DEFAULT_LAMP, 0, -offset).spine;
+      const right = faceShades(DEFAULT_LAMP, 0, offset).spine;
+      expect(right).toBeCloseTo(left, 9);
+      expect(right).toBeGreaterThan(previous);
+      previous = right;
+    }
+  });
+
+  it('lights the boards that face the lamp: front boards on the left, back boards on the right', () => {
+    const left = faceShades(DEFAULT_LAMP, 0, -1.5);
+    const right = faceShades(DEFAULT_LAMP, 0, 1.5);
+    expect(left.front).toBeLessThan(left.back);
+    expect(right.back).toBeLessThan(right.front);
+  });
+
+  it('never lets the far ends fall below the floor of its light', () => {
+    expect(lampReach(DEFAULT_LAMP, 40)).toBe(0.55);
+    expect(lampReach(DEFAULT_LAMP, 0)).toBe(1);
+    expect(lampReach(DEFAULT_LIGHT, 40)).toBe(1);
+  });
+
+  it('changes continuously along the row, so passing the centre never steps the light', () => {
+    let previous = faceShades(DEFAULT_LAMP, 0, -3);
+    for (let offset = -3; offset <= 3; offset += 0.02) {
+      const next = faceShades(DEFAULT_LAMP, 0, offset);
+      expect(Math.abs(next.spine - previous.spine)).toBeLessThan(0.01);
+      expect(Math.abs(next.front - previous.front)).toBeLessThan(0.02);
+      previous = next;
+    }
   });
 });
 

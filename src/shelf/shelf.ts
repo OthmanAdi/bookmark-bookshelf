@@ -230,7 +230,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
         `rotateZ(${slotPose.lean}deg) rotateY(${-slotPose.angle}deg)`;
       style.zIndex = slotPose.weight > 0 ? '2' : '';
 
-      const shades = faceShades(light, slotPose.angle);
+      // Distance of the volume's middle from the centre of the row, in cover widths, for a lamp.
+      const along = light.lamp
+        ? (slotPose.x + away + (geometry.coverWidth * Math.sin(slotPose.angle * DEG)) / 2) / geometry.coverWidth
+        : 0;
+      const shades = faceShades(light, slotPose.angle, along);
       writeShade(node, 0, node.spineShade, shades.spine);
       writeShade(node, 1, node.coverShade, shades.front);
       writeShade(node, 2, node.backShade, shades.back);
