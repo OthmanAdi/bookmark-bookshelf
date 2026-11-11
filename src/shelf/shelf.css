@@ -696,11 +696,11 @@
 }
 
 @media (forced-colors: active) {
+  /* The printed cover has its own rules in the cover stylesheet. */
   .bb-book__spine,
   .bb-book__board,
   .bb-bookend__edge,
-  .bb-bookend__face,
-  .bb-cover {
+  .bb-bookend__face {
     border: 1px solid CanvasText;
     forced-color-adjust: none;
   }
