@@ -11,6 +11,7 @@ export const defaultReaderLabels: ReaderLabels = {
   cancel: 'Cancel',
   pasteLabel: 'Text to read',
   emptyTitle: 'No text saved yet',
+  exampleNote: 'Example text written for this app. It is not the linked page.',
   emptyBody:
     'Paste the part of the page you want to read. It stays with this link, and the reader remembers where you stop.',
   progress: (percent) => `${percent}% read`,

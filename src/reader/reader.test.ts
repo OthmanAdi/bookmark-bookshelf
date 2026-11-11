@@ -193,6 +193,21 @@ describe('flight target', () => {
   });
 });
 
+describe('example links', () => {
+  it('says under the title that the text is an example, once', () => {
+    mount({ example: true });
+    const note = query('.bb-reader__example');
+    expect(note.textContent).toBe('Example text written for this app. It is not the linked page.');
+    expect(note.previousElementSibling).toBe(query('h1'));
+    expect(host.querySelectorAll('.bb-reader__example')).toHaveLength(1);
+  });
+
+  it('says nothing for an ordinary link', () => {
+    mount();
+    expect(host.querySelector('.bb-reader__example')).toBeNull();
+  });
+});
+
 describe('language', () => {
   it('sets the language of the text on the article only', () => {
     mount({ doc: { ...doc, lang: 'de' } });

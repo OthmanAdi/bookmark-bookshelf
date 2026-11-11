@@ -30,6 +30,12 @@
   font-style: italic;
 }
 
+.bb-reader__example {
+  margin-top: var(--bb-s-2);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+}
+
 .bb-reader__note {
   margin-top: var(--bb-s-4);
   padding-left: var(--bb-s-4);

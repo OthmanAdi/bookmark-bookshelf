@@ -65,6 +65,8 @@ export interface ReaderLabels {
   cancel: string;
   pasteLabel: string;
   emptyTitle: string;
+  /** Shown under the title of an example link. */
+  exampleNote: string;
   emptyBody: string;
   progress: (percent: number) => string;
   /** Names of the two bar buttons that step the text size, and of the group they sit in. */
@@ -99,6 +101,8 @@ export interface ReaderOptions {
   coverAspect?: number;
   onProgress?: (progress: ReaderProgress) => void;
   onClose?: () => void;
+  /** The link is one of the examples that came with the app. Its title is followed by a line saying so. */
+  example?: boolean;
   /** The person's private note on this link, at most 2,000 characters. */
   myNote?: string;
   /** Called with the note after the person pauses typing, and at once when the reader closes. */

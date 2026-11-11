@@ -220,6 +220,8 @@
 .bb-reader__layout {
   display: grid;
   grid-template-columns: var(--bb-reader-cover-w) minmax(0, 1fr);
+  /* Four rows of header text beside the cover; the last one soaks up any height the cover has left over. */
+  grid-template-rows: repeat(4, auto) 1fr;
   column-gap: var(--bb-s-4);
   align-content: start;
   max-width: var(--bb-reader-frame);
@@ -234,12 +236,13 @@
 
 .bb-reader__cover {
   grid-column: 1;
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 5;
   align-self: start;
 }
 
 .bb-reader__saved,
 .bb-reader__title,
+.bb-reader__example,
 .bb-reader__byline {
   grid-column: 2;
 }
@@ -260,6 +263,7 @@
 
 .bb-reader__layout--bare .bb-reader__saved,
 .bb-reader__layout--bare .bb-reader__title,
+.bb-reader__layout--bare .bb-reader__example,
 .bb-reader__layout--bare .bb-reader__byline {
   grid-column: 1 / -1;
 }

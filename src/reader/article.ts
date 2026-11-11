@@ -23,6 +23,7 @@ export interface ArticleInput {
   canEdit: boolean;
   /** The paste field is open, so there is nothing left for an edit button to open. */
   editing: boolean;
+  example: boolean;
   handlers: ArticleHandlers;
 }
 
@@ -70,6 +71,7 @@ export function buildArticleParts(dom: Document, input: ArticleInput): ArticlePa
   const title = el(dom, 'h1', 'bb-reader__title', source.title);
   title.id = input.titleId;
   nodes.push(title);
+  if (input.example) nodes.push(el(dom, 'p', 'bb-reader__example', labels.exampleNote));
   if (source.author) nodes.push(el(dom, 'p', 'bb-reader__byline', source.author));
   if (source.note) nodes.push(el(dom, 'p', 'bb-reader__note', source.note));
 
