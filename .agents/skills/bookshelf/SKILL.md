@@ -1,5 +1,5 @@
 ---
-name: bookmark-bookshelf
+name: bookshelf
 description: Build or integrate the Bookmark Bookshelf modules, an interactive 3D shelf of book spines (CSS 3D and DOM, no WebGL), a spring and drag motion engine, a versioned local bookmark store, and a safe text reader that remembers the reading position. Use whenever someone asks for a bookshelf or book-spine interface, a draggable 3D row or carousel of volumes, saved links or a read-later list shown as books, a cover that flies open into a reading page, or a reading view with resume, and also when they want only one of the four parts (shelf, motion, store, reader) added to an existing web project, even if they never name this repository.
 ---
 
@@ -18,7 +18,7 @@ The modules are not inside this skill folder. They live in a checkout of the Boo
 
 ## 0. Find the source root
 
-1. **Adjacent repository.** If this file is at `<root>/.agents/skills/bookmark-bookshelf/SKILL.md` and `<root>/src/shelf/index.ts` exists, `<root>` is the source root. This is the case when the skill is used in place.
+1. **Adjacent repository.** If this file is at `<root>/.agents/skills/bookshelf/SKILL.md` and `<root>/src/shelf/index.ts` exists, `<root>` is the source root. This is the case when the skill is used in place.
 2. **Supplied path.** If the skill was copied somewhere else (the skills folder of an agent), the person has to give the path of a checkout: the *source path*. If the request does not contain one, ask for it. Do not guess a download address and do not fetch anything.
 3. **Verify before copying.** In the source root:
    - `package.json` has `"name": "bookmark-bookshelf"`. Note its `version`.

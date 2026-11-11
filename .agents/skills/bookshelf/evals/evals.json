@@ -1,5 +1,5 @@
 {
-  "skill": "bookmark-bookshelf",
+  "skill": "bookshelf",
   "note": "Scenarios for checking that an agent can follow the skill. Each expected_output is a list of objectively checkable statements. Results of the runs made for release candidate 0.1.0-rc.1 are in docs/SKILL-TRIALS.md.",
   "evals": [
     {
