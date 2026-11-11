@@ -32,7 +32,7 @@ Then open the address Vite prints, normally `http://127.0.0.1:5173/`. It needs N
 - The shelf is a 3D bookshelf drawn with CSS transforms, without WebGL. A row long enough to fill the window loops, and you drag or flick it with a mouse, a finger or a trackpad. A shorter row stands still between two bookends. The volume you pick turns to show its cover.
 - A volume opens into a reader for the text you pasted when you saved the link. It keeps your place across reloads, steps the text size, holds private notes and ends with "Mark as read".
 - Import browser bookmarks from the HTML file a browser exports (folders become shelves), or paste a list of many links. A preview shows what will be added and what will be skipped.
-- Search finds a link by title, site, author, note or tag.
+- Search finds a link by title, site, author, note or tag, or by a word in its saved text.
 - Share a shelf as a reading list, as a file or as a link that carries the whole shelf in its address, so no server holds it. Whoever opens it sees a preview before anything is added ([recording](docs/media/share-demo.gif)).
 
 A shelf shows how many of its links are read and about how long the rest will take, and its menu writes a plain-text hand-in summary. On a phone, View and "Add a link" sit in a dock at the bottom ([recording](docs/media/phone-demo.gif)). The View menu offers a plain list and four looks for the shelf: Paper Row, Oak Library, Night Study and Pocket Paperbacks. The row works from the keyboard (arrow keys, Home, End, Enter, Escape), and with reduced motion nothing travels.
@@ -94,7 +94,6 @@ They meet in [`src/app/bookshelf.ts`](src/app/bookshelf.ts). Contracts and wirin
 
 - It never fetches a page. The reader shows text you pasted, and a link saved without text offers a field for it and "Open original".
 - It does not sync between devices. A backup file, a shelf file or a shelf link carries links from one browser to another.
-- Search does not look inside the saved texts.
 - The browser tests run in Chromium, on a desktop and on a phone-sized screen with touch, with a smoke run in WebKit. Firefox is not covered.
 - Clearing site data in the browser removes the library, so save a backup first.
 

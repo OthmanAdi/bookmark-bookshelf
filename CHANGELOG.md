@@ -13,7 +13,7 @@ In the app:
 - Bring links in from the bookmarks file a browser exports, from a pasted list, or from a library or shelf file. Folders become shelves, a nested folder is named "Parent / Child", and links outside any folder go to a shelf called "Imported". Every route shows a preview first, with what will be added, what is already saved and what will be skipped and why. A file dropped anywhere on the page goes the same way, and a dropped link opens the add dialog.
 - A pasted list takes one link per line: a Markdown link, `Title | address | note`, `Title - address`, an address followed by a title, or a bare address. `(optional)` marks a link as optional and `~12 min` sets its reading time.
 - Take links out as a backup of everything (JSON), as a bookmarks file a browser can import, or as a Markdown list.
-- Search from a field in the bar, by title, site, author, note and tags. `/` moves to the field.
+- Search from a field in the bar, by title, site, author, note and tags, and by words in a saved text. `/` moves to the field.
 - Sort a shelf from its menu: shelf order, newest first, oldest first, title, source, unread first, shortest first. Sorting never changes the stored order.
 - Share one shelf as a file (`<name>.shelf.json`) or as a link that carries the whole shelf in the fragment of its address. The dialog shows the length of the link and whether it fits a chat message, and the texts can be left out. Whoever receives a shelf sees a preview (the sender as written and marked as not verified, the counts, the first titles, the sites the links go to) and decides whether to add it. It arrives as a new shelf, and reading positions, read marks and private notes never travel with it.
 - A shelf can carry a description, the name of whoever put it together, a language and a due date.
@@ -92,7 +92,6 @@ Breaking changes for people who reuse a module:
 ### Known limits
 
 - The reader never fetches pages. It shows text the person saved.
-- Search does not look inside saved texts.
 - No sync between devices. A backup, a shelf file or a shelf link moves links between browsers.
 - Firefox is not covered by the browser tests, and Safari only by a WebKit smoke run.
 - The skill trials were run against 0.1.0 and have not been repeated.

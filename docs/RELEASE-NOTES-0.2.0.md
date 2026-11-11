@@ -10,7 +10,7 @@ The demo is at https://othmanadi.github.io/bookmark-bookshelf/ and the source at
 
 You can bring many links in at once. Export your bookmarks from a browser as an HTML file and choose that file: each folder becomes a shelf. Or paste a list with one link on each line. Both show what will be added and what will be skipped before anything is saved, and a link you already have is left as it was.
 
-A search field in the bar finds a link by its title, site, author, note or tags. A shelf can be sorted in seven ways.
+A search field in the bar finds a link by its title, site, author, note or tags, or by a word in its saved text. A shelf can be sorted in seven ways.
 
 A volume opens into a page of the text you pasted for that link. The reader remembers where you stopped, steps the text size, keeps private notes beside the text, and ends with "Mark as read" and the next unread link. An open shelf says how many of its links are read and about how much reading is left.
 
@@ -38,7 +38,6 @@ Several contracts changed. The full list is in [CHANGELOG.md](../CHANGELOG.md) u
 - The reader never fetches a page. It shows the text you pasted, and a link saved without text offers a field for it and a link to the original.
 - There is no sync between devices. A backup, a shelf file or a shelf link moves links from one browser to another.
 - The browser tests run in Chromium, on a desktop and on a phone-sized screen with touch, and as a smoke run in WebKit. Firefox is not covered by them.
-- Search does not look inside saved texts.
 - A shelf link longer than 8,000 characters is not offered. The app asks you to send the file instead, or to leave out the texts.
 - Clearing site data in the browser removes the library. Save a backup first.
 - The install commands for the skill follow each tool's documentation and could not be run against this repository before it was public. The skill trials in [SKILL-TRIALS.md](SKILL-TRIALS.md) were run against 0.1.0 and have not been repeated.
