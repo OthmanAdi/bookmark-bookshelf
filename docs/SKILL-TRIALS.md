@@ -2,6 +2,10 @@
 
 Two trials of `.agents/skills/bookshelf/` were run on 2026-11-10 on release candidate 0.1.0-rc.1, the build that became release 0.1.0. In each, a separate coding agent (Claude Sonnet) received only a user-style request, the path of the skill and read access to this repository. It worked in an empty folder, could not edit this repository, and kept notes on every place the skill was unclear.
 
+## Status for 0.2.0
+
+2026-11-11: these trials were run against 0.1.0 and have not been repeated for 0.2.0. Since then the skill's references were rewritten and the modules changed in ways the trials never exercised: the shelf no longer flies the cover, a short row stands still, the library is version 2, and the reader opens with a fade. The results below therefore say nothing about how an agent fares with the skill as it is now. What was checked for 0.2.0 is narrower. Every TypeScript block in the skill was type-checked against the modules, and three of its wiring recipes (the shelf with motion, the shelf with motion and the reader, and the store recipes) were run once in headless Chromium. The recipes for the shelf alone, the reader alone, the full composition and the framework adapter were type-checked only.
+
 ## Trial 1: part of the product (shelf and motion)
 
 Request: set up a small Vite and TypeScript project and add a draggable 3D shelf for eight essay titles, with no storage and no reader.
