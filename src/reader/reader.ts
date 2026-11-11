@@ -4,6 +4,7 @@ import { buildArticleParts, fillBody } from './article';
 import type { ArticleHandlers } from './article';
 import { resolveLabels } from './meta';
 import { buildEnd } from './end';
+import { buildNotes } from './notes';
 import type { End } from './end';
 import { createProgressTracker, measureBlocks } from './progress';
 import { trapTab } from './focus-trap';
@@ -35,6 +36,13 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   let done = options.done === true;
   let next: NextLink | null = options.next ?? null;
   let end: End | null = null;
+  const notesOn = typeof options.onMyNote === 'function' || options.myNote !== undefined;
+  const notes = buildNotes(dom, {
+    labels,
+    fieldId: `${uid}-notes`,
+    initial: options.myNote ?? '',
+    onChange: (text) => options.onMyNote?.(text),
+  });
 
   const tracker = createProgressTracker({
     scroller: sheet,
@@ -111,6 +119,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   }
 
   function render(focusTarget: 'field' | 'edit' | null = null, relayout = true): void {
+    const restoreNote = notesOn ? notes.keepFocus() : null;
     const parts = buildArticleParts(dom, { source, labels, titleId, canEdit, handlers });
     shell.article.replaceChildren(...parts.nodes);
     body = parts.body;
@@ -118,6 +127,8 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     shell.barText.textContent = source.title;
     titleWatch.watch(shell.article.querySelector('h1'));
     const field = fillBody({ dom, body, source, labels, fieldId: `${uid}-paste`, canEdit, editing, handlers });
+    if (notesOn) notes.attach(body);
+    restoreNote?.();
     renderEnd();
     Array.from(shell.article.children).forEach((child, index) => {
       child.classList.add('bb-reader__enter');
@@ -131,6 +142,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   function onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape' && !event.defaultPrevented) {
       event.preventDefault();
+      notes.flush();
       options.onClose?.();
     } else if (event.key === 'Tab' && root.dataset.open === '1') {
       trapTab(event, root, sheet);
@@ -139,7 +151,10 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
 
   const applyReveal = createRevealer(root, sheet);
 
-  const closeClick = (): void => options.onClose?.();
+  const closeClick = (): void => {
+    notes.flush();
+    options.onClose?.();
+  };
   shell.closeButton.addEventListener('click', closeClick);
   root.addEventListener('keydown', onKeydown);
   shell.sizeDown.addEventListener('click', () => stepText(-1));
@@ -161,6 +176,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   return {
     element: root,
     scroller: sheet,
+    setMyNote: (text) => notes.set(text),
     setDone(value) {
       done = value;
       end?.setDone(value);
@@ -196,6 +212,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     destroy() {
       if (destroyed) return;
       destroyed = true;
+      notes.destroy();
       tracker.destroy();
       observer?.disconnect();
       titleWatch.destroy();

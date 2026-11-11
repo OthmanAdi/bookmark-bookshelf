@@ -148,6 +148,47 @@
   color: var(--bb-accent-strong);
 }
 
+/* Private notes: quiet until opened. */
+.bb-reader__notes {
+  grid-column: 1 / -1;
+  padding-block: var(--bb-s-3);
+  border-bottom: var(--bb-hairline) solid var(--bb-rule);
+  font-size: var(--bb-text-body);
+}
+
+.bb-reader__notes-summary {
+  display: list-item;
+  width: fit-content;
+  min-height: 1.5rem;
+  color: var(--bb-ink-soft);
+  cursor: pointer;
+}
+
+.bb-reader__notes[open] .bb-reader__notes-summary {
+  margin-bottom: var(--bb-s-3);
+}
+
+.bb-reader__notes-field {
+  width: 100%;
+  min-height: 6rem;
+  padding: var(--bb-s-3);
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: var(--bb-r-1);
+  background: var(--bb-paper-raised);
+  line-height: var(--bb-leading-body);
+  resize: vertical;
+}
+
+.bb-reader__notes-count {
+  margin-top: var(--bb-s-1);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+}
+
+.bb-reader__notes-count:empty {
+  display: none;
+}
+
 /* The closing block: the person decides whether the text counts as read. */
 .bb-reader__end {
   grid-column: 1 / -1;

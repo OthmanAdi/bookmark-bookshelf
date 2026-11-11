@@ -67,6 +67,9 @@ export interface ReaderLabels {
   smaller: string;
   larger: string;
   textSize: string;
+  /** The summary of the private notes area, and the counter shown near its limit. */
+  notes: string;
+  notesCount: (used: number, max: number) => string;
   /** Names the block after the last paragraph, and the toggle in it. */
   endOfText: string;
   markRead: string;
@@ -88,6 +91,10 @@ export interface ReaderOptions {
   coverAspect?: number;
   onProgress?: (progress: ReaderProgress) => void;
   onClose?: () => void;
+  /** The person's private note on this link, at most 2,000 characters. */
+  myNote?: string;
+  /** Called with the note after the person pauses typing, and at once when the reader closes. */
+  onMyNote?: (text: string) => void;
   /** Whether the link is marked as read. Shown as the state of the "Mark as read" button. */
   done?: boolean;
   /** Called when the person presses "Mark as read". Without it the button is not shown. */
@@ -124,6 +131,8 @@ export interface ReaderHandle {
    * restored. Null without a cover or before the reader has a layout.
    */
   flightTarget(): Box | null;
+  /** Replaces the note, unless the person is typing in it. Does not call `onMyNote`. */
+  setMyNote(text: string): void;
   /** Changes the state of the "Mark as read" button without calling `onDone`. */
   setDone(done: boolean): void;
   /** Replaces the next link, or removes it with null. */
