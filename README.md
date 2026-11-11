@@ -51,7 +51,7 @@ The repository carries an agent skill named `bookshelf`, invoked as `/bookshelf`
 | Any agent, through the `skills` CLI | `npx skills add OthmanAdi/bookmark-bookshelf --skill bookshelf` | `/bookshelf` in Claude Code, `$bookshelf` in Codex |
 | Any agent, by copying | Copy [`.agents/skills/bookshelf`](.agents/skills/bookshelf) into the agent's skills folder (Claude Code: `~/.claude/skills/bookshelf`) | `/bookshelf` |
 
-The commands follow each tool's documentation. None could be run against this repository before it was public, so treat every row as untested.
+The `skills` CLI row was run against this repository on the day of the release, in an empty folder, and it installed the skill. The plugin row follows Claude Code's documentation and has not been run, so treat it as untested.
 
 The skill holds instructions only. It takes the modules from a checkout next to itself or from a path you give it, or asks before it clones the release tag.
 

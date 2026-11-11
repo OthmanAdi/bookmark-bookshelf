@@ -40,7 +40,7 @@ Several contracts changed. The full list is in [CHANGELOG.md](../CHANGELOG.md) u
 - The browser tests run in Chromium, on a desktop and on a phone-sized screen with touch, and as a smoke run in WebKit. Firefox is not covered by them.
 - A shelf link longer than 8,000 characters is not offered. The app asks you to send the file instead, or to leave out the texts.
 - Clearing site data in the browser removes the library. Save a backup first.
-- The install commands for the skill follow each tool's documentation and could not be run against this repository before it was public. The skill trials in [SKILL-TRIALS.md](SKILL-TRIALS.md) were run against 0.1.0 and have not been repeated.
+- Of the install commands for the skill, `npx skills add OthmanAdi/bookmark-bookshelf --skill bookshelf` was run on the day of the release and installed it. The plugin commands follow Claude Code's documentation and have not been run. The skill trials in [SKILL-TRIALS.md](SKILL-TRIALS.md) were run against 0.1.0 and have not been repeated.
 
 ## How it was checked
 
