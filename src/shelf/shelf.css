@@ -4,6 +4,17 @@
  * overflow, filter or opacity below 1, or the 3D context flattens.
  */
 
+/*
+ * Materials, drawn once by the browser as small tiles and repeated. Noise rather than a fine line
+ * pattern: lines shimmer on a moving plane, noise does not. Cloth has a grain running along the
+ * spine; paper has none. Defined on the root as well, so a cover shown outside the shelf matches.
+ */
+:root,
+.bb-shelf {
+  --bb-weave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95 .32' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='72' height='72' filter='url(%23n)'/%3E%3C/svg%3E");
+  --bb-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7 .7' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='72' height='72' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 .bb-shelf {
   --bb-shelf-height: clamp(17rem, 46vh, 25rem);
   --bb-spine-w: 58px;
@@ -158,8 +169,29 @@
     rgba(0, 0, 0, 0.2)
   );
   color: var(--cloth-ink);
+  /* Headcap and tailcap: the cloth turns over the board at head and tail and catches light on the top edge. */
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.07),
+    inset 0 3px 2px -1px rgba(0, 0, 0, 0.28),
+    inset 0 -3px 2px -1px rgba(0, 0, 0, 0.24);
   backface-visibility: hidden;
   overflow: hidden;
+  isolation: isolate;
+}
+
+/* The weave lies over the cloth and under the lettering. A look that replaces the spine's own gradients keeps it. */
+.bb-book__spine::before,
+.bb-book__board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--bb-weave) 0 0 / 72px 72px;
+  pointer-events: none;
+}
+
+.bb-book__spine::before {
+  z-index: -1;
 }
 
 .bb-spine__mark {
