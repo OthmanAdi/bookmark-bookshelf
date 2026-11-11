@@ -85,6 +85,26 @@ describe('createCover', () => {
     expect(cover.querySelectorAll('[onerror]').length).toBe(0);
   });
 
+  it('sizes the title from its text and hyphenates only what cannot fit', () => {
+    const short = createCover(item({ title: 'CSS' })).querySelector<HTMLElement>('.bb-cover__title')!;
+    const long = createCover(item({ title: 'Bundesausbildungsförderungsgesetz', lang: 'de' }));
+    const longTitle = long.querySelector<HTMLElement>('.bb-cover__title')!;
+    expect(parseFloat(short.style.getPropertyValue('--bb-cover-title'))).toBeGreaterThan(
+      parseFloat(longTitle.style.getPropertyValue('--bb-cover-title')),
+    );
+    expect(short.style.getPropertyValue('--bb-cover-title')).toMatch(/^\d+(\.\d)?cqw$/);
+    expect(Number(short.style.getPropertyValue('--bb-cover-lines'))).toBeGreaterThanOrEqual(1);
+    expect(short.classList.contains('bb-cover__title--break')).toBe(false);
+    expect(longTitle.classList.contains('bb-cover__title--break')).toBe(true);
+    expect(long.lang).toBe('de');
+  });
+
+  it('takes the language from the item only when it is a plain language tag', () => {
+    expect(createCover(item({ lang: 'de-AT' })).lang).toBe('de-AT');
+    expect(createCover(item({ lang: 'de" onload="x' })).hasAttribute('lang')).toBe(false);
+    expect(createCover(item()).hasAttribute('lang')).toBe(false);
+  });
+
   it('records the resolved pattern and cloth', () => {
     const cover = createCover(item({ pattern: 'waves', cloth: 'rust' }));
     expect(cover.dataset.pattern).toBe('waves');

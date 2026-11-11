@@ -52,21 +52,39 @@
   opacity: 0.82;
 }
 
+/*
+ * --bb-cover-title is worked out from the title itself (longest word, length, lines), so a short title
+ * stands large and a German compound still fits. The line clamp is only the last guard: the size is
+ * chosen so the title never reaches it.
+ */
 .bb-cover__title {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  line-clamp: 4;
+  -webkit-line-clamp: var(--bb-cover-lines, 4);
+  line-clamp: var(--bb-cover-lines, 4);
   overflow: hidden;
   font-family: var(--bb-font-serif);
-  font-size: 12.6cqw;
+  font-size: max(9px, var(--bb-cover-title, 12.6cqw));
   font-weight: 600;
   letter-spacing: -0.012em;
   line-height: 1.04;
+  overflow-wrap: break-word;
   text-wrap: balance;
 }
 
+/* A word longer than the line at the smallest size: hyphenated in the cover's language, never cut off. */
+.bb-cover__title--break {
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  overflow-wrap: anywhere;
+}
+
 .bb-cover__author {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
   font-family: var(--bb-font-serif);
   font-size: 5.6cqw;
   font-style: italic;

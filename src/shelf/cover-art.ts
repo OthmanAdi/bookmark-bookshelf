@@ -1,5 +1,6 @@
 import { resolveCloth, resolvePattern, type PatternName } from './variants';
 import type { ShelfItem } from './types';
+import { fitTitle, linesOf, type TitleBox } from './cover-title';
 
 /**
  * Procedural cover art. Every cover is drawn from a seed with plain SVG shapes,
@@ -178,6 +179,28 @@ export function createCoverArt(pattern: string | undefined, seed = 1): SVGSVGEle
   return svg;
 }
 
+/** A BCP 47 tag as the store keeps it. Anything else is left off rather than passed to the page. */
+const LANG = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8}){0,4}$/;
+
+/**
+ * The head of the cover in cqw, mirroring cover.css. Its height is taken for the squarest cover a look
+ * uses (0.7 wide for 1 high), so a title that fits there fits every look at the same size.
+ */
+const HEAD = { top: 10, measure: 79, height: (100 / 0.7) * 0.47 - 10, gap: 3 };
+const AUTHOR = { size: 5.6, leading: 1.2, lines: 2 };
+const SOURCE = { size: 4.3, leading: 1.2 };
+const TITLE = { max: 13.6, min: 7.5, leading: 1.04 };
+
+function titleBox(item: ShelfItem): TitleBox {
+  let height = HEAD.height;
+  if (item.source) height -= SOURCE.size * SOURCE.leading + HEAD.gap;
+  if (item.author) {
+    const lines = Math.min(AUTHOR.lines, linesOf(item.author, AUTHOR.size, HEAD.measure));
+    height -= lines * AUTHOR.size * AUTHOR.leading + HEAD.gap;
+  }
+  return { measure: HEAD.measure, height, ...TITLE };
+}
+
 function textElement(tag: string, className: string, text: string): HTMLElement {
   const element = document.createElement(tag);
   element.className = className;
@@ -197,11 +220,17 @@ export function createCover(item: ShelfItem, mark?: string): HTMLElement {
   cover.className = `bb-cover bb-cloth--${resolveCloth(item.cloth)}`;
   cover.dataset.pattern = resolvePattern(item.pattern);
   cover.setAttribute('aria-hidden', 'true');
+  if (item.lang && LANG.test(item.lang)) cover.lang = item.lang;
 
   const head = document.createElement('span');
   head.className = 'bb-cover__head';
   if (item.source) head.appendChild(textElement('span', 'bb-cover__source', item.source));
-  head.appendChild(textElement('span', 'bb-cover__title', item.title));
+  const title = textElement('span', 'bb-cover__title', item.title);
+  const fit = fitTitle(item.title, titleBox(item));
+  title.style.setProperty('--bb-cover-title', `${fit.size}cqw`);
+  title.style.setProperty('--bb-cover-lines', String(fit.clamp));
+  if (fit.broken) title.classList.add('bb-cover__title--break');
+  head.appendChild(title);
   if (item.author) head.appendChild(textElement('span', 'bb-cover__author', item.author));
   cover.appendChild(head);
 
