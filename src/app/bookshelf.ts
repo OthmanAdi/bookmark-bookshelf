@@ -1,5 +1,5 @@
 import './bookshelf.css';
-import { createShelfMotion, prefersReducedMotion, type ShelfMotion, type ShelfMotionState } from '../motion';
+import { createShelfMotion, prefersReducedMotion, type ShelfMotion } from '../motion';
 import { mountReader, type ReaderDoc, type ReaderHandle } from '../reader';
 import { createCover, mountShelf, type ShelfHandle, type ShelfItem } from '../shelf';
 import type { Bookmark, Store } from '../store';
@@ -84,35 +84,12 @@ function wrap(index: number, count: number): number {
   return count <= 0 ? 0 : ((index % count) + count) % count;
 }
 
-/** Where the presented cover stands, from the shelf when it can say exactly and from its box otherwise. */
-function startOf(shelf: ShelfHandle): FlightStart | null {
-  const exact = (shelf as ShelfHandle & { coverPlacement?: () => FlightStart | null }).coverPlacement?.();
-  if (exact) return exact;
-  const box = shelf.coverBox();
-  if (!box) return null;
-  const size = shelf.coverSize();
-  const geometry = shelf.variant.geometry;
-  return {
-    cx: box.x + box.width / 2,
-    cy: box.y + box.height / 2,
-    width: size.width,
-    height: size.height,
-    lean: geometry.focusLean,
-    yaw: 90 - geometry.focusAngle,
-  };
-}
-
 /** Where the cover lands beside the page. Null when that place is not on screen. */
 function endOf(reader: ReaderHandle): FlightEnd | null {
-  const target = (reader as ReaderHandle & { flightTarget?: () => FlightEnd | null }).flightTarget?.() ?? reader.coverSlotRect();
+  const target = reader.flightTarget();
   if (!target || target.width <= 0 || target.height <= 0) return null;
   const onScreen = target.y + target.height > 0 && target.y < window.innerHeight && target.x + target.width > 0 && target.x < window.innerWidth;
   return onScreen ? target : null;
-}
-
-/** Linear time of the opening, 0 to 1, falling back to the eased value on engines that only report that. */
-function timeOf(state: Readonly<ShelfMotionState>): number {
-  return (state as Readonly<ShelfMotionState> & { openTime?: number }).openTime ?? state.open;
 }
 
 export function createBookshelf(options: BookshelfOptions): Bookshelf {
@@ -171,6 +148,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
 
   const detachGesture = motion.attach(shelf.surface, {
     pxPerItem: () => shelf.pitch(),
+    extent: () => shelf.surface.clientWidth,
     enabled: () => reader === null,
   });
 
@@ -181,7 +159,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
   }
 
   const stopMotion = motion.subscribe((state) => {
-    const time = timeOf(state);
+    const time = state.openTime;
     shelf.setPose({ position: state.position, open: state.open, reduced: state.reduced });
     if (flight) {
       if (coverLeavesOnMove && state.open < 1) {
@@ -242,7 +220,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
 
   /** Puts one cover in the air between the shelf and the page. Returns false when there is nowhere to fly. */
   function takeOff(bookmark: Bookmark, mark: string, active: ReaderHandle): boolean {
-    const start = startOf(shelf);
+    const start: FlightStart | null = shelf.coverPlacement();
     const end = endOf(active);
     if (!start || !end) return false;
     const cover = createCover(toShelfItem(bookmark, 0), mark);
@@ -251,7 +229,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     cover.style.setProperty('--bb-cover-k', String(scale));
     const spineEdge = Math.abs(Math.sin((start.yaw * Math.PI) / 180)) * shelf.variant.geometry.spineWidth * scale;
     flight = createFlight({ cover, clothClass: `bb-cloth--${bookmark.cover.cloth}`, start, end, spineEdge });
-    flight.set(timeOf(motion.state));
+    flight.set(motion.state.openTime);
     return true;
   }
 
