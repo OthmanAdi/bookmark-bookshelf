@@ -120,32 +120,10 @@
   border-bottom: var(--bb-hairline) solid var(--bb-rule);
 }
 
-.bb-app__bar .bb-wordmark {
+.bb-app__bar .bb-brand {
   flex: none;
   margin-right: auto;
-}
-
-.bb-wordmark {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--bb-s-3);
-  min-height: 2.5rem;
-  color: var(--bb-ink);
-  font-family: var(--bb-font-serif);
-  font-size: 1.1875rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-decoration: none;
-}
-
-/* Three spines, the middle one pulled: the mark of the product. */
-.bb-wordmark__sigil {
-  width: 1.125rem;
-  height: 1.25rem;
-  background:
-    linear-gradient(var(--bb-ink), var(--bb-ink)) 0 100% / 0.25rem 100% no-repeat,
-    linear-gradient(var(--bb-accent), var(--bb-accent)) 50% 0 / 0.25rem 82% no-repeat,
-    linear-gradient(var(--bb-ink), var(--bb-ink)) 100% 100% / 0.25rem 100% no-repeat;
+  white-space: nowrap;
 }
 
 .bb-app__tools {
@@ -547,6 +525,7 @@
   font-family: var(--bb-font-mono);
   font-size: var(--bb-text-micro);
   font-variant-numeric: tabular-nums;
+  font-weight: 400;
   letter-spacing: var(--bb-track-label);
 }
 
@@ -851,8 +830,10 @@
     padding: var(--bb-safe-top) var(--bb-safe-right) 0 var(--bb-safe-left);
   }
 
-  .bb-app__bar .bb-wordmark {
+  .bb-app__bar .bb-brand {
     min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .bb-app__tools {
