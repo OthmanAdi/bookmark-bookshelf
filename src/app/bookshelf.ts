@@ -4,7 +4,7 @@ import { mountReader, type ReaderDoc, type ReaderHandle } from '../reader';
 import { createCover, mountShelf, type ShelfHandle, type ShelfItem } from '../shelf';
 import { outlineOf } from '../shelf/cover-outline';
 import { hashText, imprintOf } from '../shelf/imprint';
-import type { Bookmark, Store } from '../store';
+import { sortVolumes, type Bookmark, type Store } from '../store';
 import { createFlight, flightLayoutWidth, type Flight, type FlightEnd, type FlightStart } from './flight';
 
 /**
@@ -167,7 +167,15 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     toShelfItem(bookmark, percent, { mark: marks.get(bookmark.id), done: store.isDone(bookmark.id), lang: langOf(bookmark) });
 
   const listItems = (): ShelfItem[] => {
-    bookmarks = store.bookmarks(store.session().shelfId);
+    const stored = store.bookmarks(store.session().shelfId);
+    const mode = store.session().sort ?? 'manual';
+    bookmarks =
+      mode === 'manual'
+        ? stored
+        : sortVolumes(stored, mode, {
+            percentOf: (id) => store.progress(id)?.percent ?? 0,
+            isDone: (id) => store.isDone(id),
+          });
     refreshMarks();
     return bookmarks.map((bookmark) => itemOf(bookmark, store.progress(bookmark.id)?.percent ?? 0));
   };
