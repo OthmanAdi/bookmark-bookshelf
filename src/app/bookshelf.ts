@@ -192,6 +192,20 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
   /** True while "Next" swaps one open link for another. */
   let handingOver = false;
 
+  /** Whether the last thing the person did was a tap or a click rather than a key. */
+  let pointerLast = false;
+  const onPointerInput = (): void => {
+    pointerLast = true;
+  };
+  const onKeyInput = (): void => {
+    pointerLast = false;
+    // A key brings the focus ring back to the row.
+    if (shelfRef) delete shelfRef.element.dataset.pointer;
+  };
+  let shelfRef: ShelfHandle | null = null;
+  document.addEventListener('pointerdown', onPointerInput, true);
+  document.addEventListener('keydown', onKeyInput, true);
+
   /** Every link in the library when the row was last drawn. */
   let knownIds = new Set(store.bookmarks(null).map((bookmark) => bookmark.id));
 
@@ -212,6 +226,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     // Whether the row loops depends on how many volumes the stage can hold, which the shelf finds out.
     onLoopChange: (loop) => motionRef?.setLoop(loop),
   });
+  shelfRef = shelf;
   if (themePage) document.documentElement.dataset.variant = shelf.variant.name;
 
   const startIndex = Math.max(
@@ -458,8 +473,10 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
         else shelf.focusCurrent();
       };
       // Focus goes back while the reader is still there, so the browser can tell a key from a pointer: a tap on
-      // the close button leaves no ring on the volume, Escape leaves one.
+      // the close button leaves no ring on the volume, Escape leaves one. A tap that focused nothing on its way
+      // in looks like a key to the browser, so the shelf is told as well.
       setBackgroundInert(false);
+      if (pointerLast) shelf.element.dataset.pointer = '1';
       giveFocusBack();
       active.destroy();
       reader = null;
@@ -539,6 +556,8 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       destroyed = true;
       document.removeEventListener('keydown', onKeyDown);
       stopMotion();
+      document.removeEventListener('pointerdown', onPointerInput, true);
+      document.removeEventListener('keydown', onKeyInput, true);
       stopIntents();
       stopStore();
       detachGesture();

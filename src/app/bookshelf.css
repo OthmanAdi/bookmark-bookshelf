@@ -63,3 +63,11 @@ body {
     display: none;
   }
 }
+
+/*
+ * Focus came back from the reader after a tap or a click. A tap that focused nothing on its way in looks
+ * like a key press to the browser, so the ring is held back here until a key is really pressed.
+ */
+.bb-shelf[data-pointer] .bb-book:has(.bb-book__control:focus-visible) .bb-book__ring {
+  display: none;
+}
