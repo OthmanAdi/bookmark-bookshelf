@@ -1,11 +1,27 @@
 {
   "name": "bookmark-bookshelf",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Saved links as volumes on an interactive 3D shelf, with an honest in-app reader. Four reusable modules: shelf, motion, store, reader.",
+  "description": "3D bookmark manager: saved links as books on a draggable shelf. Import browser bookmarks, read saved text, share a reading list. Local-first, no account, vanilla TypeScript with no runtime dependencies, plus an agent skill that adds it to your project.",
+  "keywords": [
+    "bookmark-manager",
+    "bookmarks",
+    "bookshelf",
+    "read-it-later",
+    "reading-list",
+    "css-3d",
+    "vanilla-typescript",
+    "local-first",
+    "browser-bookmarks",
+    "zero-dependency",
+    "drag-and-drop",
+    "agent-skills",
+    "offline-first",
+    "typescript"
+  ],
   "license": "Apache-2.0",
   "author": "OthmanAdi",
-  "homepage": "https://github.com/OthmanAdi/bookmark-bookshelf#readme",
+  "homepage": "https://othmanadi.github.io/bookmark-bookshelf/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/OthmanAdi/bookmark-bookshelf.git"
