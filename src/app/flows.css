@@ -400,6 +400,92 @@
   display: none;
 }
 
+/* ---------- hand-in summary ---------- */
+
+.bb-summary {
+  width: 100%;
+  min-height: 12rem;
+  padding: var(--bb-s-3);
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: var(--bb-r-1);
+  background: var(--bb-paper-raised);
+  color: var(--bb-ink);
+  font-family: var(--bb-font-mono);
+  font-size: var(--bb-text-small);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  resize: vertical;
+}
+
+/* ---------- printing ---------- */
+
+.bb-print {
+  display: none;
+}
+
+@media print {
+  body > *:not(.bb-print) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  .bb-print {
+    display: block;
+    color: #000;
+    font-family: var(--bb-font-serif);
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  .bb-print__title {
+    margin: 0 0 0.5em;
+    font-size: 18pt;
+  }
+
+  .bb-print__lead {
+    margin: 0 0 1em;
+  }
+
+  .bb-print__text {
+    margin: 0;
+    font-family: var(--bb-font-mono);
+    font-size: 10pt;
+    white-space: pre-wrap;
+  }
+
+  .bb-print__list {
+    margin: 0;
+    padding-left: 1.6em;
+  }
+
+  .bb-print__item {
+    margin-bottom: 0.9em;
+    break-inside: avoid;
+  }
+
+  .bb-print__item p {
+    margin: 0;
+  }
+
+  .bb-print__name {
+    font-weight: 600;
+  }
+
+  .bb-print__note {
+    font-style: italic;
+  }
+
+  .bb-print__url {
+    font-family: var(--bb-font-mono);
+    font-size: 9pt;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* ---------- toasts ---------- */
 
 .bb-toasts {

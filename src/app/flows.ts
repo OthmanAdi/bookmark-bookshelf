@@ -4,6 +4,8 @@ import { createEditor, type LinkPreset } from './editor';
 import { clearAddress, readAddress } from './flow-address';
 import { sendPageHereFlow } from './flow-bookmarklet';
 import { removeExampleLinks } from './flow-examples';
+import { handInFlow } from './flow-handin';
+import { printShelf } from './flow-print';
 import { describeShelfFlow, removeShelfFlow } from './flow-shelf';
 import type { Store } from '../store';
 
@@ -28,6 +30,8 @@ export interface Flows {
   bringLinksIn(files?: File[]): void;
   shareShelf(shelfId: string): void;
   handIn(shelfId: string): void;
+  /** Prints the links of one shelf as a plain numbered list, without the app around it. */
+  printShelf(shelfId: string): void;
   describeShelf(shelfId: string): void;
   removeShelf(shelfId: string): void;
   sendPageHere(): void;
@@ -80,7 +84,8 @@ export function createFlows(context: FlowContext): Flows {
     editLink: (id) => editor.edit(id),
     bringLinksIn: () => undefined,
     shareShelf: () => undefined,
-    handIn: () => undefined,
+    handIn: (shelfId) => handInFlow(store, shelfId),
+    printShelf: (shelfId) => printShelf(store, shelfId),
     describeShelf: (shelfId) => describeShelfFlow(context, shelfId),
     removeShelf: (shelfId) => void removeShelfFlow(context, shelfId),
     sendPageHere: () => sendPageHereFlow(),
