@@ -951,6 +951,151 @@ describe('mountShelf volumes that travel, arrive and leave', () => {
   });
 });
 
+describe('mountShelf under a dragging hand', () => {
+  let now = 0;
+  let frames: FrameRequestCallback[] = [];
+  const step = (ms: number): void => {
+    now += ms;
+    const due = frames;
+    frames = [];
+    for (const run of due) run(now);
+  };
+  const given = (shelf: ShelfHandle): number =>
+    Number(/translate3d\(([-\d.e]+)px/.exec(shelf.element.querySelector<HTMLElement>('.bb-shelf__row')?.style.transform ?? '')?.[1] ?? 0);
+  const release = (shelf: ShelfHandle, type = 'pointerup'): void => {
+    shelf.surface.dispatchEvent(new MouseEvent(type, { bubbles: true }));
+  };
+
+  beforeEach(() => {
+    now = 1000;
+    frames = [];
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    vi.stubGlobal('requestAnimationFrame', (run: FrameRequestCallback) => frames.push(run));
+    vi.stubGlobal('cancelAnimationFrame', () => {
+      frames = [];
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('has nothing to track on an empty shelf', () => {
+    const { shelf } = mount({ items: [] });
+    expect(shelf.trackFrom({ x: 100, target: shelf.surface, position: 0 })).toBeNull();
+  });
+
+  it('keeps the grabbed volume of a travelling row under the pointer', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    const pitch = shelf.pitch();
+    const track = shelf.trackFrom({ x: 500, target: bySlot(shelf, 4).querySelector('.bb-book__spine'), position: 0 });
+    expect(track).not.toBeNull();
+    expect(track?.(500)).toBeCloseTo(0, 2);
+    // A volume well away from the centre moves with the row as one strip: a pitch of travel is one volume.
+    expect(track?.(500 + pitch)).toBeCloseTo(-1, 1);
+    expect(track?.(500 - 2 * pitch)).toBeCloseTo(2, 1);
+    expect(track?.(500 - 2 * pitch + 1)).toBeLessThan(2);
+  });
+
+  it('holds the nearest volume when the press lands beside the volumes', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    const track = shelf.trackFrom({ x: 37, target: shelf.surface, position: 3 });
+    expect(track?.(37)).toBeCloseTo(3, 2);
+    expect(track?.(37 - shelf.pitch())).toBeGreaterThan(3.5);
+  });
+
+  it('lets a standing row give under a pull without moving along it, and settle back', () => {
+    const { shelf, intents } = mount();
+    expect(shelf.fixed).toBe(true);
+    const track = shelf.trackFrom({ x: 300, target: shelf.surface, position: 2 });
+    expect(track?.(300)).toBe(2);
+    expect(given(shelf)).toBe(0);
+    now += 30;
+    expect(track?.(340)).toBe(2);
+    const little = given(shelf);
+    expect(little).toBeGreaterThan(5);
+    expect(little).toBeLessThan(40);
+    now += 300;
+    expect(track?.(900)).toBe(2);
+    // However far the hand goes, the row gives no more than about 28 px.
+    expect(given(shelf)).toBeGreaterThan(27);
+    expect(given(shelf)).toBeLessThanOrEqual(28);
+    now += 300;
+    release(shelf);
+    vi.advanceTimersByTime(10);
+    expect(intents).toEqual([]);
+    step(100);
+    const back = given(shelf);
+    expect(back).toBeLessThan(27);
+    expect(back).toBeGreaterThan(0);
+    for (let frame = 0; frame < 60; frame++) step(16);
+    expect(given(shelf)).toBe(0);
+    expect(frames).toHaveLength(0);
+    // Pulled the other way, it gives the other way.
+    shelf.trackFrom({ x: 300, target: shelf.surface, position: 2 })?.(200);
+    expect(given(shelf)).toBeLessThan(-10);
+  });
+
+  it('steps along a standing row when the pull is let go at speed', () => {
+    const { shelf, intents } = mount();
+    const swipe = (to: number): void => {
+      const track = shelf.trackFrom({ x: 400, target: shelf.surface, position: 2 });
+      for (let index = 1; index <= 5; index++) {
+        now += 10;
+        track?.(400 + ((to - 400) * index) / 5);
+      }
+      release(shelf);
+    };
+    swipe(320);
+    // The step is asked for once the release has been dealt with, not in the middle of it.
+    expect(intents).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(intents).toEqual([{ type: 'step', direction: 1 }]);
+    swipe(480);
+    vi.advanceTimersByTime(1);
+    expect(intents).toEqual([
+      { type: 'step', direction: 1 },
+      { type: 'step', direction: -1 },
+    ]);
+  });
+
+  it('steps nowhere for a pull that is short, cancelled, or still when it is let go', () => {
+    const { shelf, intents } = mount();
+    const pullTo = (to: number): void => {
+      const track = shelf.trackFrom({ x: 400, target: shelf.surface, position: 2 });
+      for (let index = 1; index <= 5; index++) {
+        now += 10;
+        track?.(400 + ((to - 400) * index) / 5);
+      }
+    };
+    pullTo(385);
+    release(shelf);
+    pullTo(300);
+    release(shelf, 'pointercancel');
+    pullTo(300);
+    now += 200;
+    release(shelf);
+    vi.advanceTimersByTime(5);
+    expect(intents).toEqual([]);
+  });
+
+  it('does not let a standing row give under reduced motion, and still steps on a swipe', () => {
+    const { shelf, intents } = mount({ pose: { position: 2, open: 0, reduced: true } });
+    const track = shelf.trackFrom({ x: 400, target: shelf.surface, position: 2 });
+    for (let index = 1; index <= 5; index++) {
+      now += 10;
+      expect(track?.(400 - index * 20)).toBe(2);
+    }
+    expect(given(shelf)).toBe(0);
+    release(shelf);
+    vi.advanceTimersByTime(1);
+    expect(intents).toEqual([{ type: 'step', direction: 1 }]);
+    expect(frames).toHaveLength(0);
+  });
+});
+
 describe('mountShelf items, variants and teardown', () => {
   it('setItems([]) shows the empty message and sets data-empty', () => {
     const { shelf } = mount();

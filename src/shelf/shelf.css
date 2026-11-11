@@ -51,16 +51,6 @@
   cursor: grabbing;
 }
 
-/* A row that stands still cannot be pulled along: its volumes are picked, not dragged. */
-.bb-shelf[data-fixed='1'] .bb-shelf__scene,
-.bb-shelf[data-fixed='1'] .bb-shelf__scene:active {
-  cursor: default;
-}
-
-.bb-shelf[data-fixed='1'] .bb-book {
-  cursor: pointer;
-}
-
 .bb-shelf__backdrop {
   position: absolute;
   inset: 0;

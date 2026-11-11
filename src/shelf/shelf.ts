@@ -21,11 +21,15 @@ import {
   computeStandingRow,
   easeTravel,
   extentOf,
+  giveOf,
   pitchAt,
+  pullOf,
   restPitch,
   rowStands,
   samePose,
   scaleGeometry,
+  settleOf,
+  solvePosition,
   visibleRange,
   volumeSize,
   type SlotPose,
@@ -68,6 +72,17 @@ const BOOKEND_TALL = 0.62;
 const LAMP_STEP = 0.5;
 /** Space in px a standing row keeps between each bookend and the edge of the scene. */
 const BOOKEND_AIR = 4;
+/** A row that stands still gives at most this far under a hand that pulls it sideways, in px. */
+const GIVE_MOST = 28;
+/** A pull of this many px takes such a row about two thirds of the way to that limit. */
+const GIVE_REACH = 90;
+/**
+ * A pull on such a row let go faster than this many px per ms, after at least this many px, is a swipe to
+ * the next volume. The speed is that of the last of the pull, this many ms of it.
+ */
+const SWIPE_SPEED = 0.35;
+const SWIPE_TRAVEL = 24;
+const SWIPE_WINDOW_MS = 80;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
 const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
@@ -176,6 +191,13 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   /** Where the lamp travels from after the row changed, and when that began. */
   let lampFrom: number | null = null;
   let lampFromAt = 0;
+  /** How far the whole row is drawn aside right now, in px: a row that stands still gives under a pull. */
+  let rowGive = 0;
+  /** The hand pulling such a row, with where it has been lately. Null when nothing holds the row. */
+  let pull: { from: number; samples: Array<{ time: number; x: number }> } | null = null;
+  /** The row on its way back after the hand let go: how far it had given, how fast it moved, and when. */
+  let giveBack: { from: number; speed: number; at: number } | null = null;
+  let giveFrame: number | null = null;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const later = (run: () => void, ms: number): void => {
     const timer = setTimeout(() => {
@@ -278,6 +300,12 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     // Past each end volume stands its bookend, with a little air between it and the edge of the scene.
     const ends = bookendWidth() + BOOKEND_AIR;
     fixed = rowStands(geometry, items.length, sceneWidth, sizes ? sizeOf : undefined, ends);
+    if (!fixed && (pull || rowGive !== 0)) {
+      // Only a row that stands still gives.
+      pull = null;
+      giveBack = null;
+      drawGive(0);
+    }
     const next = !fixed && (options.loop ?? variant.loop);
     root.dataset.loop = next ? '1' : '0';
     root.dataset.fixed = fixed ? '1' : '0';
@@ -380,6 +408,52 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     if (!dropped) return;
     element.classList.add('is-arrived');
     later(() => element.classList.remove('is-arrived'), ARRIVED_MS);
+  }
+
+  function drawGive(value: number): void {
+    rowGive = value;
+    row.style.transform = value === 0 ? '' : `translate3d(${value.toFixed(2)}px, 0, 0)`;
+  }
+
+  /** Brings the row back from where a pull left it, the way a row settles on a volume. */
+  function settleGive(): void {
+    giveFrame = null;
+    if (!giveBack || !alive) return;
+    const seconds = (performance.now() - giveBack.at) / 1000;
+    const value = settleOf(giveBack.from, giveBack.speed, seconds);
+    if (seconds > 0.05 && Math.abs(value) < 0.1) {
+      giveBack = null;
+      drawGive(0);
+      return;
+    }
+    drawGive(value);
+    giveFrame = requestAnimationFrame(settleGive);
+  }
+
+  /**
+   * The hand lets go of a row that stands still. Let go at speed, the pull was a swipe and the row steps
+   * to the next volume that way; let go at rest, nothing changes. Either way the row settles back.
+   */
+  function letGo(cancelled: boolean): void {
+    const held = pull;
+    if (!held) return;
+    pull = null;
+    const now = performance.now();
+    const recent = held.samples.filter((sample) => now - sample.time <= SWIPE_WINDOW_MS);
+    const first = recent[0];
+    const last = recent[recent.length - 1];
+    const speed = first && last && last.time > first.time ? (last.x - first.x) / (last.time - first.time) : 0;
+    const travel = (held.samples[held.samples.length - 1]?.x ?? held.from) - held.from;
+    if (!cancelled && Math.abs(speed) >= SWIPE_SPEED && Math.abs(travel) >= SWIPE_TRAVEL && speed * travel > 0) {
+      const direction = speed < 0 ? 1 : -1;
+      // Once whatever recognised the drag has finished with this release: it would put the row back.
+      later(() => emit({ type: 'step', direction }), 0);
+    }
+    if (rowGive === 0) return;
+    // The row was following the hand less and less; it carries on at the speed it had, then comes back.
+    const following = ((GIVE_MOST - Math.abs(rowGive)) / GIVE_REACH) * speed * 1000;
+    giveBack = { from: rowGive, speed: cancelled ? 0 : following, at: now };
+    if (giveFrame === null) giveFrame = requestAnimationFrame(settleGive);
   }
 
   function requestFrame(): void {
@@ -828,6 +902,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   };
 
   const onPointerUp = (event: PointerEvent): void => {
+    letGo(false);
     const down = touchDown;
     touchDown = null;
     if (!down || down.id !== event.pointerId) return;
@@ -839,6 +914,12 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
 
   const onPointerCancel = (): void => {
     touchDown = null;
+    letGo(true);
+  };
+
+  // A drag can also end by losing the pointer without a release.
+  const onLostCapture = (event: PointerEvent): void => {
+    if (event.target === scene) letGo(true);
   };
 
   const onClick = (event: MouseEvent): void => {
@@ -885,6 +966,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   scene.addEventListener('pointermove', onPointerMove);
   scene.addEventListener('pointerup', onPointerUp);
   scene.addEventListener('pointercancel', onPointerCancel);
+  scene.addEventListener('lostpointercapture', onLostCapture);
   row.addEventListener('keydown', onKeyDown);
   row.addEventListener('focusin', onFocusIn);
   previous.addEventListener('click', onPrevious);
@@ -965,6 +1047,63 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       return sizes.reduce((sum, size) => sum + size.spineWidth, 0) / sizes.length + geometry.gap;
     },
     pitchAt: (position) => pitchAt(position, geometry, sizes ? sizeOf : undefined),
+    trackFrom(start) {
+      if (items.length === 0) return null;
+      if (fixed) {
+        // A row that stands still does not travel with the hand: it gives a little, and a swipe steps along it.
+        if (giveFrame !== null) cancelAnimationFrame(giveFrame);
+        giveFrame = null;
+        giveBack = null;
+        const quiet = still();
+        // Caught on its way back, the row carries on from as far as it still gives.
+        const before = pullOf(rowGive, GIVE_MOST, GIVE_REACH);
+        const held = { from: start.x, samples: [{ time: performance.now(), x: start.x }] };
+        pull = held;
+        return (x) => {
+          if (pull === held) {
+            held.samples.push({ time: performance.now(), x });
+            if (held.samples.length > 8) held.samples.shift();
+            if (!quiet) drawGive(giveOf(before + x - start.x, GIVE_MOST, GIVE_REACH));
+          }
+          return start.position;
+        };
+      }
+      const sized = sizes ? sizeOf : undefined;
+      // Read once, when the drag begins: where the middle of the row is on screen.
+      const box = scene.getBoundingClientRect();
+      const middle = box.left + box.width / 2;
+      const grabbed = start.x - middle;
+      const book = start.target instanceof Element ? start.target.closest<HTMLElement>('.bb-book') : null;
+      let slot = book && row.contains(book) ? Number(book.dataset.slot ?? Number.NaN) : Number.NaN;
+      if (Number.isNaN(slot)) {
+        // The press landed between volumes or on the floor: the nearest volume is the one that is held.
+        let nearest = Number.POSITIVE_INFINITY;
+        for (const node of nodes.values()) {
+          if (!node.drawn) continue;
+          const [left, right] = extentOf(node.drawn, sizeOf(node.slot));
+          const distance = Math.max(left - grabbed, grabbed - right, 0);
+          if (distance < nearest) {
+            nearest = distance;
+            slot = node.slot;
+          }
+        }
+        if (Number.isNaN(slot)) return null;
+      }
+      const pose = computeRow(start.position, geometry, slot, slot, sized)[0];
+      if (!pose) return null;
+      const [left, right] = extentOf(pose, sizeOf(slot));
+      // The hand holds a point of the volume, given as a share of its width, and keeps it as the volume turns.
+      const share = Math.min(1, Math.max(0, (grabbed - left) / Math.max(1, right - left)));
+      const beside = grabbed - (left + (right - left) * share);
+      let last = start.position;
+      let lastX = start.x;
+      return (x) => {
+        const guess = last - (x - lastX) / pitchAt(last, geometry, sized);
+        last = solvePosition(x - middle - beside, geometry, slot, share, guess, sized);
+        lastX = x;
+        return last;
+      };
+    },
     coverSize: () => ({ width: geometry.coverWidth, height: geometry.bookHeight }),
     coverBox() {
       const cover = nodes.get(centre)?.cover;
@@ -1007,6 +1146,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     destroy() {
       alive = false;
       if (frame !== null) cancelAnimationFrame(frame);
+      if (giveFrame !== null) cancelAnimationFrame(giveFrame);
       for (const timer of timers) clearTimeout(timer);
       captionFade?.cancel();
       observer?.disconnect();
@@ -1015,6 +1155,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       scene.removeEventListener('pointermove', onPointerMove);
       scene.removeEventListener('pointerup', onPointerUp);
       scene.removeEventListener('pointercancel', onPointerCancel);
+      scene.removeEventListener('lostpointercapture', onLostCapture);
       row.removeEventListener('keydown', onKeyDown);
       row.removeEventListener('focusin', onFocusIn);
       previous.removeEventListener('click', onPrevious);

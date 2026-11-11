@@ -178,6 +178,16 @@ export interface ShelfOptions {
   pose?: Pose;
 }
 
+/** Where a drag began: what a gesture recogniser knows when the press has turned into a drag. */
+export interface GrabStart {
+  /** Pointer x at the press, in client px. */
+  x: number;
+  /** What the press landed on. */
+  target: EventTarget | null;
+  /** Row position when the drag began. */
+  position: number;
+}
+
 /** What a host can say about a change of items. */
 export interface ItemsChange {
   /** Ids of items that were just added by the person, as opposed to coming into view with a shelf or a sort. */
@@ -206,14 +216,23 @@ export interface ShelfHandle {
   readonly loop: boolean;
   /**
    * True while the row is short enough to stand whole in the middle of the scene. Such a row does not
-   * travel: the position only says which volume is presented, so a host should not let a drag or the
-   * wheel move it. Picking a spine, the arrow keys and the arrow buttons still move along it.
+   * travel: the position only says which volume is presented. A host that drags through `trackFrom`
+   * need do nothing about it: the row gives a little under the hand and a swipe is reported as a `step`.
+   * Picking a spine, the arrow keys and the arrow buttons move along it as in any row.
    */
   readonly fixed: boolean;
   /** Mean distance in px between two neighbouring resting volumes, at the current scale. */
   pitch(): number;
   /** How far the row moves in px for one unit of position near `position`; volumes may differ in thickness. */
   pitchAt(position: number): number;
+  /**
+   * For a drag that begins: returns a function from pointer x to the row position that keeps the grabbed
+   * volume under the hand, whatever the spacing and however the volume turns on the way. It has the shape
+   * a gesture recogniser asks of a tracking function. Null when there are no volumes. On a row that stands
+   * still the position returned never changes: the row gives a little instead and settles back when the
+   * hand lets go, and a swipe is reported as a `step` intent. Reads layout once, when called.
+   */
+  trackFrom(start: GrabStart): ((x: number) => number) | null;
   /** Layout size of a cover on the shelf at the current scale, before any turn or lean. */
   coverSize(): { width: number; height: number };
   /** Viewport box of the centred volume's cover right now. Null when there are no items. */
