@@ -35,6 +35,7 @@ import { readSession } from './sanitize';
 import { applySessionPatch } from './session-ops';
 import { addShelfTo, removeShelfFrom, renameShelfIn, updateShelfIn } from './shelf-ops';
 import { resolveStorage } from './storage';
+import { normalizeUrl, urlKey } from './url';
 
 type Listener = (event: StoreEvent) => void;
 
@@ -207,6 +208,13 @@ export function createStore(options: StoreOptions = {}): Store {
     snapshot: () => clone(lib),
     shelves: () => clone([...lib.shelves].sort((a, b) => a.order - b.order)),
     bookmarks: (shelfId) => clone(orderedBookmarks(lib, shelfId)),
+    findByUrl: (url, exceptId) => {
+      const address = normalizeUrl(url);
+      if (!address.ok) return undefined;
+      const wanted = urlKey(address.value);
+      const found = lib.bookmarks.find((link) => link.id !== exceptId && urlKey(link.url) === wanted);
+      return found ? clone(found) : undefined;
+    },
     get: (id) => {
       const found = findBookmark(lib, id);
       return found ? clone(found) : undefined;

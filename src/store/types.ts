@@ -284,6 +284,12 @@ export interface Store {
   /** Ordered volumes of one shelf, or of every shelf when `shelfId` is null or omitted. */
   bookmarks(shelfId?: string | null): Bookmark[];
   get(id: string): Bookmark | undefined;
+  /**
+   * The link already saved under the same address, if any. Spellings of one page count as the same: case of
+   * the host, `www.`, a trailing slash, the fragment, tracking parameters and the order of the query do not
+   * matter. `exceptId` leaves one link out, for checking the address of a link that is being edited.
+   */
+  findByUrl(url: string, exceptId?: string): Bookmark | undefined;
 
   addBookmark(input: BookmarkInput): Result<Bookmark>;
   updateBookmark(id: string, patch: BookmarkPatch): Result<Bookmark>;
