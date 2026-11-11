@@ -51,8 +51,8 @@
   left: 0;
   right: 0;
   top: calc(100% - var(--bb-floor-y));
-  height: 18px;
-  background: linear-gradient(rgba(26, 24, 21, 0.26), rgba(26, 24, 21, 0.07) 45%, rgba(26, 24, 21, 0));
+  height: 14px;
+  background: linear-gradient(rgba(26, 24, 21, 0.12), rgba(26, 24, 21, 0));
   pointer-events: none;
 }
 
@@ -78,6 +78,31 @@
   height: var(--bb-book-h);
   transform-origin: 50% 100%;
   transform-style: preserve-3d;
+}
+
+/*
+ * Contact shadow: a patch lying on the floor under the volume, inside the 3D scene. The eye is level with
+ * the books, so the floor is seen almost edge on: the patch is darkest along the foot and fades back under
+ * the body, and it reaches half a gap past each side so neighbouring patches meet and darken the gaps.
+ * It turns with the volume and stays on the floor when the body is lifted.
+ */
+.bb-book::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--bb-gap, 10px) / -2);
+  bottom: 0;
+  width: calc(100% + var(--bb-gap, 10px));
+  height: calc(var(--bb-cover-w) + 8px);
+  transform-origin: 50% 100%;
+  transform: translateZ(8px) rotateX(90deg);
+  background: linear-gradient(
+    to top,
+    rgba(26, 24, 21, 0),
+    rgba(26, 24, 21, 0.3) 8px,
+    rgba(26, 24, 21, 0.14) 30px,
+    rgba(26, 24, 21, 0) 70%
+  );
+  pointer-events: none;
 }
 
 .bb-book__body {

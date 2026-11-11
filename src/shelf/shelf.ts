@@ -124,6 +124,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     root.style.setProperty('--bb-book-h', `${geometry.bookHeight}px`);
     root.style.setProperty('--bb-cover-w', `${geometry.coverWidth}px`);
     root.style.setProperty('--bb-floor-y', `${FLOOR_ROOM}px`);
+    root.style.setProperty('--bb-gap', `${geometry.gap}px`);
     scene.style.perspective = `${geometry.perspective}px`;
     measureSizes();
   }
