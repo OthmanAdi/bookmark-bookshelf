@@ -185,6 +185,30 @@
   flex: 1;
 }
 
+/* ---------- buttons inside dialogs and the list ---------- */
+
+/* A hidden button stays hidden whatever display the button class sets. */
+.bb-dialog .bb-button[hidden],
+.bb-list .bb-button[hidden],
+.bb-toast .bb-button[hidden] {
+  display: none;
+}
+
+/* Only the solid button changes its fill on hover. Outline buttons darken their border and take a light wash, quiet ones a rule-coloured ground. */
+.bb-dialog .bb-button:not(.bb-button--solid):not(.bb-button--quiet):hover,
+.bb-list .bb-button:not(.bb-button--solid):not(.bb-button--quiet):hover {
+  background: color-mix(in srgb, var(--bb-ink) 7%, transparent);
+  border-color: var(--bb-ink);
+  color: var(--bb-ink);
+}
+
+.bb-dialog .bb-button--quiet:hover,
+.bb-list .bb-button--quiet:hover {
+  background: var(--bb-rule);
+  border-color: transparent;
+  color: var(--bb-ink);
+}
+
 /* ---------- toasts ---------- */
 
 .bb-toasts {
