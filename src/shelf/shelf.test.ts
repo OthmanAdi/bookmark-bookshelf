@@ -106,6 +106,28 @@ describe('mountShelf rendering', () => {
     expect(shelf.element.querySelector('.bb-shelf__meta')?.textContent).toContain('1 / 5');
   });
 
+  it('places the presented cover with its size, lean and turn', () => {
+    const { shelf } = mount();
+    const placement = shelf.coverPlacement();
+    const size = shelf.coverSize();
+    expect(placement).not.toBeNull();
+    expect(placement?.width).toBe(size.width);
+    expect(placement?.height).toBe(size.height);
+    expect(placement?.lean).toBe(shelf.variant.geometry.focusLean);
+    expect(placement?.yaw).toBeCloseTo(90 - shelf.variant.geometry.focusAngle, 9);
+    expect(placement?.scale).toBeGreaterThanOrEqual(1);
+    // Half way to the next volume the cover is still turned part of the way.
+    shelf.setPose({ position: 0.3, open: 0 });
+    const moving = shelf.coverPlacement();
+    expect(moving?.yaw).toBeGreaterThan(0);
+    expect(Math.abs(moving?.lean ?? 0)).toBeLessThan(Math.abs(shelf.variant.geometry.focusLean));
+  });
+
+  it('has no cover placement on an empty shelf', () => {
+    const { shelf } = mount({ items: [] });
+    expect(shelf.coverPlacement()).toBeNull();
+  });
+
   it('pitch is positive', () => {
     expect(mount().shelf.pitch()).toBeGreaterThan(0);
   });

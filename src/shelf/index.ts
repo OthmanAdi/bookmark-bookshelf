@@ -19,6 +19,7 @@ export {
 } from './variants';
 export type {
   Box,
+  CoverPlacement,
   Geometry,
   Pose,
   ShelfHandle,

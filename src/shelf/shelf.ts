@@ -2,7 +2,7 @@ import './shelf.css';
 import './cover.css';
 import './variants.css';
 import { createBook, dropCover, ensureCover, setReal, type BookNode } from './book';
-import { computeRow, restPitch, scaleGeometry, visibleRange } from './layout';
+import { computeRow, restPitch, scaleGeometry, visibleRange, type SlotPose } from './layout';
 import { resolveVariant } from './variants';
 import type { Geometry, Pose, ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions, Variant } from './types';
 
@@ -42,6 +42,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let sceneWidth = 0;
   let centre = Number.NaN;
   let openSlot: number | null = null;
+  /** Pose of the centred volume as last drawn. */
+  let presented: SlotPose | null = null;
   const nodes = new Map<number, BookNode>();
   const listeners = new Set<(intent: ShelfIntent) => void>();
 
@@ -165,6 +167,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       captionMeta.textContent = '';
       // An empty shelf has no centred volume.
       centre = Number.NaN;
+      presented = null;
       root.dataset.focus = '';
       root.dataset.focusId = '';
       return;
@@ -191,9 +194,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const parting = opening && !pose.reduced && openSlot !== null;
     const scale = geometry.spineWidth / variant.geometry.spineWidth;
 
+    presented = null;
     for (const slotPose of computeRow(position, geometry, range.from, range.to)) {
       const node = nodes.get(slotPose.slot);
       if (!node) continue;
+      if (slotPose.slot === centre) presented = slotPose;
       const distance = Math.abs(slotPose.slot - position);
       if (distance < 2.4 || slotPose.slot === openSlot) ensureCover(node);
       else if (distance > 4) dropCover(node);
@@ -355,6 +360,26 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       if (!cover) return null;
       const box = cover.getBoundingClientRect();
       return { x: box.left, y: box.top, width: box.width, height: box.height };
+    },
+    coverPlacement() {
+      const cover = nodes.get(centre)?.cover;
+      if (!cover || !presented) return null;
+      // A rotated, slightly turned rectangle keeps its centre at the centre of its bounding box to well
+      // under a pixel, so one layout read gives the centre of the face as drawn.
+      const box = cover.getBoundingClientRect();
+      const turn = presented.angle * DEG;
+      const half = geometry.spineWidth / 2;
+      // Depth of the face's centre: the cover hinges on the spine's edge and turns about the spine's middle.
+      const depth = presented.z + half * Math.sin(turn) - (geometry.coverWidth / 2) * Math.cos(turn);
+      return {
+        cx: box.left + box.width / 2,
+        cy: box.top + box.height / 2,
+        width: geometry.coverWidth,
+        height: geometry.bookHeight,
+        lean: presented.lean,
+        yaw: 90 - presented.angle,
+        scale: geometry.perspective / Math.max(1, geometry.perspective - depth),
+      };
     },
     focusCurrent() {
       nodes.get(centre)?.control?.focus({ preventScroll: true });

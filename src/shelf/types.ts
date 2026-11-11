@@ -58,6 +58,22 @@ export interface Box {
   height: number;
 }
 
+/** Where the presented cover stands right now, for a host that carries a copy of it elsewhere. */
+export interface CoverPlacement {
+  /** Centre of the cover face as drawn, in viewport px. */
+  cx: number;
+  cy: number;
+  /** Size of the cover face at the shelf's current scale, before any turn, lean or perspective. */
+  width: number;
+  height: number;
+  /** Sideways lean in degrees, negative to the left, as `rotateZ` takes it. */
+  lean: number;
+  /** Degrees the face is turned away from square to the viewer, about its spine edge, as `rotateY` takes it. */
+  yaw: number;
+  /** How much larger perspective draws the face than its size, because it stands nearer the viewer. */
+  scale: number;
+}
+
 export type ShelfIntent =
   /** A volume that is not at the centre was picked. `slot` is the unwrapped row position to travel to. */
   | { type: 'focus'; id: string; index: number; slot: number }
@@ -162,6 +178,8 @@ export interface ShelfHandle {
   coverSize(): { width: number; height: number };
   /** Viewport box of the centred volume's cover right now. Null when there are no items. */
   coverBox(): Box | null;
+  /** The centred cover's place, size, lean and turn right now. Reads layout once; null when there are no items. */
+  coverPlacement(): CoverPlacement | null;
   /** Moves keyboard focus to the centred volume. */
   focusCurrent(): void;
   on(listener: (intent: ShelfIntent) => void): Unsubscribe;
