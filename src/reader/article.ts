@@ -52,6 +52,7 @@ function buildOpenOriginal(dom: Document, source: ReaderDoc, labels: ReaderLabel
     link.setAttribute('rel', 'noopener noreferrer');
     const host = hostnameOf(href);
     if (host) link.appendChild(el(dom, 'span', 'bb-reader__open-host', host));
+    link.appendChild(el(dom, 'span', 'bb-visually-hidden', ` (${labels.newTab})`));
   } else {
     link.setAttribute('aria-disabled', 'true');
   }
@@ -138,7 +139,7 @@ export function fillBody(input: BodyInput): HTMLTextAreaElement | null {
   const hasText = text.trim().length > 0;
   body.replaceChildren();
   if (hasText && !input.editing) {
-    body.appendChild(renderBlocks(parseMarkdownLite(text), dom));
+    body.appendChild(renderBlocks(parseMarkdownLite(text), dom, { newTab: labels.newTab, differs: labels.linkDiffers }));
     return null;
   }
   if (!hasText) {

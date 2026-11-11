@@ -71,4 +71,46 @@ describe('renderBlocks', () => {
     expect(host.querySelector('h2')?.textContent).toBe('<i>x</i>');
     expect(host.querySelector('pre code')?.textContent).toBe('<script>1</script>');
   });
+
+  it('prints where a link really goes, after its text', () => {
+    const host = render('Read [the standard](https://www.w3.org/TR/WCAG22/) first.');
+    const note = host.querySelector('.bb-reader__link-host');
+    expect(note?.textContent).toBe('w3.org');
+    expect(host.querySelector('a')?.nextSibling?.nextSibling).toBe(note);
+    expect(host.querySelector('a')?.contains(note ?? null)).toBe(false);
+    expect(host.querySelector('.bb-reader__link-host--differs')).toBeNull();
+  });
+
+  it('completes the name of a link that opens another tab', () => {
+    const link = render('[site](https://example.com/x)').querySelector('a');
+    expect(link?.querySelector('.bb-visually-hidden')?.textContent).toBe(' (opens in a new tab)');
+  });
+
+  it('leaves out the host when the text already says it', () => {
+    expect(render('[example.com](https://example.com/page)').querySelector('.bb-reader__link-host')).toBeNull();
+    expect(render('[https://www.example.com/](https://example.com/)').querySelector('.bb-reader__link-host')).toBeNull();
+    expect(render('[example.org/docs](https://example.org/docs)').querySelector('.bb-reader__link-host')).toBeNull();
+  });
+
+  it('flags a label that names another address than the one it goes to', () => {
+    const host = render('[bank.example.com](https://evil.example.org/login)');
+    const note = host.querySelector('.bb-reader__link-host--differs');
+    expect(note?.textContent).toBe('Goes to evil.example.org');
+  });
+
+  it('does not flag ordinary words or a label that matches', () => {
+    expect(render('[sign in here](https://example.org/a)').querySelector('.bb-reader__link-host--differs')).toBeNull();
+    expect(render('[example.org/docs](https://example.org/other)').querySelector('.bb-reader__link-host--differs')).toBeNull();
+  });
+
+  it('takes the words around links from the caller', () => {
+    const fragment = renderBlocks(parseMarkdownLite('[a.example.com](https://b.example.org/)'), document, {
+      newTab: 'ouvre un nouvel onglet',
+      differs: (host) => `Mene vers ${host}`,
+    });
+    const host = document.createElement('div');
+    host.appendChild(fragment);
+    expect(host.querySelector('.bb-visually-hidden')?.textContent).toBe(' (ouvre un nouvel onglet)');
+    expect(host.querySelector('.bb-reader__link-host')?.textContent).toBe('Mene vers b.example.org');
+  });
 });

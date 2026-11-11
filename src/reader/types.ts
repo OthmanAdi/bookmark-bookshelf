@@ -67,6 +67,10 @@ export interface ReaderLabels {
   smaller: string;
   larger: string;
   textSize: string;
+  /** Hidden words that finish the name of a link that opens another tab, for example "opens in a new tab". */
+  newTab: string;
+  /** Printed after a link whose text looks like an address that is not where the link goes. */
+  linkDiffers: (host: string) => string;
   /** The summary of the private notes area, and the counter shown near its limit. */
   notes: string;
   notesCount: (used: number, max: number) => string;

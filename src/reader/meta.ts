@@ -16,6 +16,8 @@ export const defaultReaderLabels: ReaderLabels = {
     'and the original page stays one click away.',
   progress: (percent) => `${percent}% read`,
   minutes: (minutes) => `${minutes} min`,
+  newTab: 'opens in a new tab',
+  linkDiffers: (host) => `Goes to ${host}`,
   notes: 'My notes (they stay in this browser)',
   notesCount: (used, max) => `${used} of ${max} characters`,
   endOfText: 'End of text',

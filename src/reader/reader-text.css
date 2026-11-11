@@ -144,6 +144,20 @@
   text-decoration-color: var(--bb-accent);
 }
 
+.bb-reader__link-host {
+  color: var(--bb-ink-soft);
+  font-size: 0.75em;
+  overflow-wrap: anywhere;
+}
+
+/* A label that names one address while the link goes to another. */
+.bb-reader__link-host--differs {
+  color: var(--bb-ink);
+  font-weight: 600;
+  text-decoration: underline wavy var(--bb-danger);
+  text-underline-offset: 0.2em;
+}
+
 .bb-reader__body a:hover {
   color: var(--bb-accent-strong);
 }

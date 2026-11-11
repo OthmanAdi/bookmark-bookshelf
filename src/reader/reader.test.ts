@@ -99,7 +99,8 @@ describe('structure', () => {
     expect(open.getAttribute('href')).toBe(doc.url);
     expect(open.getAttribute('target')).toBe('_blank');
     expect(open.getAttribute('rel')).toBe('noopener noreferrer');
-    expect(open.textContent).toBe('Open originalexample.com');
+    expect(open.textContent).toBe('Open originalexample.com (opens in a new tab)');
+    expect(open.querySelector('.bb-visually-hidden')?.textContent).toBe(' (opens in a new tab)');
   });
 
   it('renders the original action disabled for a non-http url', () => {
