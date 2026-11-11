@@ -7,13 +7,13 @@ import { takeDraft, restoreDraft, worthKeeping } from './draft';
 import { buildEnd } from './end';
 import { buildNotes } from './notes';
 import type { End } from './end';
-import { createProgressTracker, measureBlocks } from './progress';
+import { START, createProgressTracker, measureBlocks } from './progress';
 import { trapTab } from './focus-trap';
 import { measureFlightTarget, toBox } from './landing';
 import { lastInputWasPointer } from './modality';
 import { createRevealer } from './reveal';
 import { TEXT_SIZES, normaliseScale, stepScale } from './text-size';
-import { buildShell } from './shell';
+import { buildShell, showPlace } from './shell';
 import { createTitleWatch } from './title-watch';
 import type { NextLink, ReaderDoc, ReaderHandle, ReaderOptions, ReaderProgress } from './types';
 
@@ -47,14 +47,18 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     onChange: (text) => options.onMyNote?.(text),
   });
 
+  // The empty state and the paste panel scroll too, when the field takes focus, but that is not reading.
+  const reading = (): boolean => !editing && Boolean(source.text?.trim());
+
   const tracker = createProgressTracker({
     scroller: sheet,
     measure: () => measureBlocks(sheet, body),
     topInset: () => bar.offsetHeight,
     onChange: (position, silent) => {
-      showProgress(position);
       // Once the person moves, the bar thumbnail goes back to following the cover beside the text.
       if (!silent) bar.removeAttribute('data-landing');
+      if (!reading()) return;
+      showProgress();
       if (!silent) options.onProgress?.(position);
     },
   });
@@ -78,10 +82,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     options.onTextScale?.(next);
   }
 
-  function showProgress(position: ReaderProgress): void {
-    shell.readout.textContent = labels.progress(Math.round(position.percent * 100));
-    shell.lineFill.style.transform = `scaleX(${position.percent})`;
-  }
+  const showProgress = (): void => showPlace(shell, labels, reading() ? tracker.current().percent : null);
 
   const handlers: ArticleHandlers = {
     edit() {
@@ -92,7 +93,10 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
       options.onSaveText?.(text);
       source = { ...source, text };
       editing = false;
-      render('edit');
+      render('edit', false);
+      // A text that was just saved has not been read: it is shown from its top, and its place starts there.
+      tracker.restore(START);
+      options.onProgress?.({ ...START });
     },
     cancel() {
       editing = false;
@@ -143,6 +147,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     if (focusTarget === 'field') pasteField?.focus({ preventScroll: true });
     if (focusTarget === 'edit') (editButton ?? sheet).focus({ preventScroll: true });
     if (relayout) tracker.settle();
+    showProgress();
   }
 
   // Also offered to the host, so Escape works from the first frame of the opening, before any event reaches the dialog.
@@ -176,7 +181,6 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   host.appendChild(root);
   render(null, false);
   tracker.sync(true);
-  showProgress(tracker.current());
   if (options.progress) tracker.restore(options.progress);
   // Focus is inside from the first moment, so Escape and Tab work while the page is still arriving.
   if (lastInputWasPointer()) root.dataset.pointer = '1';
@@ -229,7 +233,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
       render();
       if (keep && pasteField) restoreDraft(typed, pasteField);
     },
-    progress: () => tracker.current(),
+    progress: () => (reading() ? tracker.current() : { ...START }),
     destroy() {
       if (destroyed) return;
       destroyed = true;

@@ -626,3 +626,92 @@ describe('progress', () => {
     expect(onProgress).not.toHaveBeenCalled();
   });
 });
+
+describe('a reading place needs a text', () => {
+  const empty: ReaderDoc = { ...doc, text: undefined };
+  const start = { block: 0, ratio: 0, percent: 0 };
+  let frames: (() => void)[] = [];
+
+  beforeEach(() => {
+    frames = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: () => void) => frames.push(callback));
+    vi.stubGlobal('cancelAnimationFrame', () => undefined);
+    // A tall page, so that every scroll offset would count as a place somewhere in it.
+    vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(5000);
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  const nextFrame = (): void => frames.splice(0).forEach((callback) => callback());
+  const scrollTo = (reader: ReaderHandle, top: number): void => {
+    reader.scroller.scrollTop = top;
+    reader.scroller.dispatchEvent(new Event('scroll'));
+    nextFrame();
+  };
+  const readout = (): string => query('.bb-reader__readout').textContent ?? '';
+
+  it('keeps no place for a link with no text, however far the sheet scrolls', () => {
+    const onProgress = vi.fn();
+    const reader = mount({ doc: empty, onProgress, onSaveText: () => undefined });
+    expect(readout()).toBe('');
+    scrollTo(reader, 1200);
+    expect(onProgress).not.toHaveBeenCalled();
+    expect(reader.progress()).toEqual(start);
+    expect(readout()).toBe('');
+    expect(query<HTMLElement>('.bb-reader__line-fill').style.transform).toBe('scaleX(0)');
+  });
+
+  it('starts a text that was just saved at its top, wherever the sheet stood', () => {
+    const onProgress = vi.fn();
+    const reader = mount({ doc: empty, onProgress, onSaveText: () => undefined });
+    scrollTo(reader, 1200);
+    // One more scroll whose frame is still waiting when the text is saved.
+    reader.scroller.scrollTop = 1400;
+    reader.scroller.dispatchEvent(new Event('scroll'));
+    query<HTMLTextAreaElement>('.bb-reader__paste-field').value = 'one\n\ntwo\n\nthree';
+    query<HTMLButtonElement>('.bb-reader__save').click();
+    expect(reader.scroller.scrollTop).toBe(0);
+    expect(onProgress).toHaveBeenCalledTimes(1);
+    expect(onProgress).toHaveBeenLastCalledWith(start);
+    nextFrame();
+    expect(onProgress).toHaveBeenCalledTimes(1);
+    expect(reader.progress().percent).toBe(0);
+    expect(readout()).toBe('0% read');
+  });
+
+  it('follows the reading again once the saved text is scrolled', () => {
+    const onProgress = vi.fn();
+    const reader = mount({ doc: empty, onProgress, onSaveText: () => undefined });
+    query<HTMLTextAreaElement>('.bb-reader__paste-field').value = 'one\n\ntwo\n\nthree';
+    query<HTMLButtonElement>('.bb-reader__save').click();
+    scrollTo(reader, 2500);
+    expect(onProgress).toHaveBeenLastCalledWith(expect.objectContaining({ percent: 0.5 }));
+    expect(readout()).toBe('50% read');
+  });
+
+  it('puts the place back to the start when an edited text is saved', () => {
+    const onProgress = vi.fn();
+    const reader = mount({ onProgress, onSaveText: () => undefined });
+    scrollTo(reader, 2500);
+    expect(onProgress).toHaveBeenLastCalledWith(expect.objectContaining({ percent: 0.5 }));
+    query<HTMLButtonElement>('.bb-reader__edit').click();
+    query<HTMLButtonElement>('.bb-reader__save').click();
+    expect(reader.scroller.scrollTop).toBe(0);
+    expect(onProgress).toHaveBeenLastCalledWith(start);
+  });
+
+  it('reports nothing while a text is being edited and shows the place again after Cancel', () => {
+    const onProgress = vi.fn();
+    const reader = mount({ onProgress, onSaveText: () => undefined });
+    scrollTo(reader, 1000);
+    expect(onProgress).toHaveBeenCalledTimes(1);
+    expect(readout()).toBe('20% read');
+    query<HTMLButtonElement>('.bb-reader__edit').click();
+    expect(readout()).toBe('');
+    scrollTo(reader, 3000);
+    expect(onProgress).toHaveBeenCalledTimes(1);
+    expect(reader.progress()).toEqual(start);
+    query<HTMLButtonElement>('.bb-reader__cancel').click();
+    expect(readout()).toBe('60% read');
+  });
+});

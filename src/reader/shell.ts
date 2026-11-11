@@ -99,6 +99,12 @@ function buildCover(dom: Document, cover: HTMLElement | null, ratio: string) {
   return { aside, slot };
 }
 
+/** Writes the reading place into the bar. Null means there is no text on the page to have a place in. */
+export function showPlace(shell: ShellRefs, labels: ReaderLabels, percent: number | null): void {
+  shell.readout.textContent = percent === null ? '' : labels.progress(Math.round(percent * 100));
+  shell.lineFill.style.transform = `scaleX(${percent ?? 0})`;
+}
+
 /** Builds the static frame of the dialog. The article is filled separately. */
 export function buildShell(dom: Document, input: ShellInput): ShellRefs {
   const root = el(dom, 'div', 'bb-reader');

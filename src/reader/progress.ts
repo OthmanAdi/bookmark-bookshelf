@@ -12,6 +12,9 @@ export interface BlockBox {
   bottom: number;
 }
 
+/** Where every text begins. Also the place of a link that has no text to be anywhere in. */
+export const START: Readonly<ReaderProgress> = { block: 0, ratio: 0, percent: 0 };
+
 const clamp01 = (value: number): number => (Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0);
 const round3 = (value: number): number => Math.round(value * 1000) / 1000;
 
