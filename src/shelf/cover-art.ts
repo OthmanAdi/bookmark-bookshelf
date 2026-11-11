@@ -1,6 +1,7 @@
 import { resolveCloth, resolvePattern, type PatternName } from './variants';
 import type { ShelfItem } from './types';
 import { fitTitle, linesOf, type TitleBox } from './cover-title';
+import { imprintOf } from './imprint';
 
 /**
  * Procedural cover art. Every cover is drawn from a seed with plain SVG shapes,
@@ -188,12 +189,10 @@ const LANG = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8}){0,4}$/;
  */
 const HEAD = { top: 10, measure: 79, height: (100 / 0.7) * 0.47 - 10, gap: 3 };
 const AUTHOR = { size: 5.6, leading: 1.2, lines: 2 };
-const SOURCE = { size: 4.3, leading: 1.2 };
 const TITLE = { max: 13.6, min: 7.5, leading: 1.04 };
 
 function titleBox(item: ShelfItem): TitleBox {
   let height = HEAD.height;
-  if (item.source) height -= SOURCE.size * SOURCE.leading + HEAD.gap;
   if (item.author) {
     const lines = Math.min(AUTHOR.lines, linesOf(item.author, AUTHOR.size, HEAD.measure));
     height -= lines * AUTHOR.size * AUTHOR.leading + HEAD.gap;
@@ -209,7 +208,7 @@ function textElement(tag: string, className: string, text: string): HTMLElement 
 }
 
 /**
- * A complete front cover: cloth, source line, title, drawing and catalogue mark.
+ * A complete front cover: cloth, title, drawing, and at the foot the imprint of the site it comes from.
  * It sizes its type from its own width, so the same element works at spine
  * scale on the shelf and at full size beside the reader. Everything on it is
  * said again next to it (caption, reader heading), so it is hidden from
@@ -224,7 +223,6 @@ export function createCover(item: ShelfItem, mark?: string): HTMLElement {
 
   const head = document.createElement('span');
   head.className = 'bb-cover__head';
-  if (item.source) head.appendChild(textElement('span', 'bb-cover__source', item.source));
   const title = textElement('span', 'bb-cover__title', item.title);
   const fit = fitTitle(item.title, titleBox(item));
   title.style.setProperty('--bb-cover-title', `${fit.size}cqw`);
@@ -239,11 +237,13 @@ export function createCover(item: ShelfItem, mark?: string): HTMLElement {
   plate.appendChild(createCoverArt(item.pattern, item.seed ?? 1));
   cover.appendChild(plate);
 
+  const imprint = imprintOf(item.source).name;
   const label = mark ?? item.mark;
-  if (label) {
+  if (imprint || label) {
     const foot = document.createElement('span');
     foot.className = 'bb-cover__foot';
-    foot.appendChild(textElement('span', 'bb-cover__mark', label));
+    if (imprint) foot.appendChild(textElement('span', 'bb-cover__imprint', imprint));
+    if (label) foot.appendChild(textElement('span', 'bb-cover__mark', label));
     cover.appendChild(foot);
   }
   return cover;

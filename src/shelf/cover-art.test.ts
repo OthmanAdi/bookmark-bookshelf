@@ -46,17 +46,25 @@ describe('createCoverArt', () => {
 });
 
 describe('createCover', () => {
-  it('puts the title, source, author and mark in as text', () => {
-    const cover = createCover(item({ source: 'example.com', author: 'Ada' }), '07');
+  it('puts the title, author, imprint and mark in as text', () => {
+    const cover = createCover(item({ source: 'www.example.com', author: 'Ada' }), '07');
     expect(cover.querySelector('.bb-cover__title')?.textContent).toBe('A Title');
-    expect(cover.querySelector('.bb-cover__source')?.textContent).toBe('example.com');
     expect(cover.querySelector('.bb-cover__author')?.textContent).toBe('Ada');
+    expect(cover.querySelector('.bb-cover__imprint')?.textContent).toBe('Example');
     expect(cover.querySelector('.bb-cover__mark')?.textContent).toBe('07');
   });
 
-  it('omits source, author and mark when there are none', () => {
+  it('sets the imprint at the foot and nothing about the site at the head', () => {
+    const cover = createCover(item({ source: 'en.wikipedia.org' }));
+    expect(cover.querySelector('.bb-cover__foot > .bb-cover__imprint')?.textContent).toBe('Wikipedia');
+    expect(cover.querySelector('.bb-cover__head')?.textContent).toBe('A Title');
+  });
+
+  it('omits imprint, author and mark when there are none', () => {
     const cover = createCover(item());
-    expect(cover.querySelector('.bb-cover__source')).toBeNull();
+    expect(cover.querySelector('.bb-cover__imprint')).toBeNull();
+    expect(cover.querySelector('.bb-cover__foot')).toBeNull();
+    expect(createCover(item({ source: 'localhost' })).querySelector('.bb-cover__imprint')).toBeNull();
     expect(cover.querySelector('.bb-cover__author')).toBeNull();
     expect(cover.querySelector('.bb-cover__mark')).toBeNull();
   });
@@ -77,10 +85,10 @@ describe('createCover', () => {
 
   it('renders markup in a title as text and creates no elements from it', () => {
     const hostile = '<img src=x onerror=1>';
-    const cover = createCover(item({ title: hostile, source: hostile, author: hostile }));
+    const cover = createCover(item({ title: hostile, source: `${hostile}.example.org`, author: hostile }));
     expect(cover.querySelector('img')).toBeNull();
     expect(cover.querySelector('.bb-cover__title')?.textContent).toBe(hostile);
-    expect(cover.querySelector('.bb-cover__source')?.textContent).toBe(hostile);
+    expect(cover.querySelector('.bb-cover__imprint')?.textContent).toBe('Example');
     expect(cover.querySelector('.bb-cover__author')?.textContent).toBe(hostile);
     expect(cover.querySelectorAll('[onerror]').length).toBe(0);
   });

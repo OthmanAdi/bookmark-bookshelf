@@ -41,17 +41,6 @@
   gap: 3cqw;
 }
 
-.bb-cover__source {
-  font-family: var(--bb-font-mono);
-  font-size: 4.3cqw;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  line-height: 1.2;
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
-  opacity: 0.82;
-}
-
 /*
  * --bb-cover-title is worked out from the title itself (longest word, length, lines), so a short title
  * stands large and a German compound still fits. The line clamp is only the last guard: the size is
@@ -118,6 +107,18 @@
   align-items: baseline;
   gap: 2cqw;
   line-height: 1.2;
+}
+
+/* The publisher's line: the site's own name, small, where a binder puts the imprint. */
+.bb-cover__imprint {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--bb-font-serif);
+  font-size: max(9px, 4.4cqw);
+  font-style: italic;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The accession number. Printed only where a look asks for it with --bb-cover-mark: 1. */
