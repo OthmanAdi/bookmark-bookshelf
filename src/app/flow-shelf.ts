@@ -2,7 +2,6 @@ import type { Shelf } from '../store';
 import { button, make, option, toast } from './dom';
 import { createDialog } from './flow-dialog';
 import { buildField, setFieldError } from './flow-fields';
-import { undoerFor } from './flow-undo';
 import type { FlowContext } from './flows';
 
 /** What the app does to a shelf as a whole: removing it, and describing it. */
@@ -54,22 +53,21 @@ export async function removeShelfFlow(context: FlowContext, shelfId: string): Pr
   const destination = await askDestination(shelf, others, count);
   if (destination === null) return;
 
-  const before = store.snapshot();
-  const moved = before.bookmarks.filter((bookmark) => bookmark.shelfId === shelfId);
   const wasOpen = store.session().shelfId === shelfId;
   const result = store.removeShelf(shelfId, destination);
   if (!result.ok) {
     toast(result.error.message);
     return;
   }
+  const removed = result.value;
   if (wasOpen) bookshelf.setShelf(null);
   const target = store.shelves().find((entry) => entry.id === destination)?.name ?? 'another shelf';
   const message = count === 0 ? `Removed ${shelf.name}.` : `Removed ${shelf.name}. ${linkCount(count)} moved to ${target}.`;
-  const undo = undoerFor(store, { before, removed: [], shelves: [shelf], moved });
   toast(message, {
     label: 'Undo',
     run: () => {
-      undo();
+      store.restoreShelf(removed);
+      if (wasOpen) bookshelf.setShelf(shelfId);
       context.refresh();
     },
   });

@@ -61,7 +61,7 @@ describe('removing a shelf', () => {
     expect(store.bookmarks(first?.id).map((bookmark) => bookmark.id)).toEqual(ids);
   });
 
-  it('brings the shelf back at the end when something else changed in the meantime', async () => {
+  it('still brings the shelf and its links back when something else changed in the meantime', async () => {
     const [first] = store.shelves();
     const ids = store.bookmarks(first?.id).map((bookmark) => bookmark.id);
     const done = removeShelfFlow(context, first?.id as string);
