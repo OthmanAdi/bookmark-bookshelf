@@ -13,14 +13,18 @@ import {
   type BookendNode,
   type BookNode,
 } from './book';
+import { stayers } from './body-order';
 import { fitTitle, forgetTitleWidths, type TitleFont } from './title-fit';
 import {
+  blendPose,
   computeRow,
   computeStandingRow,
+  easeTravel,
   extentOf,
   pitchAt,
   restPitch,
   rowStands,
+  samePose,
   scaleGeometry,
   visibleRange,
   volumeSize,
@@ -69,6 +73,20 @@ const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 1.5;
+
+/** A volume whose place changed with the items takes this long to travel there, in ms. */
+const TRAVEL_MS = 360;
+/** A volume whose item left the row lifts and fades for this long before it is taken away, in ms. */
+const LEAVE_MS = 220;
+/** No arrival takes longer than this, in ms: after it a volume that came in is an ordinary volume again. */
+const ENTER_MS = 700;
+/** A volume that was just added carries an outline for this long, so the eye finds it, in ms. */
+const ARRIVED_MS = 1200;
+/** When a whole new row comes in, each volume follows the one nearer the centre by this many ms. */
+const STAGGER_MS = 22;
+const STAGGER_REACH = 12;
+/** A volume that was just added waits this long before it comes down, so its neighbours have made room, in ms. */
+const ARRIVE_WAIT_MS = 140;
 
 /** The old caption leaves quickly and the new one arrives a little slower, so the eye lands on it. */
 const CAPTION_OUT_MS = 90;
@@ -131,6 +149,29 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let disordered = false;
   /** What the volumes are called is out of date: an item, its place or the length of the row changed. */
   let labelsStale = false;
+  /**
+   * Set while the items are being changed, when motion is wanted: volumes built now are new to the row and
+   * come in, the ones named in `arrive` from above; volumes whose item left go out instead of vanishing.
+   */
+  let entering: { arrive: Set<string> } | null = null;
+  /** The frame asked for while volumes travel to new places. The shelf keeps no other clock. */
+  let frame: number | null = null;
+  /** Where the lamp travels from after the row changed, and when that began. */
+  let lampFrom: number | null = null;
+  let lampFromAt = 0;
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const later = (run: () => void, ms: number): void => {
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      run();
+    }, ms);
+    timers.add(timer);
+  };
+  /** True when nothing may move by itself: every change of the row is then drawn at once. */
+  const still = (): boolean =>
+    pose.reduced === true ||
+    typeof requestAnimationFrame !== 'function' ||
+    (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
   const listeners = new Set<(intent: ShelfIntent) => void>();
   /** Set once mounting is done, so a host is never called back before it has the handle. */
   let mounted = false;
@@ -265,14 +306,78 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   /** Whatever is still waiting shows an item that has left the row, or stands out of sight. */
   function emptyPool(): void {
     if (!pool) return;
-    for (const waiting of pool.values()) for (const node of waiting) node.element.remove();
+    for (const waiting of pool.values()) for (const node of waiting) dismiss(node);
     pool = null;
   }
 
   /**
+   * Takes a volume out of the row. One that was on show lifts, tilts and fades where it stood while its
+   * neighbours close the gap; it is no longer a volume to assistive technology from the first moment.
+   */
+  function dismiss(node: BookNode): void {
+    const element = node.element;
+    if (!entering || !node.drawn || !element.isConnected) {
+      element.remove();
+      return;
+    }
+    setReal(node, false, 0);
+    element.classList.remove('is-centre', 'is-rising', 'is-arriving', 'is-arrived');
+    // Nothing can pick it or look it up any more.
+    delete element.dataset.slot;
+    delete element.dataset.index;
+    delete element.dataset.id;
+    // At the end of the row in the document, so it never stands between two volumes that are read in order.
+    row.appendChild(element);
+    element.classList.add('is-leaving');
+    later(() => element.remove(), LEAVE_MS);
+  }
+
+  /** Every volume now in the row starts from where it is drawn and travels to wherever it belongs next. */
+  function beginTravel(): void {
+    if (still()) return;
+    const now = performance.now();
+    for (const node of nodes.values()) {
+      node.from = node.drawn;
+      node.fromAt = now;
+    }
+    for (const bookend of [bookends.start, bookends.end]) {
+      bookend.from = bookend.x;
+      bookend.fromAt = now;
+    }
+    lampFrom = lampX;
+    lampFromAt = now;
+  }
+
+  /** A volume new to the row comes in: dropped from above when the host says it was just added, risen otherwise. */
+  function bringIn(node: BookNode, delay: number): void {
+    const element = node.element;
+    const dropped = entering?.arrive.has(node.item.id) === true;
+    if (dropped) delay += ARRIVE_WAIT_MS;
+    if (delay > 0) element.style.setProperty('--bb-delay', `${delay}ms`);
+    element.classList.add(dropped ? 'is-arriving' : 'is-rising');
+    // Left on, the class would run the arrival again whenever the volume is moved in the document.
+    later(() => {
+      element.classList.remove('is-rising', 'is-arriving');
+      element.style.removeProperty('--bb-delay');
+    }, delay + ENTER_MS);
+    if (!dropped) return;
+    element.classList.add('is-arrived');
+    later(() => element.classList.remove('is-arrived'), ARRIVED_MS);
+  }
+
+  function requestFrame(): void {
+    if (frame !== null || !alive) return;
+    frame = requestAnimationFrame(() => {
+      frame = null;
+      if (alive) render();
+    });
+  }
+
+  /**
    * Keeps the volumes in the document in the order of the shelf, the real one of each item before any
-   * copy, so the row reads in order to assistive technology. The volume that holds keyboard focus is never
-   * moved, since moving an element takes focus off it: the others are put around it.
+   * copy, so the row reads in order to assistive technology. Only the volumes that stand in the wrong place
+   * are moved, and never the one that holds keyboard focus: moving an element takes focus off it and
+   * starts its animations again.
    */
   function orderRow(): void {
     disordered = false;
@@ -280,21 +385,24 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const count = items.length;
     const rank = (node: BookNode): number => (node.control ? node.index : count + node.slot + 1e9);
     const wanted = [...nodes.values()].sort((one, other) => rank(one) - rank(other));
-    const held = document.activeElement;
-    const pivot = Math.max(
-      0,
-      wanted.findIndex((node) => node.control !== null && node.control === held),
-    );
-    if (!wanted[pivot]!.element.isConnected) row.appendChild(wanted[pivot]!.element);
-    for (let index = pivot - 1; index >= 0; index--) {
-      const element = wanted[index]!.element;
-      const next = wanted[index + 1]!.element;
-      if (element.nextElementSibling !== next) row.insertBefore(element, next);
+    const place = new Map<Element, number>();
+    wanted.forEach((node, index) => place.set(node.element, index));
+    const standing: Element[] = [];
+    for (let element = row.firstElementChild; element; element = element.nextElementSibling) {
+      if (place.has(element)) standing.push(element);
     }
-    for (let index = pivot + 1; index < wanted.length; index++) {
-      const element = wanted[index]!.element;
-      const after = wanted[index - 1]!.element.nextElementSibling;
-      if (after !== element) row.insertBefore(element, after);
+    const held = document.activeElement;
+    const stay = stayers(
+      standing.map((element) => place.get(element) ?? 0),
+      held ? standing.findIndex((element) => element.contains(held)) : -1,
+    );
+    const settled = new Set(standing.filter((_, index) => stay[index]));
+    if (settled.size === wanted.length) return;
+    const first = standing.find((_, index) => stay[index]) ?? null;
+    let previous: Element | null = null;
+    for (const node of wanted) {
+      if (!settled.has(node.element)) row.insertBefore(node.element, previous ? previous.nextSibling : first);
+      previous = node.element;
     }
   }
 
@@ -421,6 +529,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       writeCaption(text);
       return;
     }
+    if (!captionFade && captionTitle.textContent === text.title && captionMeta.textContent === text.meta) {
+      // The same volume is still presented: its caption stays as it is.
+      captionMeta.classList.toggle('is-note', text.note);
+      return;
+    }
     nextCaption = text;
     if (captionFade) return;
     const out = caption.animate([{ opacity: 1 }, { opacity: 0 }], {
@@ -447,20 +560,29 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       node.element.remove();
       nodes.delete(slot);
     }
+    let kept = nodes.size;
+    let built: BookNode[] | null = null;
     for (let slot = from; slot <= to; slot++) {
       if (nodes.has(slot)) continue;
       const index = wrap(slot, items.length);
       const item = items[index];
       if (!item) continue;
       let node = claim(item, slot);
-      if (node) redress(node, item, index, slot);
-      else node = createBook(item, index, slot);
+      if (node) {
+        redress(node, item, index, slot);
+        kept++;
+      } else {
+        node = createBook(item, index, slot);
+        if (entering) (built ??= []).push(node);
+      }
       applySize(node);
       fitSpine(node);
       setReal(node, isReal(slot), items.length, hint.id);
       nodes.set(slot, node);
       disordered = true;
     }
+    // A whole new row comes in from the centre outward; a volume joining others comes in at once.
+    if (built) for (const node of built) bringIn(node, kept === 0 ? Math.min(STAGGER_REACH, Math.abs(node.slot - centre)) * STAGGER_MS : 0);
     emptyPool();
   }
 
@@ -476,8 +598,19 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const element = bookend.element;
     if (x === null) {
       if (!element.hidden) element.hidden = true;
+      bookend.x = null;
+      bookend.from = null;
       return;
     }
+    if (bookend.from !== null) {
+      const t = (travelNow() - bookend.fromAt) / TRAVEL_MS;
+      if (t >= 1 || Math.abs(bookend.from - x) < 0.25) bookend.from = null;
+      else {
+        x = bookend.from + (x - bookend.from) * easeTravel(t);
+        travelling = true;
+      }
+    }
+    bookend.x = x;
     element.hidden = false;
     element.style.transform = `translate3d(${x}px, 0, 0)`;
     const shades = faceShades(light, 0, light.lamp ? (x - lampX) / geometry.coverWidth : 0);
@@ -486,13 +619,22 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     writeShade(bookend, 2, bookend.backShade, shades.back);
   }
 
+  /** The time of the frame being drawn, read once and only while something travels. */
+  let frameNow = -1;
+  let travelling = false;
+  const travelNow = (): number => (frameNow < 0 ? (frameNow = performance.now()) : frameNow);
+
   function render(): void {
     const count = items.length;
+    frameNow = -1;
+    travelling = false;
     empty.hidden = count > 0;
     root.dataset.empty = count > 0 ? '0' : '1';
     if (count === 0) {
       for (const node of nodes.values()) node.element.remove();
       nodes.clear();
+      // The scene of an empty shelf is not shown, so nothing is left in it to go out slowly.
+      entering = null;
       emptyPool();
       placeBookend(bookends.start, null);
       placeBookend(bookends.end, null);
@@ -544,6 +686,15 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const standing = fixed ? computeStandingRow(position, geometry, count, sized) : null;
     const poses = standing ? standing.poses : computeRow(position, geometry, range.from, range.to, sized);
     lampX = standing ? standing.origin : 0;
+    if (lampFrom !== null) {
+      // The lamp goes with the volume it stands over, at the same pace.
+      const t = (travelNow() - lampFromAt) / TRAVEL_MS;
+      if (t >= 1 || Math.abs(lampFrom - lampX) < 0.25) lampFrom = null;
+      else {
+        lampX = lampFrom + (lampX - lampFrom) * easeTravel(t);
+        travelling = true;
+      }
+    }
     if (light.lamp && Math.abs(lampX - lampWritten) > LAMP_STEP) {
       // The look can lay its pool of light on the floor where the lamp stands.
       lampWritten = lampX;
@@ -551,16 +702,29 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     }
     // A bookend is shorter than a volume: it meets a volume leaning toward it below the head.
     const bookendTall = geometry.bookHeight * BOOKEND_TALL;
-    for (const slotPose of poses) {
-      const node = nodes.get(slotPose.slot);
+    for (const live of poses) {
+      const node = nodes.get(live.slot);
       if (!node) continue;
+      let slotPose = live;
+      if (node.from) {
+        // After the row changed around it, a volume travels and turns from where it stood to where it belongs.
+        const t = (travelNow() - node.fromAt) / TRAVEL_MS;
+        // While the items are still being changed the pose may yet be set elsewhere, so nothing is settled early.
+        if (t >= 1 || (!entering && samePose(node.from, live))) node.from = null;
+        else {
+          slotPose = blendPose(node.from, live, easeTravel(t));
+          travelling = true;
+        }
+      }
+      node.drawn = slotPose;
       if (slotPose.slot === centre) presented = slotPose;
       // The print is laid on well before the volume starts to turn and kept a while after, so a volume
       // drifting back and forth at the edge of the band does not build and drop it over and over.
       const distance = Math.abs(slotPose.slot - position);
       // Every cover keeps the look's proportion, however tall its volume is.
-      if (distance < PRINT_NEAR || slotPose.slot === openSlot) ensurePrint(node, geometry.coverWidth / geometry.bookHeight);
-      else if (distance > PRINT_FAR) dropPrint(node);
+      if (distance < PRINT_NEAR || slotPose.slot === openSlot || slotPose.weight > 0) {
+        ensurePrint(node, geometry.coverWidth / geometry.bookHeight);
+      } else if (distance > PRINT_FAR) dropPrint(node);
 
       const offset = parting && openSlot !== null ? slotPose.slot - openSlot : Number.NaN;
       const reach = Math.abs(offset);
@@ -592,13 +756,15 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       }
       node.element.classList.toggle('is-turned', slotPose.weight > 0.98);
 
-      if (!loop && slotPose.slot === 0) start = extentOf(slotPose, sizeOf(0), bookendTall)[0] + away - bookendGap;
-      if (!loop && slotPose.slot === count - 1) end = extentOf(slotPose, sizeOf(count - 1), bookendTall)[1] + away + bookendGap;
+      // A bookend stands where its end of the row belongs and travels there by itself, whichever volume ends up beside it.
+      if (!loop && live.slot === 0) start = extentOf(live, sizeOf(0), bookendTall)[0] + away - bookendGap;
+      if (!loop && live.slot === count - 1) end = extentOf(live, sizeOf(count - 1), bookendTall)[1] + away + bookendGap;
     }
     placeBookend(bookends.start, start);
     placeBookend(bookends.end, end);
 
     root.dataset.open = pose.open <= 0 ? '0' : pose.open >= 1 ? '1' : 'moving';
+    if (travelling) requestFrame();
   }
 
   function bookendWidth(): number {
@@ -729,9 +895,18 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     get fixed() {
       return fixed;
     },
-    setItems(nextItems) {
+    setItems(nextItems, change) {
       const kept = items[wrap(centre, items.length)]?.id;
       const place = Number.isNaN(centre) ? 0 : wrap(centre, items.length);
+      if (!still()) {
+        entering = { arrive: new Set(change?.arrive) };
+        // A host usually sets the pose right after the items: volumes it brings into view then come in too.
+        const mine = entering;
+        queueMicrotask(() => {
+          if (entering === mine) entering = null;
+        });
+      }
+      beginTravel();
       repool();
       items = nextItems.slice();
       // The presented volume stays presented while it is on the shelf; once it is gone, the one in its place is.
@@ -750,7 +925,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       light = resolveLight(variant.light);
       root.dataset.variant = variant.name;
       root.style.setProperty('--bb-light-tint', light.tint);
-      // Every volume stays; its cover is printed again for the proportions of the new look.
+      // Every volume stays and goes to its place in the new look; its cover is printed again for the new proportions.
+      beginTravel();
       for (const node of nodes.values()) dropPrint(node);
       refresh();
     },
@@ -800,6 +976,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     refresh,
     destroy() {
       alive = false;
+      if (frame !== null) cancelAnimationFrame(frame);
+      for (const timer of timers) clearTimeout(timer);
       captionFade?.cancel();
       observer?.disconnect();
       row.removeEventListener('click', onClick);

@@ -179,6 +179,133 @@
   opacity: 1;
 }
 
+/*
+ * Arrivals and departures. A volume new to the row rises into its place; one the person has just added
+ * drops in from above, a little tilted, lands and settles; one whose link left lifts, tilts and fades while
+ * its neighbours close the gap. The body moves and each face fades by itself: fading the volume as a whole
+ * would flatten it. The contact shadow stays on the floor and comes and goes with the volume.
+ */
+.bb-book.is-leaving {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bb-book.is-rising .bb-book__body {
+    animation: bb-rise var(--bb-dur-3) var(--bb-ease-out) var(--bb-delay, 0ms) backwards;
+  }
+
+  .bb-book.is-rising .bb-book__spine,
+  .bb-book.is-rising .bb-book__board,
+  .bb-book.is-rising .bb-book__slip,
+  .bb-book.is-rising::after {
+    animation: bb-appear var(--bb-dur-3) var(--bb-ease-out) var(--bb-delay, 0ms) backwards;
+  }
+
+  .bb-book.is-arriving .bb-book__body {
+    animation: bb-drop var(--bb-dur-4) linear var(--bb-delay, 0ms) backwards;
+  }
+
+  .bb-book.is-arriving .bb-book__spine,
+  .bb-book.is-arriving .bb-book__board,
+  .bb-book.is-arriving .bb-book__slip {
+    animation: bb-appear var(--bb-dur-2) linear var(--bb-delay, 0ms) backwards;
+  }
+
+  /* The shadow gathers under the volume as it comes down. */
+  .bb-book.is-arriving::after {
+    animation: bb-appear var(--bb-dur-3) var(--bb-ease-in-out) var(--bb-delay, 0ms) backwards;
+  }
+
+  .bb-book.is-leaving .bb-book__body {
+    animation: bb-leave var(--bb-dur-2) var(--bb-ease-in-out) forwards;
+  }
+
+  .bb-book.is-leaving .bb-book__spine,
+  .bb-book.is-leaving .bb-book__board,
+  .bb-book.is-leaving .bb-book__slip,
+  .bb-book.is-leaving::after {
+    animation: bb-vanish var(--bb-dur-2) linear forwards;
+  }
+
+  .bb-book.is-arrived:not(:has(.bb-book__control:focus-visible)) .bb-book__ring {
+    animation: bb-outline calc(var(--bb-dur-4) * 2) linear forwards;
+  }
+}
+
+@keyframes bb-rise {
+  from {
+    transform: translateY(24px);
+  }
+}
+
+@keyframes bb-appear {
+  from {
+    opacity: 0;
+  }
+}
+
+/* A fall gathers speed: the steps between these stops grow, and each is crossed at an even pace. */
+@keyframes bb-drop {
+  0% {
+    transform: translateY(-120px) rotateZ(3deg);
+  }
+
+  14% {
+    transform: translateY(-112px) rotateZ(2.8deg);
+  }
+
+  28% {
+    transform: translateY(-90px) rotateZ(2.25deg);
+  }
+
+  41% {
+    transform: translateY(-53px) rotateZ(1.3deg);
+  }
+
+  55% {
+    transform: translateY(0) rotateZ(0deg);
+    animation-timing-function: var(--bb-ease-out);
+  }
+
+  72% {
+    transform: translateY(-3px) rotateZ(-0.4deg);
+    animation-timing-function: var(--bb-ease-in-out);
+  }
+
+  100% {
+    transform: translateY(0) rotateZ(0deg);
+  }
+}
+
+@keyframes bb-leave {
+  to {
+    transform: translateY(-30px) rotateZ(2deg);
+  }
+}
+
+@keyframes bb-vanish {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The outline comes in with the volume it is drawn on, stays while the eye finds it, and goes quietly. */
+@keyframes bb-outline {
+  0%,
+  12% {
+    opacity: 0;
+  }
+
+  30%,
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
 /* The one operable control per volume. Present for keyboard and screen readers, invisible, never a pointer target. */
 .bb-book__control {
   position: absolute;
@@ -222,6 +349,16 @@
 .bb-book:not(.is-turned):has(.bb-book__control:focus-visible) .bb-book__ring--spine,
 .bb-book.is-turned:has(.bb-book__control:focus-visible) .bb-book__ring--cover {
   display: block;
+}
+
+/*
+ * A volume that was just added carries a thin outline in the accent for a moment, unless it holds the
+ * focus ring. Both faces are outlined, so the outline turns with the volume instead of changing sides.
+ */
+.bb-book.is-arrived:not(:has(.bb-book__control:focus-visible)) .bb-book__ring {
+  display: block;
+  border: 2px solid var(--bb-accent);
+  box-shadow: none;
 }
 
 /* The row's instructions are read with each volume's name and never shown. */

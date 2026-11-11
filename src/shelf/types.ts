@@ -1,7 +1,9 @@
 /**
  * Shelf contract. The shelf draws a pose and reports what the person asked for.
- * It owns no clock and no gestures: something else (usually the motion module)
- * decides the pose, and something else decides what an intent leads to.
+ * It owns no gestures and decides no pose: something else (usually the motion
+ * module) does, and something else decides what an intent leads to. The only
+ * time it keeps is the third of a second in which volumes find their places
+ * after the items change.
  */
 
 export type Unsubscribe = () => void;
@@ -176,13 +178,26 @@ export interface ShelfOptions {
   pose?: Pose;
 }
 
+/** What a host can say about a change of items. */
+export interface ItemsChange {
+  /** Ids of items that were just added by the person, as opposed to coming into view with a shelf or a sort. */
+  arrive?: string[];
+}
+
 export interface ShelfHandle {
   readonly element: HTMLElement;
   /** The element to hand to a gesture recogniser. */
   readonly surface: HTMLElement;
   /** Empty container under the caption for host-supplied actions. */
   readonly actions: HTMLElement;
-  setItems(items: ShelfItem[]): void;
+  /**
+   * Changes what stands in the row. A volume whose item stays (same `id`) is kept as it is and travels to
+   * its new place; new ones rise in and the ones that left lift away. The presented volume stays presented
+   * while its item is still there, so a host only sets a pose afterwards to present another one.
+   * Ids named in `arrive` are links the person has just added: those volumes drop in from above and carry
+   * an outline for a moment, so the eye finds them. Nothing moves under reduced motion.
+   */
+  setItems(items: ShelfItem[], change?: ItemsChange): void;
   /** Draws one frame. Cheap enough to call on every animation frame. */
   setPose(pose: Pose): void;
   setVariant(variant: string | Variant): void;

@@ -303,6 +303,42 @@ export function rowStands(geometry: Geometry, count: number, width: number, size
   return true;
 }
 
+/**
+ * A pose part of the way from one pose to another, `t` from 0 to 1. A volume whose place in the row
+ * changes is drawn through these, so it travels and turns to where it belongs instead of jumping there.
+ */
+export function blendPose(from: SlotPose, to: SlotPose, t: number): SlotPose {
+  const share = Math.min(1, Math.max(0, t));
+  const mix = (one: number, other: number): number => one + (other - one) * share;
+  return {
+    slot: to.slot,
+    weight: mix(from.weight, to.weight),
+    angle: mix(from.angle, to.angle),
+    lean: mix(from.lean, to.lean),
+    x: mix(from.x, to.x),
+    corner: mix(from.corner, to.corner),
+    lift: mix(from.lift, to.lift),
+    z: mix(from.z, to.z),
+  };
+}
+
+/** Whether two poses would be drawn the same, to well under a pixel and a tenth of a degree. */
+export function samePose(one: SlotPose, other: SlotPose): boolean {
+  return (
+    Math.abs(one.x - other.x) < 0.25 &&
+    Math.abs(one.angle - other.angle) < 0.05 &&
+    Math.abs(one.lean - other.lean) < 0.05 &&
+    Math.abs(one.lift - other.lift) < 0.25 &&
+    Math.abs(one.z - other.z) < 0.25
+  );
+}
+
+/** Progress of a volume travelling to a new place: it gathers speed, then slows into its place. */
+export function easeTravel(t: number): number {
+  const x = Math.min(1, Math.max(0, t));
+  return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
+}
+
 /** Inclusive slot range that can be visible in a viewport of `width` px, with a margin of spare slots. */
 export function visibleRange(
   position: number,

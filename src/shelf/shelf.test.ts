@@ -34,7 +34,10 @@ function mount(options: Partial<ShelfOptions> = {}): { shelf: ShelfHandle; inten
   return { shelf, intents };
 }
 
-const books = (shelf: ShelfHandle): HTMLElement[] => [...shelf.element.querySelectorAll<HTMLElement>('.bb-book')];
+/** The volumes of the row. One that is on its way out no longer counts. */
+const books = (shelf: ShelfHandle): HTMLElement[] => [
+  ...shelf.element.querySelectorAll<HTMLElement>('.bb-book:not(.is-leaving)'),
+];
 const controls = (shelf: ShelfHandle): HTMLButtonElement[] => [
   ...shelf.element.querySelectorAll<HTMLButtonElement>('.bb-book__control'),
 ];
@@ -599,7 +602,6 @@ describe('mountShelf changing the items', () => {
     const after = byId(shelf);
     for (const id of ['id-0', 'id-2', 'id-3', 'id-4']) expect(after.get(id)).toBe(before.get(id));
     expect(after.has('id-1')).toBe(false);
-    expect(before.get('id-1')?.isConnected).toBe(false);
     expect(after.get('new')).toBeDefined();
     expect(after.get('id-0')?.querySelector('.bb-cover')).toBe(print);
     expect(after.get('id-3')?.dataset.slot).toBe('0');
@@ -647,6 +649,17 @@ describe('mountShelf changing the items', () => {
       expect(order).toEqual([...order].sort((one, other) => one - other));
       expect(new Set(order).size).toBe(order.length);
     }
+  });
+
+  it('moves only the volumes that changed places in the document when a looping row takes a step', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    const row = shelf.element.querySelector('.bb-shelf__row')!;
+    const moves = vi.spyOn(row, 'insertBefore');
+    shelf.setPose({ position: 1, open: 0 });
+    shelf.setPose({ position: 2, open: 0 });
+    shelf.setPose({ position: 3, open: 0 });
+    // One volume comes into view at the far end with each step; nothing else is touched.
+    expect(moves.mock.calls.length).toBeLessThanOrEqual(3);
   });
 
   it('leaves keyboard focus on the same control when its volume stays', () => {
@@ -736,6 +749,173 @@ describe('mountShelf changing the items', () => {
     expect(document.activeElement).toBe(control);
     expect(bySlot(shelf, 0).querySelector('.bb-cover')).not.toBeNull();
     expect(bySlot(shelf, 0).querySelector('.bb-cover')).not.toBe(print);
+  });
+});
+
+describe('mountShelf volumes that travel, arrive and leave', () => {
+  let now = 0;
+  let frames: FrameRequestCallback[] = [];
+  /** Lets `ms` pass and draws the frame that was asked for. */
+  const step = (ms: number): void => {
+    now += ms;
+    const due = frames;
+    frames = [];
+    for (const run of due) run(now);
+  };
+  const xOf = (shelf: ShelfHandle, id: string): number =>
+    Number(/translate3d\(([-\d.e]+)px/.exec(shelf.element.querySelector<HTMLElement>(`.bb-book[data-id="${id}"]`)?.style.transform ?? '')?.[1]);
+
+  beforeEach(() => {
+    now = 1000;
+    frames = [];
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    vi.stubGlobal('requestAnimationFrame', (run: FrameRequestCallback) => frames.push(run));
+    vi.stubGlobal('cancelAnimationFrame', () => undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('starts a volume that stays from where it stood and brings it to its new place', () => {
+    const { shelf } = mount();
+    const items = makeItems(5);
+    const order = [items[4]!, items[0]!, items[1]!, items[2]!, items[3]!];
+    const before = xOf(shelf, 'id-4');
+    shelf.setItems(order);
+    expect(xOf(shelf, 'id-4')).toBeCloseTo(before, 6);
+    expect(frames).toHaveLength(1);
+    step(180);
+    const half = xOf(shelf, 'id-4');
+    expect(half).toBeLessThan(before - 20);
+    step(200);
+    const arrived = xOf(shelf, 'id-4');
+    expect(arrived).toBeLessThan(half - 20);
+    // Once every volume has arrived the shelf asks for no more frames.
+    expect(frames).toHaveLength(0);
+    const settled = mountShelf(document.body.appendChild(document.createElement('div')), {
+      items: order,
+      pose: { position: 1, open: 0, reduced: true },
+    });
+    expect(arrived).toBeCloseTo(xOf(settled, 'id-4'), 6);
+  });
+
+  it('turns a volume that stops being presented back to its spine on the way', () => {
+    const { shelf } = mount();
+    const book = bySlot(shelf, 0);
+    const turn = (): number => Number(book.style.getPropertyValue('--bb-turn'));
+    const full = turn();
+    shelf.setItems(makeItems(5));
+    shelf.setPose({ position: 3, open: 0 });
+    expect(turn()).toBeCloseTo(full, 6);
+    expect(book.querySelector('.bb-cover')).not.toBeNull();
+    step(180);
+    expect(turn()).toBeGreaterThan(0.1);
+    expect(turn()).toBeLessThan(full - 0.1);
+    step(200);
+    expect(turn()).toBe(0);
+  });
+
+  it('carries on from where a volume is when the items change again on the way', () => {
+    const { shelf } = mount();
+    const items = makeItems(5);
+    shelf.setItems([items[4]!, items[0]!, items[1]!, items[2]!, items[3]!]);
+    step(180);
+    const half = xOf(shelf, 'id-4');
+    shelf.setItems(items);
+    expect(xOf(shelf, 'id-4')).toBeCloseTo(half, 6);
+  });
+
+  it('draws every change at once under reduced motion', () => {
+    const items = makeItems(5);
+    const { shelf } = mount({ pose: { position: 0, open: 0, reduced: true } });
+    const order = [items[4]!, items[0]!, { id: 'new', title: 'New' }, items[2]!];
+    shelf.setItems(order, { arrive: ['new'] });
+    expect(frames).toHaveLength(0);
+    expect(shelf.element.querySelector('.is-leaving, .is-rising, .is-arriving, .is-arrived')).toBeNull();
+    expect(shelf.element.querySelectorAll('.bb-book')).toHaveLength(4);
+    const settled = mountShelf(document.body.appendChild(document.createElement('div')), {
+      items: order,
+      pose: { position: 1, open: 0, reduced: true },
+    });
+    expect(xOf(shelf, 'id-4')).toBeCloseTo(xOf(settled, 'id-4'), 6);
+  });
+
+  it('lifts a volume whose item left out of the row and then takes it away', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const { shelf } = mount();
+    const gone = bySlot(shelf, 3);
+    const place = gone.style.transform;
+    shelf.setItems(makeItems(5).filter((item) => item.id !== 'id-3'));
+    expect(gone.isConnected).toBe(true);
+    expect(gone.classList.contains('is-leaving')).toBe(true);
+    expect(gone.style.transform).toBe(place);
+    // It is no volume any more to someone who cannot see it go.
+    expect(gone.getAttribute('aria-hidden')).toBe('true');
+    expect(gone.querySelector('.bb-book__control')).toBeNull();
+    expect(gone.parentElement?.lastElementChild).toBe(gone);
+    expect(controls(shelf)).toHaveLength(4);
+    vi.advanceTimersByTime(219);
+    expect(gone.isConnected).toBe(true);
+    vi.advanceTimersByTime(2);
+    expect(gone.isConnected).toBe(false);
+  });
+
+  it('raises a new volume in and drops in one the person has just added', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const { shelf } = mount();
+    const items = makeItems(5);
+    shelf.setItems([...items, { id: 'shown', title: 'Shown' }, { id: 'added', title: 'Added' }], { arrive: ['added'] });
+    const shown = shelf.element.querySelector<HTMLElement>('.bb-book[data-id="shown"]')!;
+    const added = shelf.element.querySelector<HTMLElement>('.bb-book[data-id="added"]')!;
+    expect([...shown.classList]).toContain('is-rising');
+    expect(shown.style.getPropertyValue('--bb-delay')).toBe('');
+    expect([...added.classList]).toEqual(expect.arrayContaining(['is-arriving', 'is-arrived']));
+    // It waits until its neighbours have made room.
+    expect(added.style.getPropertyValue('--bb-delay')).toBe('140ms');
+    expect(bySlot(shelf, 1).classList.contains('is-rising')).toBe(false);
+    vi.advanceTimersByTime(900);
+    expect(shown.classList.contains('is-rising')).toBe(false);
+    expect(added.classList.contains('is-arriving')).toBe(false);
+    expect(added.style.getPropertyValue('--bb-delay')).toBe('');
+    expect(added.classList.contains('is-arrived')).toBe(true);
+    vi.advanceTimersByTime(300);
+    expect(added.classList.contains('is-arrived')).toBe(false);
+  });
+
+  it('brings a whole new row in from the centre outward while the old one goes', () => {
+    const { shelf } = mount();
+    const old = books(shelf);
+    shelf.setItems(Array.from({ length: 5 }, (_, index) => ({ id: `other-${index}`, title: `Other ${index}` })));
+    for (const book of old) expect(book.classList.contains('is-leaving')).toBe(true);
+    const delay = (slot: number): string => bySlot(shelf, slot).style.getPropertyValue('--bb-delay');
+    expect(bySlot(shelf, 0).classList.contains('is-rising')).toBe(true);
+    expect(delay(0)).toBe('');
+    expect(delay(1)).toBe('22ms');
+    expect(delay(4)).toBe('88ms');
+  });
+
+  it('takes a bookend to the new end of the row instead of jumping it there', () => {
+    const { shelf } = mount();
+    const end = shelf.element.querySelector<HTMLElement>('.bb-shelf__bookend--end')!;
+    const x = (): number => Number(/translate3d\(([-\d.e]+)px/.exec(end.style.transform)?.[1]);
+    const before = x();
+    shelf.setItems(makeItems(8));
+    expect(x()).toBeCloseTo(before, 6);
+    step(180);
+    expect(x()).toBeGreaterThan(before + 10);
+    const half = x();
+    step(200);
+    expect(x()).toBeGreaterThan(half + 10);
+  });
+
+  it('stops asking for frames once it is destroyed', () => {
+    const { shelf } = mount();
+    shelf.setItems(makeItems(5).reverse());
+    shelf.destroy();
+    expect(() => step(100)).not.toThrow();
+    expect(frames).toHaveLength(0);
   });
 });
 

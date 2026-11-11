@@ -1,5 +1,6 @@
 import { createCover } from './cover-art';
 import { imprintOf, seriesOf } from './imprint';
+import type { SlotPose } from './layout';
 import type { TitleFit } from './title-fit';
 import { resolveCloth } from './variants';
 import type { ShelfItem } from './types';
@@ -19,6 +20,11 @@ export interface BookNode {
   body: HTMLElement;
   /** How many places from the presented volume it stood when it was last taken out of its slot. */
   offset: number;
+  /** The pose it was last drawn in. Null until it has been drawn. */
+  drawn: SlotPose | null;
+  /** Where it travels from after the row changed around it, and when that began. Null once it has arrived. */
+  from: SlotPose | null;
+  fromAt: number;
   /** The lettering on the spine; the shelf fits it to the spine's size. */
   title: HTMLElement;
   /** Where the title's text goes: the title itself, or the paper label pasted on it. */
@@ -138,7 +144,21 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   element.dataset.id = item.id;
   const parts = dress(item, index);
   element.appendChild(parts.body);
-  const node: BookNode = { element, slot, index, item, ...parts, offset: 0, print: null, turn: 0, shades: [-1, -1, -1], control: null };
+  const node: BookNode = {
+    element,
+    slot,
+    index,
+    item,
+    ...parts,
+    offset: 0,
+    drawn: null,
+    from: null,
+    fromAt: 0,
+    print: null,
+    turn: 0,
+    shades: [-1, -1, -1],
+    control: null,
+  };
   markReading(node);
   return node;
 }
@@ -195,6 +215,10 @@ export function redress(node: BookNode, item: ShelfItem, index: number, slot: nu
 /** A bookend at one end of a row that does not loop: a thin plate standing across the row. */
 export interface BookendNode {
   element: HTMLLIElement;
+  /** Where it was last drawn along the row, and where it travels from after the row changed. */
+  x: number | null;
+  from: number | null;
+  fromAt: number;
   edgeShade: HTMLElement;
   frontShade: HTMLElement;
   backShade: HTMLElement;
@@ -215,7 +239,7 @@ export function createBookend(side: 'start' | 'end'): BookendNode {
   const [, edgeShade] = face('bb-bookend__edge');
   const [, frontShade] = face('bb-bookend__face bb-bookend__face--front');
   const [, backShade] = face('bb-bookend__face bb-bookend__face--back');
-  return { element, edgeShade, frontShade, backShade, shades: [-1, -1, -1] };
+  return { element, x: null, from: null, fromAt: 0, edgeShade, frontShade, backShade, shades: [-1, -1, -1] };
 }
 
 /**

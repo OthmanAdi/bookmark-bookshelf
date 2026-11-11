@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  blendPose,
   computeRow,
   computeStandingRow,
+  easeTravel,
   extentOf,
   focusWeight,
   gapWeight,
@@ -10,6 +12,7 @@ import {
   restLength,
   restPitch,
   rowStands,
+  samePose,
   scaleGeometry,
   visibleRange,
   volumeSize,
@@ -414,6 +417,52 @@ describe('a row that stands still', () => {
 
   it('counts an empty row as standing', () => {
     expect(rowStands(paper, 0, 1280)).toBe(true);
+  });
+});
+
+describe('a volume travelling to a new place', () => {
+  const from = poseAt(3, paper, 3);
+  const to = poseAt(3, paper, 6);
+
+  it('starts in the pose it had and ends in the pose it belongs in', () => {
+    // A lean of minus nothing is no lean.
+    const plain = (pose: typeof from) => Object.fromEntries(Object.entries(pose).map(([key, value]) => [key, value + 0]));
+    expect(plain(blendPose(from, to, 0))).toEqual(plain({ ...from, slot: to.slot }));
+    expect(plain(blendPose(from, to, 1))).toEqual(plain(to));
+    expect(plain(blendPose(from, to, -2))).toEqual(plain({ ...from, slot: to.slot }));
+    expect(plain(blendPose(from, to, 7))).toEqual(plain(to));
+  });
+
+  it('moves and turns evenly in between', () => {
+    const half = blendPose(from, to, 0.5);
+    expect(half.x).toBeCloseTo((from.x + to.x) / 2, 9);
+    expect(half.angle).toBeCloseTo(from.angle / 2, 9);
+    expect(half.lean).toBeCloseTo(from.lean / 2, 9);
+    expect(half.weight).toBeCloseTo(0.5, 9);
+    let previous = from.x;
+    for (let step = 1; step <= 20; step++) {
+      const x = blendPose(from, to, step / 20).x;
+      expect(x).toBeGreaterThan(previous);
+      previous = x;
+    }
+  });
+
+  it('tells poses that would be drawn alike from poses that would not', () => {
+    expect(samePose(from, { ...from, slot: 9, x: from.x + 0.1 })).toBe(true);
+    expect(samePose(from, { ...from, x: from.x + 1 })).toBe(false);
+    expect(samePose(from, { ...from, angle: from.angle - 0.2 })).toBe(false);
+    expect(samePose(from, to)).toBe(false);
+  });
+
+  it('gathers speed, then slows into its place', () => {
+    expect(easeTravel(0)).toBe(0);
+    expect(easeTravel(1)).toBe(1);
+    expect(easeTravel(0.5)).toBeCloseTo(0.5, 12);
+    expect(easeTravel(0.1)).toBeLessThan(0.05);
+    expect(easeTravel(0.9)).toBeGreaterThan(0.95);
+    expect(easeTravel(-1)).toBe(0);
+    expect(easeTravel(3)).toBe(1);
+    for (let step = 1; step <= 50; step++) expect(easeTravel(step / 50)).toBeGreaterThan(easeTravel((step - 1) / 50));
   });
 });
 
