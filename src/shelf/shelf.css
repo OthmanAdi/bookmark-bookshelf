@@ -202,9 +202,9 @@
   position: absolute;
   inset: -6px;
   display: none;
-  border: 3px solid var(--bb-focus-ring, var(--bb-focus));
+  border: var(--bb-focus-width-wide) solid var(--bb-focus-ring);
   border-radius: 4px;
-  box-shadow: 0 0 0 2px var(--bb-focus-halo, transparent);
+  box-shadow: 0 0 0 var(--bb-focus-offset) var(--bb-focus-halo);
   pointer-events: none;
 }
 
@@ -717,6 +717,6 @@
   .bb-book__ring {
     forced-color-adjust: none;
     border-color: Highlight;
-    box-shadow: 0 0 0 2px Canvas;
+    box-shadow: 0 0 0 var(--bb-focus-offset) Canvas;
   }
 }
