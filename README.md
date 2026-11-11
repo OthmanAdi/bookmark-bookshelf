@@ -1,16 +1,22 @@
 # Bookmark Bookshelf
 
-Bookmark Bookshelf is an open-source 3D bookmark manager. Your saved links stand as volumes on an interactive bookshelf that you can drag, open and read.
+A 3D bookmark manager: your saved links stand as books on a shelf you can drag, open and read.
 
-There is no hosted demo yet, so the quickest way to see it is to run it locally. You do not need an account, and your library stays in your browser.
+![A 3D bookshelf in a browser: a row of book spines is dragged, and one volume opens into a reader](docs/media/shelf-demo.gif)
 
-![The shelf being dragged, a volume opened, read and closed again](docs/media/shelf-demo.gif)
+*Recorded from the app: drag the row, open a volume, read, close.*
 
-*Recorded from the running app. The round pointer marker was added for the recording. Everything else is the product.*
+[Live demo](https://othmanadi.github.io/bookmark-bookshelf/) | [For coding agents](#for-coding-agents) | [Source layout](#the-four-parts)
 
-Saved links pile up in a flat list and lose their context. Here each link becomes a cloth-bound volume with a title on its spine. Drag the row, bring one to the centre, open it, and read the copy you saved with it. Close it and the shelf remembers the paragraph you stopped at.
+## What it is
 
-Run it on your own machine with four commands.
+Bookmark Bookshelf is an open-source 3D bookmark manager and read-later list that runs in a browser. Each saved link is a volume on a shelf: you open one, read the text you saved with it, and find your place again next time. It is local-first, with no account and no tracking. The library lives in your browser's local storage, and apart from loading its own files the app makes no network requests.
+
+## Try it
+
+Open the [live demo](https://othmanadi.github.io/bookmark-bookshelf/). It starts with example links that one button removes.
+
+To run it yourself:
 
 ```bash
 git clone https://github.com/OthmanAdi/bookmark-bookshelf.git
@@ -19,80 +25,78 @@ npm install
 npm run dev
 ```
 
-Then open `http://127.0.0.1:5173/` for the homepage or `http://127.0.0.1:5173/app.html` for your shelf. It needs Node `^22.12.0`, `^24.0.0` or `>=26.0.0`.
+Then open the address Vite prints, normally `http://127.0.0.1:5173/`. It needs Node `^22.12.0`, `^24.0.0` or `>=26.0.0`.
 
-## Pick your path
+## Features
 
-### To use it
+- The shelf is a 3D bookshelf drawn with CSS transforms, without WebGL. A row long enough to fill the window loops, and you drag or flick it with a mouse, a finger or a trackpad. A shorter row stands still between two bookends. The volume you pick turns to show its cover.
+- A volume opens into a reader for the text you pasted when you saved the link. It keeps your place across reloads, steps the text size, holds private notes and ends with "Mark as read".
+- Import browser bookmarks from the HTML file a browser exports (folders become shelves), or paste a list of many links. A preview shows what will be added and what will be skipped.
+- Search finds a link by title, site, author, note or tag.
+- Share a shelf as a reading list, as a file or as a link that carries the whole shelf in its address, so no server holds it. Whoever opens it sees a preview before anything is added ([recording](docs/media/share-demo.gif)).
 
-Run it locally with the commands above, open `http://127.0.0.1:5173/app.html` and choose "Add a link". Paste the link, and if you want to read it in the app, paste the text too. Everything is stored in your browser's local storage. "Export library" in the footer gives you a JSON file you can keep or move to another browser.
+A shelf shows how many of its links are read and about how long the rest will take, and its menu writes a plain-text hand-in summary. On a phone, View and "Add a link" sit in a dock at the bottom ([recording](docs/media/phone-demo.gif)). The View menu offers a plain list and four looks for the shelf: Paper Row, Oak Library, Night Study and Pocket Paperbacks. The row works from the keyboard (arrow keys, Home, End, Enter, Escape), and with reduced motion nothing travels.
 
-### To take one part into your own project
+## Use it in your project
 
-The shelf, the motion engine, the store and the reader are four folders that do not import each other. Copy the one you need from `src/` and mount it.
+The shelf, the motion engine, the store and the reader are four folders of vanilla TypeScript with zero runtime dependencies. They never import each other, so you can take one or all four.
+
+### For coding agents
+
+The repository carries an agent skill named `bookshelf`, invoked as `/bookshelf`. It tells a coding agent which folders to copy, how to wire them and which checks to run.
+
+| Agent | Install | Invoke |
+|---|---|---|
+| Claude Code, as a plugin | `/plugin marketplace add OthmanAdi/bookmark-bookshelf`, then `/plugin install bookshelf@bookmark-bookshelf` | `/bookshelf` or `/bookshelf:bookshelf` |
+| Any agent, through the `skills` CLI | `npx skills add OthmanAdi/bookmark-bookshelf --skill bookshelf` | `/bookshelf` in Claude Code, `$bookshelf` in Codex |
+| Any agent, by copying | Copy [`.agents/skills/bookshelf`](.agents/skills/bookshelf) into the agent's skills folder (Claude Code: `~/.claude/skills/bookshelf`) | `/bookshelf` |
+
+The commands follow each tool's documentation. None could be run against this repository before it was public, so treat every row as untested.
+
+The skill holds instructions only. It takes the modules from a checkout next to itself or from a path you give it, or asks before it clones the release tag.
+
+```text
+/bookshelf Build the whole shelf into this project: drag, local storage and the reader that resumes, seeded from links.json.
+/bookshelf I only want the draggable 3D shelf for the eight titles in essays.json. No storage and no reader.
+```
+
+### By hand
+
+Copy the folders you need from `src/`, with `src/styles/tokens.css`. This is the shelf with motion:
 
 ```ts
 import { createShelfMotion, prefersReducedMotion } from './motion';
 import { mountShelf } from './shelf';
 
-const shelf = mountShelf(host, { items });
-const motion = createShelfMotion({
-  count: items.length,
-  loop: shelf.loop,
-  reducedMotion: prefersReducedMotion,
-  timing: shelf.variant.motion,
-});
+const motion = createShelfMotion({ count: items.length, reducedMotion: prefersReducedMotion });
+const shelf = mountShelf(host, { items, onLoopChange: (loop) => motion.setLoop(loop) });
+motion.setLoop(shelf.loop);
 motion.subscribe((state) => shelf.setPose({ position: state.position, open: 0 }));
-motion.attach(shelf.surface, { pxPerItem: () => shelf.pitch() });
+motion.attach(shelf.surface, { pxPerItem: () => shelf.pitch(), enabled: () => !shelf.fixed });
 shelf.on((intent) => {
   if (intent.type === 'focus') motion.goTo(intent.slot);
   else if (intent.type === 'step') motion.step(intent.direction);
 });
 ```
 
-### To have a coding agent build it in
-
-The repository carries a skill at [`.agents/skills/bookmark-bookshelf/`](.agents/skills/bookmark-bookshelf/SKILL.md). The skill holds the instructions and the modules stay in this repository, so the agent needs both.
-
-Used in place, from a checkout of this repository, the skill finds the modules next to itself.
-
-> Read `.agents/skills/bookmark-bookshelf/SKILL.md` in `/path/to/bookmark-bookshelf` and build the whole shelf into my project at `/path/to/my-app`, with drag, local storage and the reader with resume, seeded from `links.json`.
-
-If you install it into the skills folder of your agent (copy the `bookmark-bookshelf` folder there), give it the checkout as the source path.
-
-> Use the bookmark-bookshelf skill with source path `/path/to/bookmark-bookshelf`. I only want the draggable 3D shelf for these eight titles in this project. I do not need storage or the reader.
-
-The skill checks the source path for the module folders and the package version before it copies anything.
-
 ## The four parts
 
 | Module | Folder | What it does | Runs alone in |
 |---|---|---|---|
-| Shelf | [`src/shelf`](src/shelf) | Draws volumes in CSS 3D for a pose and reports what was picked. It has four looks. | [`examples/shelf-only.html`](examples/shelf-only.html) (with motion) |
-| Motion | [`src/motion`](src/motion) | Springs, drag, flick and snap on Pointer Events. It knows nothing about books. | same example |
-| Store | [`src/store`](src/store) | Versioned library in local storage with validation, migration, import and export. | [`examples/store-only.html`](examples/store-only.html) |
-| Reader | [`src/reader`](src/reader) | Shows a saved copy as text nodes only, tracks the position and hands it back. | [`examples/reader-only.html`](examples/reader-only.html) |
+| Shelf | [`src/shelf`](src/shelf) | Draws volumes in CSS 3D for a given position and reports what was picked. | [`examples/shelf-only.html`](examples/shelf-only.html), with motion |
+| Motion | [`src/motion`](src/motion) | Springs, drag, flick and snap on Pointer Events. It knows nothing about books. | the same example |
+| Store | [`src/store`](src/store) | A versioned library in local storage, with import, export, search and sharing. | [`examples/store-only.html`](examples/store-only.html) |
+| Reader | [`src/reader`](src/reader) | Shows saved text as a page built from text nodes only, and reports the reading position. | [`examples/reader-only.html`](examples/reader-only.html) |
 
-They meet in one file, [`src/app/bookshelf.ts`](src/app/bookshelf.ts). Contracts, wiring recipes and checks are in the skill's [`references/`](.agents/skills/bookmark-bookshelf/references).
+They meet in [`src/app/bookshelf.ts`](src/app/bookshelf.ts). Their contracts and wiring recipes are in the skill's [`references/`](.agents/skills/bookshelf/references).
 
-There are no runtime dependencies. A production build of the app is about 62 kB of JavaScript before compression (24 kB gzipped), not counting the sample texts, measured from `npm run build`.
+## What it does not do
 
-## Why keep it around
-
-- Mouse, touch and trackpad move the row 1:1, a flick carries it, and it settles on a volume with a critically damped spring. On a phone a sideways swipe moves the shelf and a vertical one still scrolls the page. The default look, Paper Row, steps at an unhurried measured pace when you use the arrows, and the other looks answer faster.
-- A volume opens into a page of the text you saved. Reload the tab and you are on the same volume at the same paragraph.
-- Your library is kept in local storage only, in a documented versioned JSON format that you can export and import. There is no account and no tracking, and the page makes no network requests after it has loaded.
-- It is built for keyboard and screen reader use. The row is one tab stop, and arrow keys, Home, End, Enter and Escape work. Focus returns to where you were, there is a plain list view, and with reduced motion every move is instant.
-- Each module has its own tests and a small contract, and the skill lets an agent rebuild all or part of it elsewhere.
-
-![A phone-sized view where the shelf is swiped, a volume is tapped open, the page is scrolled and the reader is closed](docs/media/touch-demo.gif)
-![The four looks, Paper Row, Oak Library, Night Study and Pocket Paperbacks](docs/media/looks-demo.gif)
-
-If the shelf is useful to you, a star helps other people find it.
-
-## What the reader does and does not do
-
-The reader shows text you saved with a link. It never fetches a page for you, because most sites refuse that from a browser and doing it safely needs a server this project does not have. A link saved without text says so, offers a field to paste the text, and always keeps a plain "Open original" link. Reading copies use a small markdown subset. Anything else, including HTML, is shown as plain text and never run.
+- It never fetches a page. The reader shows text you pasted, and a link saved without text offers a field for it and "Open original".
+- It does not sync between devices. A backup file, a shelf file or a shelf link carries links from one browser to another.
+- Search does not look inside the saved texts.
+- The browser tests run in Chromium, on a desktop and on a phone-sized screen with touch, with a smoke run in WebKit. Firefox is not covered.
+- Clearing site data in the browser removes the library, so save a backup first.
 
 ## Commands
 
@@ -100,24 +104,12 @@ The reader shows text you saved with a link. It never fetches a page for you, be
 |---|---|
 | `npm run dev` | Development server on `127.0.0.1:5173` |
 | `npm run build` | Type check, then a static build in `dist/` |
-| `npm run preview` | Serve `dist/` on `127.0.0.1:4173` |
-| `npm test` | 420 unit tests (Vitest, happy-dom) |
-| `npm run test:e2e` | 81 browser tests (Playwright on desktop Chromium, phone-sized Chromium with touch, and a WebKit smoke run). Run `npx playwright install chromium webkit` once first |
+| `npm test` | Unit tests (Vitest with happy-dom) |
+| `npm run test:e2e` | Browser tests (Playwright). Run `npx playwright install chromium webkit` once first |
 | `npm run check` | Type check, unit tests and build |
 
-The build is a folder of static files with relative URLs, so it can be served from any path. A hosted demo is not published yet. The workflow in [`.github/workflows/pages.yml`](.github/workflows/pages.yml) is ready to build the site and deploy it to GitHub Pages once Pages is switched on for the repository, and it sets `SITE_ORIGIN` to the address the site will have. With `SITE_ORIGIN` set, the build adds the canonical link, absolute sharing URLs, `robots.txt` and `sitemap.xml`. Without it, every page is marked `noindex`.
+## How it came about and licence
 
-## Limits
+The idea of a row of spines with one volume turned to its cover came from studying a screen recording of a third-party shelf interface. No code, artwork, text or brand element of it, or of any other interface, is used here. [PROVENANCE.md](PROVENANCE.md) has the details.
 
-- No sync between devices beyond export and import.
-- No automatic article extraction (see above).
-- Tested in Chromium (desktop and phone-sized with touch) and smoke-tested in WebKit. Firefox has not been tested yet.
-- Fonts are bundled for Latin and Latin Extended. Other scripts fall back to system fonts.
-
-## How it came about
-
-The row geometry, the turn-to-cover focus and the way a volume grows open into a page were independently reverse-engineered from a screen recording of a third-party shelf interface, by measuring frames. No code, artwork, text or brand element from it is used here. Drag, flick, touch, keyboard, reduced motion, the reader, the store, the cover art and the looks are original design. Details are in [PROVENANCE.md](PROVENANCE.md).
-
-## Licence
-
-The project is licensed under Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Bundled typefaces (Newsreader, IBM Plex Mono) are under the SIL Open Font License 1.1, and the built JavaScript includes a small module-preload helper from Vite under the MIT License. The licence texts ship in [`public/licenses/`](public/licenses) and are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+The licence is Apache-2.0 ([LICENSE](LICENSE), [NOTICE](NOTICE)). The bundled typefaces are under the SIL Open Font License 1.1, and the built JavaScript includes a helper from Vite under the MIT License: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Changes are in [CHANGELOG.md](CHANGELOG.md).
