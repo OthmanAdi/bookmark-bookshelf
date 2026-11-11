@@ -361,7 +361,11 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       progress: store.progress(id),
       cover,
       coverAspect: coverAspect(),
-      onProgress: (position) => store.setProgress(id, position),
+      onProgress: (position) => {
+        // While the reader leaves, its page changes size under the text. That is not reading.
+        if (closing) return;
+        store.setProgress(id, position);
+      },
       onClose: () => void close(),
       myNote: store.note(id),
       onMyNote: (text) => void store.setNote(id, text),
