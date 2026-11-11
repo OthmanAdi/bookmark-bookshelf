@@ -3,12 +3,14 @@ import './reader-text.css';
 import { buildArticleParts, fillBody } from './article';
 import type { ArticleHandlers } from './article';
 import { cleanLang, resolveLabels } from './meta';
+import { takeDraft, restoreDraft, worthKeeping } from './draft';
 import { buildEnd } from './end';
 import { buildNotes } from './notes';
 import type { End } from './end';
 import { createProgressTracker, measureBlocks } from './progress';
 import { trapTab } from './focus-trap';
 import { measureFlightTarget, toBox } from './landing';
+import { lastInputWasPointer } from './modality';
 import { createRevealer } from './reveal';
 import { TEXT_SIZES, normaliseScale, stepScale } from './text-size';
 import { buildShell } from './shell';
@@ -36,6 +38,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   let done = options.done === true;
   let next: NextLink | null = options.next ?? null;
   let end: End | null = null;
+  let pasteField: HTMLTextAreaElement | null = null;
   const notesOn = typeof options.onMyNote === 'function' || options.myNote !== undefined;
   const notes = buildNotes(dom, {
     labels,
@@ -129,7 +132,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     editButton = parts.editButton;
     shell.barText.textContent = source.title;
     titleWatch.watch(shell.article.querySelector('h1'));
-    const field = fillBody({ dom, body, source, labels, fieldId: `${uid}-paste`, canEdit, editing, handlers });
+    pasteField = fillBody({ dom, body, source, labels, fieldId: `${uid}-paste`, canEdit, editing, handlers });
     if (notesOn) notes.attach(body);
     restoreNote?.();
     renderEnd();
@@ -137,20 +140,26 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
       child.classList.add('bb-reader__enter');
       (child as HTMLElement).style.setProperty('--bb-enter-index', String(Math.min(index, 4)));
     });
-    if (focusTarget === 'field') field?.focus({ preventScroll: true });
+    if (focusTarget === 'field') pasteField?.focus({ preventScroll: true });
     if (focusTarget === 'edit') (editButton ?? sheet).focus({ preventScroll: true });
     if (relayout) tracker.settle();
   }
 
-  function onKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && !event.defaultPrevented) {
+  // Also offered to the host, so Escape works from the first frame of the opening, before any event reaches the dialog.
+  function handleKey(event: KeyboardEvent): boolean {
+    if (destroyed || event.defaultPrevented) return false;
+    root.removeAttribute('data-pointer');
+    if (event.key === 'Escape') {
       event.preventDefault();
       notes.flush();
       options.onClose?.();
-    } else if (event.key === 'Tab' && root.dataset.open === '1') {
-      trapTab(event, root, sheet);
+      return true;
     }
+    if (event.key === 'Tab' && root.dataset.open === '1') trapTab(event, root, sheet);
+    return event.defaultPrevented;
   }
+
+  const onKeydown = (event: KeyboardEvent): void => void handleKey(event);
 
   const applyReveal = createRevealer(root, sheet);
 
@@ -169,6 +178,9 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   tracker.sync(true);
   showProgress(tracker.current());
   if (options.progress) tracker.restore(options.progress);
+  // Focus is inside from the first moment, so Escape and Tab work while the page is still arriving.
+  if (lastInputWasPointer()) root.dataset.pointer = '1';
+  shell.closeButton.focus({ preventScroll: true });
 
   const settle = (): void => {
     if (!destroyed) tracker.settle();
@@ -197,6 +209,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
       return cover ? toBox(shell.coverSlot.getBoundingClientRect()) : null;
     },
     setReveal: applyReveal,
+    handleKey,
     setCoverVisible(visible) {
       if (cover) cover.style.visibility = visible ? '' : 'hidden';
       shell.thumb.toggleAttribute('data-cover-hidden', !visible);
@@ -207,10 +220,14 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     },
     update(doc) {
       if (destroyed) return;
+      // Whatever is being typed in the paste field survives a change made elsewhere, such as another tab.
+      const typed = takeDraft(dom, pasteField);
       source = doc;
-      editing = false;
+      const keep = worthKeeping(typed, doc.text, editing);
+      editing = keep;
       tracker.restore(null);
       render();
+      if (keep && pasteField) restoreDraft(typed, pasteField);
     },
     progress: () => tracker.current(),
     destroy() {

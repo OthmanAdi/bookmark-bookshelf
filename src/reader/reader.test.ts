@@ -136,7 +136,6 @@ describe('structure', () => {
     const reader = mount({ cover });
     reader.setCoverVisible(false);
     expect(cover.style.visibility).toBe('hidden');
-    expect(reader.element.style.visibility).toBe('hidden');
     reader.setCoverVisible(true);
     expect(cover.style.visibility).toBe('');
   });
@@ -231,6 +230,119 @@ describe('language', () => {
     expect(query('.bb-reader__saved time').textContent).toMatch(/^4\. M\S+ 2026$/);
     handle?.update({ ...doc, lang: 'en' });
     expect(query('.bb-reader__saved time').textContent).toBe('4 Mar 2026');
+  });
+});
+
+describe('focus and keys', () => {
+  it('has focus inside as soon as it is mounted, before it is shown', () => {
+    const reader = mount();
+    expect(reader.element.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(query('.bb-reader__close'));
+    expect(reader.element.getAttribute('data-open')).toBe('0');
+  });
+
+  it('closes on Escape while it is still opening', () => {
+    const onClose = vi.fn();
+    const reader = mount({ onClose });
+    reader.setReveal(0.3);
+    keydown(query('.bb-reader__body'), 'Escape');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the host route a key to it, and says whether it acted', () => {
+    const onClose = vi.fn();
+    const reader = mount({ onClose });
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    expect(reader.handleKey(escape)).toBe(true);
+    expect(escape.defaultPrevented).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(reader.handleKey(new KeyboardEvent('keydown', { key: 'a', cancelable: true }))).toBe(false);
+  });
+
+  it('acts once when a key reaches both the host and the dialog', () => {
+    const onClose = vi.fn();
+    const reader = mount({ onClose });
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    reader.handleKey(event);
+    reader.element.dispatchEvent(event);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores keys after it is destroyed', () => {
+    const reader = mount();
+    reader.destroy();
+    expect(reader.handleKey(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))).toBe(false);
+  });
+
+  it('wraps Tab through handleKey once open', () => {
+    const reader = mount({ onSaveText: () => undefined });
+    reader.setReveal(1);
+    const stops = Array.from(reader.element.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), textarea'));
+    stops[stops.length - 1]?.focus();
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true });
+    expect(reader.handleKey(tab)).toBe(true);
+    expect(document.activeElement).toBe(stops[0]);
+  });
+
+  it('keeps the cover beside the text out of the reading order', () => {
+    mount({ cover: document.createElement('div') });
+    const cover = query('.bb-reader__cover');
+    expect(cover.getAttribute('aria-hidden')).toBe('true');
+    expect(cover.tagName).toBe('DIV');
+    expect(host.querySelector('aside')).toBeNull();
+  });
+
+  it('shows no ring after a pointer opens it, until a key is pressed', () => {
+    document.dispatchEvent(new Event('pointerdown'));
+    const reader = mount();
+    expect(reader.element.hasAttribute('data-pointer')).toBe(true);
+    keydown(reader.element, 'Tab');
+    expect(reader.element.hasAttribute('data-pointer')).toBe(false);
+  });
+
+  it('shows the ring when a key opened it', () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(mount().element.hasAttribute('data-pointer')).toBe(false);
+  });
+});
+
+describe('a change made elsewhere while typing', () => {
+  const empty: ReaderDoc = { ...doc, text: undefined };
+
+  it('keeps what is typed in the field of a link with no text when text arrives', () => {
+    const reader = mount({ doc: empty, onSaveText: () => undefined });
+    const field = query<HTMLTextAreaElement>('.bb-reader__paste-field');
+    field.focus();
+    field.value = 'half pasted';
+    field.setSelectionRange(4, 4);
+    reader.update({ ...doc, text: 'Text saved in another tab.' });
+    const kept = query<HTMLTextAreaElement>('.bb-reader__paste-field');
+    expect(kept.value).toBe('half pasted');
+    expect(document.activeElement).toBe(kept);
+    expect(kept.selectionStart).toBe(4);
+  });
+
+  it('keeps an edit in progress when the title changes', () => {
+    const reader = mount({ onSaveText: () => undefined });
+    query<HTMLButtonElement>('.bb-reader__edit').click();
+    query<HTMLTextAreaElement>('.bb-reader__paste-field').value = 'my edit';
+    reader.update({ ...doc, title: 'Renamed' });
+    expect(query('h1').textContent).toBe('Renamed');
+    expect(query<HTMLTextAreaElement>('.bb-reader__paste-field').value).toBe('my edit');
+  });
+
+  it('shows the new text when nothing was typed', () => {
+    const reader = mount({ doc: empty, onSaveText: () => undefined });
+    reader.update({ ...doc, text: 'Arrived from elsewhere.' });
+    expect(host.querySelector('.bb-reader__paste')).toBeNull();
+    expect(query('.bb-reader__body p').textContent).toBe('Arrived from elsewhere.');
+  });
+
+  it('closes the edit field when the document is replaced by an identical text', () => {
+    const reader = mount({ onSaveText: () => undefined });
+    query<HTMLButtonElement>('.bb-reader__edit').click();
+    reader.update(doc);
+    expect(host.querySelector('.bb-reader__paste')).toBeNull();
   });
 });
 
@@ -340,10 +452,11 @@ describe('reveal', () => {
     const reader = mount();
     reader.setReveal(1);
     expect(reader.element.getAttribute('data-open')).toBe('1');
-    expect(reader.element.style.visibility).toBe('visible');
+    expect(reader.element.getAttribute('data-closed')).toBe('0');
     reader.setReveal(0);
     expect(reader.element.getAttribute('data-open')).toBe('0');
-    expect(reader.element.style.visibility).toBe('hidden');
+    expect(reader.element.getAttribute('data-closed')).toBe('1');
+    expect(reader.scroller.style.opacity).toBe('0');
   });
 
   it('fades the sheet in the middle of the opening and never moves the window', () => {
@@ -356,7 +469,7 @@ describe('reveal', () => {
     expect(windowEl.style.transform).toBe('');
     expect(reader.scroller.style.transform).toBe('');
     expect(reader.element.getAttribute('data-open')).toBe('0');
-    expect(reader.element.style.visibility).toBe('visible');
+    expect(reader.element.getAttribute('data-closed')).toBe('0');
     reader.setReveal(1);
     expect(reader.scroller.style.opacity).toBe('');
   });

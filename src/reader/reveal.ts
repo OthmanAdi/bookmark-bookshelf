@@ -28,7 +28,6 @@ export function createRevealer(root: HTMLElement, sheet: HTMLElement): (progress
     root.dataset.open = frame.open ? '1' : '0';
     root.dataset.content = frame.content ? '1' : '0';
     root.dataset.closed = frame.closed ? '1' : '0';
-    root.style.visibility = frame.closed ? 'hidden' : 'visible';
     sheet.style.opacity = frame.opacity;
   };
 }

@@ -151,6 +151,11 @@ export interface ReaderHandle {
   setNext(next: NextLink | null): void;
   /** Shows or hides the reader's own cover, for a hand-off with a flying book. */
   setCoverVisible(visible: boolean): void;
+  /**
+   * Handles Escape (closes) and Tab (stays inside) for the host, which can route keys here while the
+   * reader is still opening. Returns true when it acted on the key and prevented its default.
+   */
+  handleKey(event: KeyboardEvent): boolean;
   /** Moves focus to the close button. */
   focus(): void;
   /** Replaces the document, keeping the reader mounted. */

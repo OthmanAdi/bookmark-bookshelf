@@ -38,6 +38,18 @@
   outline: none;
 }
 
+/* The sticky bar never covers what has focus: the browser keeps it this far from the top edge. */
+.bb-reader__sheet {
+  scroll-padding-top: calc(var(--bb-reader-bar) + var(--bb-s-4));
+  scroll-padding-bottom: var(--bb-s-5);
+}
+
+/* Opened by a tap or a click: no ring on the first focus. A key press brings the rings back. */
+.bb-reader[data-pointer] :focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 /* Bar: the button starts on the text axis and the readout ends on the layout's right edge. */
 .bb-reader__bar {
   position: sticky;
@@ -348,10 +360,6 @@
   }
 
   /* Nothing travels: the sheet cross-fades over a scene that stays put, and the text is simply there. */
-  .bb-reader[data-closed='1'] {
-    transition: visibility 0s linear 120ms;
-  }
-
   .bb-reader .bb-reader__sheet {
     transition: opacity 120ms linear !important;
   }

@@ -88,7 +88,9 @@ function coverRatio(aspect: number | undefined): string {
 }
 
 function buildCover(dom: Document, cover: HTMLElement | null, ratio: string) {
-  const aside = el(dom, 'aside', 'bb-reader__cover');
+  // The cover repeats the title and author that the document already gives, so it is left out of the reading order.
+  const aside = el(dom, 'div', 'bb-reader__cover');
+  aside.setAttribute('aria-hidden', 'true');
   const slot = el(dom, 'div', 'bb-reader__cover-slot');
   // A custom property instead of a direct style, so a look can override the proportion with a token.
   slot.style.setProperty('--bb-reader-cover-aspect-given', ratio);
@@ -106,7 +108,6 @@ export function buildShell(dom: Document, input: ShellInput): ShellRefs {
   root.setAttribute('data-open', '0');
   root.setAttribute('data-content', '0');
   root.setAttribute('data-closed', '1');
-  root.style.visibility = 'hidden';
 
   const windowEl = el(dom, 'div', 'bb-reader__window');
   const sheet = el(dom, 'div', 'bb-reader__sheet');
