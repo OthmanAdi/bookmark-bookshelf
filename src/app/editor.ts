@@ -103,7 +103,7 @@ export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created
     const removed = store.removeBookmark(editingId);
     dialog.close();
     if (!removed) return;
-    toast(`Removed "${removed.bookmark.title}".`, { label: 'Undo', run: () => store.restoreBookmark(removed) });
+    toast(`Removed ${removed.bookmark.title}.`, { label: 'Undo', run: () => store.restoreBookmark(removed) });
   });
 
   // Closing by Escape or backdrop click must not leave a half-edited state behind.

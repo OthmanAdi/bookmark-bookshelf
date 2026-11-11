@@ -1,5 +1,4 @@
 import type { Bookshelf } from './bookshelf';
-import { toast } from './dom';
 import { createEditor } from './editor';
 import type { Store } from '../store';
 
@@ -42,10 +41,9 @@ export function createFlows(context: FlowContext): Flows {
 
   const editor = createEditor(store, (bookmark, created) => {
     if (created) {
-      // Show the new volume on a shelf that contains it.
+      // Show the new link on a shelf that contains it.
       const active = store.session().shelfId;
       if (active !== null && active !== bookmark.shelfId) bookshelf.setShelf(bookmark.shelfId);
-      toast(`Added "${bookmark.title}".`);
     }
     bookshelf.show(bookmark.id);
   });

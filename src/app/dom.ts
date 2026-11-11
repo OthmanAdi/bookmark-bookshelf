@@ -31,22 +31,95 @@ export function option(value: string, label: string): HTMLOptionElement {
   return element;
 }
 
-/** Shows a short message, optionally with one action such as Undo. */
-export function toast(message: string, action?: { label: string; run: () => void }, lifetime = 7000): void {
+const TOAST_PLAIN_MS = 4000;
+const TOAST_ACTION_MS = 10000;
+const TOAST_LEAVE_MS = 120;
+
+interface ShownToast {
+  item: HTMLElement;
+  close(immediately: boolean): void;
+}
+
+let shownToast: ShownToast | null = null;
+
+/**
+ * Shows one short message at a time, optionally with one action such as Undo. A toast that carries an action
+ * stays longer, and any toast waits while the pointer is over it or focus is inside it.
+ */
+export function toast(message: string, action?: { label: string; run: () => void }, lifetime?: number): void {
   const host = must<HTMLElement>('#toasts');
+  shownToast?.close(true);
+
   const item = make('div', 'bb-toast');
   item.appendChild(make('span', 'bb-toast__text', message));
-  const dismiss = (): void => item.remove();
+
+  let remaining = lifetime ?? (action ? TOAST_ACTION_MS : TOAST_PLAIN_MS);
+  let startedAt = Date.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let hovered = false;
+  let focused = false;
+  let returnTo: HTMLElement | null = null;
+  let closed = false;
+
+  const close = (immediately: boolean): void => {
+    if (closed) return;
+    closed = true;
+    clearTimeout(timer);
+    if (shownToast?.item === item) shownToast = null;
+    if (item.contains(document.activeElement) && returnTo?.isConnected) returnTo.focus({ preventScroll: true });
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (immediately || still) {
+      item.remove();
+      return;
+    }
+    item.classList.add('is-leaving');
+    setTimeout(() => item.remove(), TOAST_LEAVE_MS);
+  };
+
+  const run = (): void => {
+    clearTimeout(timer);
+    startedAt = Date.now();
+    timer = setTimeout(() => close(false), remaining);
+  };
+  const hold = (): void => {
+    clearTimeout(timer);
+    remaining = Math.max(remaining - (Date.now() - startedAt), 1500);
+  };
+  const settle = (): void => {
+    if (hovered || focused) hold();
+    else run();
+  };
+
+  item.addEventListener('pointerenter', () => {
+    hovered = true;
+    settle();
+  });
+  item.addEventListener('pointerleave', () => {
+    hovered = false;
+    settle();
+  });
+  item.addEventListener('focusin', (event) => {
+    if (!focused && event.relatedTarget instanceof HTMLElement) returnTo = event.relatedTarget;
+    focused = true;
+    settle();
+  });
+  item.addEventListener('focusout', (event) => {
+    if (event.relatedTarget instanceof Node && item.contains(event.relatedTarget)) return;
+    focused = false;
+    settle();
+  });
+
   if (action) {
     item.appendChild(
       button(action.label, 'bb-button bb-toast__action', () => {
+        close(false);
         action.run();
-        dismiss();
       }),
     );
   }
   host.appendChild(item);
-  setTimeout(dismiss, lifetime);
+  shownToast = { item, close };
+  run();
 }
 
 export function downloadText(filename: string, text: string): void {
