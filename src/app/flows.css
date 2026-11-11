@@ -836,6 +836,16 @@
   .bb-list__tools {
     grid-column: 2;
     justify-content: flex-start;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  /* On a narrow screen the host may shorten; the three actions stay on one line. */
+  .bb-list__original {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .bb-field-row {
