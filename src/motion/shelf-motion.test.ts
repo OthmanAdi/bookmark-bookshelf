@@ -53,6 +53,27 @@ describe('goTo and step', () => {
     expect(motion.state.position).toBe(2);
   });
 
+  it('never aims more than two volumes past the visible one when stepped repeatedly', () => {
+    const { clock, motion } = setup({ initial: 3 });
+    for (let press = 0; press < 12; press++) motion.step(1);
+    expect(motion.state.target).toBe(5);
+    clock.advance(500);
+    const visible = Math.round(motion.state.position);
+    expect(visible).toBeGreaterThan(3);
+    for (let press = 0; press < 12; press++) motion.step(1);
+    expect(motion.state.target).toBe(visible + 2);
+    clock.advance(3000);
+    expect(motion.state.position).toBe(visible + 2);
+  });
+
+  it('applies the same limit backwards and lets a reversal come back at once', () => {
+    const { motion } = setup({ initial: 6 });
+    for (let press = 0; press < 12; press++) motion.step(-1);
+    expect(motion.state.target).toBe(4);
+    motion.step(1);
+    expect(motion.state.target).toBe(5);
+  });
+
   it('loop true keeps the target unbounded and wraps focus', () => {
     const { clock, motion } = setup({ loop: true });
     motion.goTo(-1);

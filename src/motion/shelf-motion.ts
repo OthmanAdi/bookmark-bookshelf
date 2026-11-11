@@ -96,6 +96,8 @@ const FLICK_SPEED = 0.35; // px per ms
 const FLICK_MIN_TRAVEL = 24; // px
 const FLICK_DECAY_MS = 325;
 const FLICK_MAX_ITEMS = 6;
+/** How far past the visible volume repeated steps may aim. A held key never queues further than this. */
+const STEP_LEAD_ITEMS = 2;
 const RUBBER_BAND = 0.35;
 const REDUCED_FADE_MS = 150;
 const WHEEL_SETTLE_MS = 140;
@@ -273,7 +275,10 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   }
 
   function step(direction: -1 | 1): void {
-    goTo(state.target + direction);
+    const limit = Math.round(state.position) + direction * STEP_LEAD_ITEMS;
+    const next = state.target + direction;
+    // A target already beyond the limit (an explicit goTo) stays where it is; a step never pulls it back.
+    goTo(direction > 0 ? Math.min(next, Math.max(limit, state.target)) : Math.max(next, Math.min(limit, state.target)));
   }
 
   function setCount(next: number, focus?: number): void {
