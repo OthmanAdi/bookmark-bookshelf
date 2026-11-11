@@ -36,6 +36,25 @@
       <main id="main" class="bb-app__main">
         <h1 class="bb-visually-hidden">Your shelf</h1>
         <div id="shelf" data-fill></div>
+        <div id="caption" class="bb-stage__caption" data-empty="1">
+          <div class="bb-stage__head">
+            <button id="caption-prev" type="button" class="bb-button bb-stage__arrow" aria-label="Previous link" aria-controls="shelf">
+              <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
+            </button>
+            <h2 id="caption-title" class="bb-stage__title"></h2>
+            <button id="caption-next" type="button" class="bb-button bb-stage__arrow" aria-label="Next link" aria-controls="shelf">
+              <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+            </button>
+          </div>
+          <p id="caption-line" class="bb-stage__line"></p>
+          <div class="bb-stage__actions">
+            <button id="action-primary" type="button" class="bb-button bb-button--solid" aria-describedby="caption-title">Read</button>
+            <a id="action-original" class="bb-button" href="./app.html" target="_blank" rel="noopener noreferrer" aria-label="Open original, opens in a new tab" aria-describedby="caption-title">Open original</a>
+            <button id="action-edit" type="button" class="bb-button bb-button--quiet" aria-describedby="caption-title">Edit</button>
+            <button id="action-earlier" type="button" class="bb-button bb-button--quiet" aria-describedby="caption-title" hidden>Move earlier</button>
+            <button id="action-later" type="button" class="bb-button bb-button--quiet" aria-describedby="caption-title" hidden>Move later</button>
+          </div>
+        </div>
         <div id="list" hidden></div>
       </main>
 

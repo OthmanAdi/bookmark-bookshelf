@@ -204,7 +204,8 @@
    */
   --bb-stage-max: calc(var(--bb-stage-headroom, 2.5rem) + 510px + var(--bb-stage-floor, 2rem));
   display: grid;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: minmax(12rem, var(--bb-stage-max)) auto;
+  align-content: center;
   min-width: 0;
   min-height: 0;
   padding: var(--bb-s-5) 0 var(--bb-s-6);
@@ -223,8 +224,128 @@
 .bb-app [data-fill] > .bb-shelf {
   --bb-shelf-height: auto;
   height: 100%;
-  grid-template-rows: minmax(12rem, var(--bb-stage-max)) auto auto;
-  align-content: center;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+}
+
+/* ---------- the caption under the row ---------- */
+
+/*
+ * Title, one line and the actions. The title keeps room for two lines and sits on the bottom of that
+ * room, so a longer or shorter title never changes the stage height and the row never rescales while
+ * it moves.
+ */
+.bb-stage__caption {
+  display: grid;
+  justify-items: center;
+  padding-inline: var(--bb-gutter, clamp(1.25rem, 2.5vw, 2.5rem));
+}
+
+.bb-stage__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 30rem) auto;
+  align-items: end;
+  column-gap: var(--bb-s-5);
+  max-width: 100%;
+  min-height: calc(2 * 1.3 * var(--bb-text-lead, 1.4375rem));
+}
+
+.bb-stage__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--bb-text-lead, 1.4375rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.bb-stage__arrow {
+  width: var(--bb-control-h, 2.5rem);
+  min-width: var(--bb-control-h, 2.5rem);
+  padding: 0;
+}
+
+.bb-stage__arrow svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bb-stage__line {
+  max-width: min(100%, 36rem);
+  margin-top: var(--bb-s-2);
+  overflow: hidden;
+  color: var(--bb-ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bb-stage__line.is-note {
+  font-style: italic;
+}
+
+/* The line keeps its height when it has nothing to say, so the actions never jump. */
+.bb-stage__line:empty::before {
+  content: '\200b';
+}
+
+.bb-stage__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--bb-s-2);
+  margin-top: var(--bb-s-5);
+}
+
+.bb-stage__actions > [hidden] {
+  display: none;
+}
+
+.bb-stage__caption[data-empty='1'] {
+  visibility: hidden;
+}
+
+/* The old words leave quickly and the new ones arrive a little slower, so the change reads as one. */
+.bb-stage__title,
+.bb-stage__line {
+  transition: opacity calc(var(--bb-dur-1) * 4 / 3) var(--bb-ease-out);
+}
+
+.bb-stage__caption.is-leaving .bb-stage__title,
+.bb-stage__caption.is-leaving .bb-stage__line {
+  opacity: 0;
+  transition-duration: calc(var(--bb-dur-1) * 3 / 4);
+}
+
+/* At the end of a row with two ends, the arrow gives a small push against the end instead of doing nothing. */
+.bb-stage__arrow[data-end='true'] {
+  color: var(--bb-ink-soft);
+}
+
+.bb-stage__arrow.is-bumping:first-child {
+  animation: bb-bump-back var(--bb-dur-2) var(--bb-ease-out);
+}
+
+.bb-stage__arrow.is-bumping:last-child {
+  animation: bb-bump-forward var(--bb-dur-2) var(--bb-ease-out);
+}
+
+@keyframes bb-bump-back {
+  40% {
+    translate: -3px 0;
+  }
+}
+
+@keyframes bb-bump-forward {
+  40% {
+    translate: 3px 0;
+  }
 }
 
 /* ---------- footer: the boundary statement and library tools ---------- */
@@ -274,10 +395,18 @@
     min-height: 100dvh;
   }
 
+  .bb-app__main {
+    grid-template-rows: auto auto;
+  }
+
   .bb-app [data-fill] > .bb-shelf {
     --bb-shelf-height: clamp(15rem, 40svh, 19rem);
     height: auto;
     grid-template-rows: auto;
+  }
+
+  .bb-stage__head {
+    column-gap: var(--bb-s-3);
   }
 
   .bb-app__bar {
@@ -299,7 +428,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bb-tab {
+  .bb-tab,
+  .bb-stage__title,
+  .bb-stage__line {
     transition: none;
+  }
+
+  .bb-stage__arrow.is-bumping:first-child,
+  .bb-stage__arrow.is-bumping:last-child {
+    animation: none;
   }
 }

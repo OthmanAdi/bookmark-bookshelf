@@ -3,12 +3,14 @@ import './app.css';
 import './flows.css';
 import { sampleLibrary } from '../data/sample-library';
 import { listVariants } from '../shelf';
-import { createStore, type Bookmark } from '../store';
+import { createStore, type Bookmark, type Store } from '../store';
+import { minutesOf } from '../store/reading-time';
 import { createBookshelf } from './bookshelf';
 import { button, downloadText, make, must, option, toast } from './dom';
 import { askText } from './editor';
 import { createFlows } from './flows';
 import { renderList } from './list-view';
+import { createStageCaption, type LinkView } from './shell-stage';
 
 /**
  * The app shell: page chrome around the composed bookshelf.
@@ -24,7 +26,14 @@ const shelfTools = must<HTMLElement>('#shelf-tools');
 const viewToggle = must<HTMLButtonElement>('#view');
 const variantPicker = must<HTMLSelectElement>('#variant');
 
+const captionHost = must<HTMLElement>('#caption');
+
 let lastOpenedId: string | null = null;
+/** The links of the row in row order, read again whenever the row is rebuilt. */
+let row: Bookmark[] = [];
+let shownId: string | null | undefined;
+/** The bookshelf may report a change while it is still being built; the frame answers once it exists. */
+let ready = false;
 
 const bookshelf = createBookshelf({
   store,
@@ -32,8 +41,13 @@ const bookshelf = createBookshelf({
   readerHost: must<HTMLElement>('#reader'),
   background: [chrome],
   label: 'Your shelf',
+  caption: false,
+  arrows: false,
   onFocusChange: (bookmark) => {
-    renderActions(bookmark);
+    if (!ready) return;
+    // The row was rebuilt or retargeted: read its links again before describing the centre.
+    row = store.bookmarks(store.session().shelfId);
+    syncStage();
     markCurrentShelf(bookmark);
   },
   onOpenChange: (bookmark) => {
@@ -51,7 +65,7 @@ const bookshelf = createBookshelf({
 
 const flows = createFlows({ store, bookshelf, refresh: () => renderAll() });
 
-/* ---------- actions under the centred volume ---------- */
+/* ---------- the caption and actions under the row ---------- */
 
 function move(id: string, direction: -1 | 1): void {
   const bookmark = store.get(id);
@@ -64,42 +78,97 @@ function move(id: string, direction: -1 | 1): void {
   bookshelf.show(id, { immediate: true });
 }
 
-function renderActions(bookmark: Bookmark | undefined): void {
-  const host = bookshelf.shelf.actions;
-  if (!bookmark) {
-    host.replaceChildren();
-    return;
+function isDone(id: string): boolean {
+  const probe = store as Store & { isDone?: (id: string) => boolean };
+  return typeof probe.isDone === 'function' ? probe.isDone(id) : false;
+}
+
+/** Counting words of a long text is not free: keep the answer until the text is saved again. */
+const minutesCache = new Map<string, { savedAt: string; minutes: number | undefined }>();
+
+function minutesFor(bookmark: Bookmark): number | undefined {
+  const savedAt = bookmark.reading?.savedAt ?? '';
+  const cached = minutesCache.get(bookmark.id);
+  if (cached && cached.savedAt === savedAt) return cached.minutes;
+  const minutes = minutesOf(bookmark);
+  minutesCache.set(bookmark.id, { savedAt, minutes });
+  return minutes;
+}
+
+function linkView(bookmark: Bookmark): LinkView {
+  return {
+    id: bookmark.id,
+    title: bookmark.title,
+    url: bookmark.url,
+    note: bookmark.note,
+    addedAt: bookmark.addedAt,
+    hasText: bookmark.reading !== undefined,
+    percent: store.progress(bookmark.id)?.percent ?? 0,
+    done: isDone(bookmark.id),
+    minutes: minutesFor(bookmark),
+  };
+}
+
+const stage = createStageCaption(
+  {
+    root: captionHost,
+    title: must<HTMLElement>('#caption-title'),
+    line: must<HTMLElement>('#caption-line'),
+    previous: must<HTMLButtonElement>('#caption-prev'),
+    next: must<HTMLButtonElement>('#caption-next'),
+    primary: must<HTMLButtonElement>('#action-primary'),
+    original: must<HTMLAnchorElement>('#action-original'),
+    edit: must<HTMLButtonElement>('#action-edit'),
+    earlier: must<HTMLButtonElement>('#action-earlier'),
+    later: must<HTMLButtonElement>('#action-later'),
+  },
+  {
+    step: (direction) => bookshelf.motion.step(direction),
+    primary: (id, kind) => {
+      if (kind === 'add-text') return void bookshelf.open(id, { editCopy: true });
+      // Reading again starts from the top, not from the end where the last reading stopped.
+      if (kind === 'again') store.clearProgress(id);
+      void bookshelf.open(id);
+    },
+    edit: (id) => flows.editLink(id),
+    move,
+  },
+  { reduced: () => bookshelf.motion.state.reduced },
+);
+
+/** Above this speed (links per millisecond) the caption holds still instead of flickering through titles. */
+const FAST = 0.006;
+
+/** The link visibly in the centre: the rounded position, not where the row is heading. */
+function centredIndex(position: number): number {
+  const count = row.length;
+  if (count === 0) return -1;
+  const nearest = Math.round(position);
+  return bookshelf.shelf.loop ? ((nearest % count) + count) % count : Math.min(count - 1, Math.max(0, nearest));
+}
+
+function syncStage(force = false): void {
+  const state = bookshelf.motion.state;
+  const index = centredIndex(state.position);
+  const bookmark = index >= 0 ? row[index] : undefined;
+  const id = bookmark?.id ?? null;
+  if (id !== shownId) {
+    if (!force && !state.settled && Math.abs(state.velocity) > FAST) return;
+    const first = shownId === undefined;
+    shownId = id;
+    stage.show(bookmark ? linkView(bookmark) : null, { swap: !force && !first });
+  } else if (force) {
+    stage.show(bookmark ? linkView(bookmark) : null);
   }
-  const percent = Math.round((store.progress(bookmark.id)?.percent ?? 0) * 100);
-  const nodes: HTMLElement[] = [];
-
-  if (bookmark.reading) {
-    const label = percent > 0 && percent < 100 ? `Continue reading, ${percent}%` : 'Read';
-    nodes.push(button(label, 'bb-button bb-button--solid', () => void bookshelf.open(bookmark.id)));
-  } else {
-    // A link without saved text: say so, and offer the two honest ways forward.
-    nodes.push(
-      button('Add reading text', 'bb-button bb-button--solid', () => void bookshelf.open(bookmark.id, { editCopy: true })),
-    );
-  }
-
-  const original = make('a', 'bb-button', 'Open original');
-  original.href = bookmark.url;
-  original.target = '_blank';
-  original.rel = 'noopener noreferrer';
-  original.setAttribute('aria-label', `Open original of ${bookmark.title} in a new tab`);
-  nodes.push(original);
-
-  nodes.push(button('Edit', 'bb-button bb-button--quiet', () => flows.editLink(bookmark.id)));
-
-  if (store.session().shelfId !== null) {
-    const earlier = button('← Move', 'bb-button bb-button--quiet', () => move(bookmark.id, -1));
-    earlier.setAttribute('aria-label', `Move ${bookmark.title} one place earlier`);
-    const later = button('Move →', 'bb-button bb-button--quiet', () => move(bookmark.id, 1));
-    later.setAttribute('aria-label', `Move ${bookmark.title} one place later`);
-    nodes.push(earlier, later);
-  }
-  host.replaceChildren(...nodes);
+  if (!state.settled && !force) return;
+  const single = store.session().shelfId !== null;
+  stage.setPlace({
+    atStart: !bookshelf.shelf.loop && index === 0,
+    atEnd: !bookshelf.shelf.loop && index === row.length - 1,
+    canMove: single && row.length > 1,
+    first: index === 0,
+    last: index === row.length - 1,
+  });
 }
 
 /* ---------- shelves ---------- */
@@ -194,6 +263,7 @@ function applyView(): void {
   const list = store.session().view === 'list';
   chrome.dataset.view = list ? 'list' : 'shelf';
   shelfHost.hidden = list;
+  captionHost.hidden = list;
   listHost.hidden = !list;
   viewToggle.setAttribute('aria-pressed', String(list));
   viewToggle.textContent = list ? 'Shelf view' : 'List view';
@@ -202,8 +272,9 @@ function applyView(): void {
 }
 
 function renderAll(): void {
+  row = store.bookmarks(store.session().shelfId);
   renderTabs();
-  renderActions(bookshelf.current());
+  syncStage(true);
   if (store.session().view === 'list') renderListView();
 }
 
@@ -250,7 +321,7 @@ must<HTMLElement>('#persistence').textContent =
 store.subscribe((event) => {
   if (event.reason === 'session') return;
   if (event.reason === 'progress') {
-    if (!bookshelf.isOpen()) renderActions(bookshelf.current());
+    if (!bookshelf.isOpen()) syncStage(true);
     return;
   }
   renderAll();
@@ -270,6 +341,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') store.flush();
 });
 
+ready = true;
 renderAll();
+bookshelf.motion.subscribe(() => syncStage());
 applyView();
 flows.handleAddress();
