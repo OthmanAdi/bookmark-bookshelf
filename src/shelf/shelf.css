@@ -299,6 +299,12 @@
   }
 }
 
+/* A volume out of view is kept for its control only: nothing of it is drawn until the row brings it round. */
+.bb-book.is-away .bb-book__body,
+.bb-book.is-away::after {
+  display: none;
+}
+
 /* The one operable control per volume. Present for keyboard and screen readers, invisible, never a pointer target. */
 .bb-book__control {
   position: absolute;

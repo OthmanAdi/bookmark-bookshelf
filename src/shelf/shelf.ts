@@ -24,8 +24,10 @@ import {
   fitGeometry,
   giveOf,
   pitchAt,
+  presentedReach,
   pullOf,
   restPitch,
+  rowLoops,
   rowStands,
   samePose,
   settleOf,
@@ -166,8 +168,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let variant: Variant = resolveVariant(options.variant);
   let light: Light = resolveLight(variant.light);
   let loop = options.loop ?? variant.loop;
-  /** The row is short enough to stand whole in the middle of the scene, and does not travel. */
+  /** The row does not travel: it stands in the scene, whole and in the middle where it fits. */
   let fixed = false;
+  /** How far from the middle of the scene the presented volume of such a row may stand, in px. */
+  let standWithin = Number.POSITIVE_INFINITY;
   let pose: Pose = options.pose ?? { position: 0, open: 0 };
   let geometry: Geometry = variant.geometry;
   let sceneWidth = 0;
@@ -332,14 +336,20 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   function decideRow(): void {
     // Past each end volume stands its bookend, with a little air between it and the edge of the scene.
     const ends = bookendWidth() + BOOKEND_AIR;
-    fixed = rowStands(geometry, items.length, sceneWidth, sizes ? sizeOf : undefined, ends);
+    const sized = sizes ? sizeOf : undefined;
+    const wants = options.loop ?? variant.loop;
+    // A row goes round only where no volume could be seen twice. A shorter one stands, and is moved along
+    // just enough to keep the presented volume in view where it is wider than the scene.
+    const next = wants && rowLoops(geometry, items.length, sceneWidth, sized);
+    fixed = !next && (wants || rowStands(geometry, items.length, sceneWidth, sized, ends));
+    const nearer = geometry.perspective / Math.max(1, geometry.perspective - geometry.focusPush);
+    standWithin = Math.max(0, (sceneWidth / 2 - ends) / nearer - presentedReach(geometry, items.length, sized));
     if (!fixed && (pull || rowGive !== 0)) {
       // Only a row that stands still gives.
       pull = null;
       giveBack = null;
       drawGive(0);
     }
-    const next = !fixed && (options.loop ?? variant.loop);
     root.dataset.loop = next ? '1' : '0';
     root.dataset.fixed = fixed ? '1' : '0';
     if (next === loop) return;
@@ -725,7 +735,13 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       if (slot >= from && slot <= to) continue;
       // Never recycle the volume that holds keyboard focus.
       if (node.control && node.control === document.activeElement) continue;
-      node.element.remove();
+      // It waits to be taken up again: in a row that goes round, the volume leaving at one end is the
+      // one wanted at the other.
+      node.offset = slot - centre;
+      pool ??= new Map();
+      const waiting = pool.get(node.item.id);
+      if (waiting) waiting.push(node);
+      else pool.set(node.item.id, [node]);
       nodes.delete(slot);
     }
     let kept = nodes.size;
@@ -848,7 +864,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const sized = sizes ? sizeOf : undefined;
     // A row that stands still shows every volume it has.
     const range = fixed ? { from: 0, to: count - 1 } : visibleRange(position, geometry, sceneWidth, count, loop, 2, sized);
-    syncNodes(range.from, range.to);
+    // Every link has its volume in the row, drawn or not, so each can be reached by its control: the
+    // ones out of view are kept without being drawn.
+    const first = loop ? centre - Math.floor((count - 1) / 2) : 0;
+    syncNodes(Math.min(range.from, first), Math.max(range.to, first + count - 1));
     if (centreChanged) {
       syncSemantics(focusInside || refocus);
       refocus = false;
@@ -881,7 +900,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     let end: number | null = null;
     // A bookend presses against the end volume; a hair of space keeps the two faces from flickering.
     const bookendGap = bookendWidth() / 2 + 1;
-    const standing = fixed ? computeStandingRow(position, geometry, count, sized) : null;
+    const standing = fixed ? computeStandingRow(position, geometry, count, sized, standWithin) : null;
     const poses = standing ? standing.poses : computeRow(position, geometry, range.from, range.to, sized);
     lampX = standing ? standing.origin : 0;
     if (lampFrom !== null) {
@@ -900,9 +919,24 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     }
     // A bookend is shorter than a volume: it meets a volume leaning toward it below the head.
     const bookendTall = geometry.bookHeight * BOOKEND_TALL;
+    if (nodes.size > poses.length) {
+      // Volumes kept for their controls stand out of view and are not drawn at all.
+      for (const node of nodes.values()) {
+        const away = node.slot < range.from || node.slot > range.to;
+        if (node.wrote.away === away) continue;
+        node.wrote.away = away;
+        node.element.classList.toggle('is-away', away);
+        // Wherever it was last drawn means nothing once it is out of view.
+        if (away) node.drawn = null;
+      }
+    }
     for (const live of poses) {
       const node = nodes.get(live.slot);
       if (!node) continue;
+      if (node.wrote.away) {
+        node.wrote.away = false;
+        node.element.classList.remove('is-away');
+      }
       let slotPose = live;
       if (node.from) {
         // After the row changed around it, a volume travels and turns from where it stood to where it belongs.

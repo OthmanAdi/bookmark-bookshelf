@@ -185,6 +185,56 @@ describe('mountShelf rendering', () => {
     expect(document.activeElement?.classList.contains('bb-book__control')).toBe(true);
   });
 
+  it('keeps one control for every link in shelf order where the row goes round on a narrow screen', () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(412);
+    const { shelf } = mount({ items: makeItems(15) });
+    expect(shelf.loop).toBe(true);
+    const labels = (): string[] => controls(shelf).map((control) => control.getAttribute('aria-label') ?? '');
+    for (const position of [0, 1, 5, 14, 15, -4]) {
+      shelf.setPose({ position, open: 0 });
+      expect(controls(shelf)).toHaveLength(15);
+      expect(labels().map((label) => Number(/Volume (\d+) of 15/.exec(label)?.[1]))).toEqual(Array.from({ length: 15 }, (_, index) => index + 1));
+      expect(controls(shelf).filter((control) => control.tabIndex === 0)).toHaveLength(1);
+    }
+    // The ones out of view are there for their controls and are not drawn.
+    const away = books(shelf).filter((book) => book.classList.contains('is-away'));
+    expect(away.length).toBeGreaterThan(0);
+    for (const book of away) expect(book.querySelector('.bb-book__control')).not.toBeNull();
+    expect(books(shelf).filter((book) => !book.classList.contains('is-away')).length).toBeGreaterThan(4);
+  });
+
+  it('keeps a control for every link of a long shelf, and takes a volume round instead of building it again', () => {
+    const { shelf } = mount({ items: makeItems(120) });
+    expect(controls(shelf)).toHaveLength(120);
+    const far = shelf.element.querySelector<HTMLElement>('.bb-book[data-id="id-60"]')!;
+    expect(far.classList.contains('is-away')).toBe(true);
+    shelf.setPose({ position: 1, open: 0 });
+    shelf.setPose({ position: 2, open: 0 });
+    expect(shelf.element.querySelector('.bb-book[data-id="id-60"]')).toBe(far);
+    expect(controls(shelf)).toHaveLength(120);
+    shelf.setPose({ position: 60, open: 0 });
+    expect(far.classList.contains('is-away')).toBe(false);
+    expect(far.classList.contains('is-centre')).toBe(true);
+  });
+
+  it('stands a shelf of four or five on a narrow screen instead of showing a volume at both edges', () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(412);
+    for (const count of [4, 5]) {
+      // Slim volumes, as links with little or no text are.
+      const { shelf } = mount({ items: makeItems(count).map((item) => ({ ...item, thickness: 0.1, stature: 1 })) });
+      expect(shelf.loop).toBe(false);
+      expect(shelf.fixed).toBe(true);
+      expect(books(shelf)).toHaveLength(count);
+      // Whichever volume is presented stands inside the scene.
+      for (let position = 0; position < count; position++) {
+        shelf.setPose({ position, open: 0 });
+        const x = Number(/translate3d\(([-\d.e]+)px/.exec(bySlot(shelf, position).style.transform)?.[1]);
+        expect(x).toBeGreaterThan(-206);
+        expect(x + shelf.coverSize().width).toBeLessThan(206);
+      }
+    }
+  });
+
   it('marks repeated copies aria-hidden and the real ones not', () => {
     const { shelf } = mount();
     const hidden = books(shelf).filter((book) => book.getAttribute('aria-hidden') === 'true');
