@@ -1,4 +1,5 @@
 import {
+  EXAMPLE_COUNT,
   FIRST_EXAMPLE,
   SECOND_EXAMPLE,
   addButton,
@@ -115,6 +116,16 @@ test.describe('touch', () => {
 
     await expectCentred(page, SECOND_EXAMPLE.id);
     await expect(readerOf(page)).toHaveCount(0);
+  });
+
+  test('every link has one control in the row, in shelf order, also where the row goes round', async ({ page }) => {
+    test.fixme(true, 'On a phone the row leaves out the link furthest from the centre: 14 of the 15 examples have a control there.');
+    await openApp(page);
+    await expect(shelfOf(page)).toHaveAttribute('data-loop', '1');
+    const links = await page
+      .locator('.bb-book__control')
+      .evaluateAll((controls) => controls.map((control) => Number(control.closest<HTMLElement>('.bb-book')?.dataset['index'])));
+    expect(links).toEqual(Array.from({ length: EXAMPLE_COUNT }, (_, index) => index));
   });
 
   test('View and Add a link sit in a dock at the bottom, and the bar keeps search and the library menu', async ({ page }) => {
