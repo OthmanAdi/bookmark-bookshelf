@@ -6,7 +6,8 @@ import { listVariants } from '../shelf';
 import { createStore, type Bookmark } from '../store';
 import { createBookshelf } from './bookshelf';
 import { button, downloadText, make, must, option, toast } from './dom';
-import { askText, createEditor } from './editor';
+import { askText } from './editor';
+import { createFlows } from './flows';
 import { renderList } from './list-view';
 
 /**
@@ -47,15 +48,7 @@ const bookshelf = createBookshelf({
   },
 });
 
-const editor = createEditor(store, (bookmark, created) => {
-  if (created) {
-    // Show the new volume on a shelf that contains it.
-    const active = store.session().shelfId;
-    if (active !== null && active !== bookmark.shelfId) bookshelf.setShelf(bookmark.shelfId);
-    toast(`Added "${bookmark.title}".`);
-  }
-  bookshelf.show(bookmark.id);
-});
+const flows = createFlows({ store, bookshelf, refresh: () => renderAll() });
 
 /* ---------- actions under the centred volume ---------- */
 
@@ -96,7 +89,7 @@ function renderActions(bookmark: Bookmark | undefined): void {
   original.setAttribute('aria-label', `Open original of ${bookmark.title} in a new tab`);
   nodes.push(original);
 
-  nodes.push(button('Edit', 'bb-button bb-button--quiet', () => editor.edit(bookmark.id)));
+  nodes.push(button('Edit', 'bb-button bb-button--quiet', () => flows.editLink(bookmark.id)));
 
   if (store.session().shelfId !== null) {
     const earlier = button('← Move', 'bb-button bb-button--quiet', () => move(bookmark.id, -1));
@@ -191,7 +184,7 @@ function renderListView(): void {
   renderList(listHost, store, {
     read: (id) => void bookshelf.open(id),
     addText: (id) => void bookshelf.open(id, { editCopy: true }),
-    edit: (id) => editor.edit(id),
+    edit: (id) => flows.editLink(id),
     move,
   });
 }
@@ -223,7 +216,7 @@ viewToggle.addEventListener('click', () => {
   applyView();
 });
 
-must<HTMLButtonElement>('#add').addEventListener('click', () => editor.add());
+must<HTMLButtonElement>('#add').addEventListener('click', () => flows.addLink());
 
 must<HTMLButtonElement>('#export').addEventListener('click', () => {
   downloadText(`bookmark-bookshelf-${new Date().toISOString().slice(0, 10)}.json`, store.exportLibrary());
@@ -277,3 +270,4 @@ document.addEventListener('visibilitychange', () => {
 
 renderAll();
 applyView();
+flows.handleAddress();
