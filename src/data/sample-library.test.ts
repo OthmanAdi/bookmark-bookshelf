@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createMemoryStorage, createStore, migrateLibrary } from '../store';
 import {
   EXAMPLE_IDS,
   EXAMPLE_SHELF_IDS,
@@ -14,6 +15,18 @@ const CLOTHS = ['ink', 'bone', 'rust', 'moss', 'plum', 'ochre', 'slate', 'teal']
 const PATTERNS = ['arcs', 'bars', 'dots', 'rays', 'tiles', 'waves'];
 
 const wordCount = (text: string): number => text.split(/\s+/).filter(Boolean).length;
+const words = (text: string): string[] => text.toLowerCase().match(/[\p{L}\p{N}’']+/gu) ?? [];
+/** Covers and spines are dressed by site, so `en.wikipedia.org` and `de.wikipedia.org` count once. */
+const siteOf = (url: string): string => new URL(url).hostname.split('.').slice(-2).join('.');
+
+function blockKinds(text: string): string {
+  const kinds = [
+    /^#{2,3} /m.test(text) ? 'headings' : '',
+    /^(- |\d+\. )/m.test(text) ? 'list' : '',
+    /^> /m.test(text) ? 'quote' : '',
+  ];
+  return kinds.filter(Boolean).join('+') || 'paragraphs';
+}
 
 describe('sampleLibrary', () => {
   const lib = sampleLibrary(NOW);
@@ -148,6 +161,49 @@ describe('sampleLibrary', () => {
       expect(b.reading.text.includes('<')).toBe(false);
       for (const link of b.reading.text.matchAll(/\[[^\]]+\]\((https?:\/\/[^)]+)\)/g)) expect(link[1]).toBe(b.url);
     }
+  });
+
+  it('passes the store’s own reading of a library without a single change', () => {
+    const options = { now: () => NOW, idFactory: () => 'fresh-id' };
+    for (const input of [structuredClone(lib), JSON.stringify(lib)]) {
+      const read = migrateLibrary(input, options);
+      expect(read.ok).toBe(true);
+      if (read.ok) expect(read.value).toEqual(lib);
+    }
+  });
+
+  it('seeds a store that hands back the same library', () => {
+    const store = createStore({ storage: createMemoryStorage(), seed: () => sampleLibrary(NOW), now: () => NOW, syncTabs: false });
+    expect(store.snapshot()).toEqual(lib);
+    expect(store.bookmarks().map((b) => b.id)).toEqual(lib.bookmarks.map((b) => b.id));
+    store.destroy();
+  });
+
+  it('draws its links from at least six sites, and every shelf from more than one', () => {
+    expect(new Set(lib.bookmarks.map((b) => siteOf(b.url))).size).toBeGreaterThanOrEqual(6);
+    for (const shelf of lib.shelves) {
+      const sites = new Set(lib.bookmarks.filter((b) => b.shelfId === shelf.id).map((b) => siteOf(b.url)));
+      expect(sites.size).toBeGreaterThan(1);
+    }
+  });
+
+  it('never lets more than two notes open with the same word', () => {
+    const openings = new Map<string, number>();
+    for (const b of lib.bookmarks) {
+      const first = words(b.note ?? '')[0];
+      if (first !== undefined) openings.set(first, (openings.get(first) ?? 0) + 1);
+    }
+    for (const [word, count] of openings) expect(count, word).toBeLessThanOrEqual(2);
+  });
+
+  it('opens every text differently and shapes each one differently', () => {
+    const texts = lib.bookmarks.flatMap((b) => (b.reading ? [b.reading.text] : []));
+    const openings = texts.map((text) => words(text).slice(0, 8).join(' '));
+    expect(new Set(openings).size).toBe(texts.length);
+    for (const [i, a] of openings.entries()) {
+      for (const b of openings.slice(i + 1)) expect(a.split(' ').slice(0, 3)).not.toEqual(b.split(' ').slice(0, 3));
+    }
+    expect(new Set(texts.map(blockKinds)).size).toBe(texts.length);
   });
 
   it('dates every link before now, each at a different time', () => {
