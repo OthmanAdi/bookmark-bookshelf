@@ -21,6 +21,8 @@ beforeEach(() => {
   // A real browser measures the scene. happy-dom reports 0, so give it a size.
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1280);
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500);
+  // A shelf has been seen in this session already, so rows are simply there unless a test says otherwise.
+  sessionStorage.setItem('bookmark-bookshelf:arrived', '1');
 });
 
 afterEach(() => {
@@ -908,6 +910,36 @@ describe('mountShelf volumes that travel, arrive and leave', () => {
     const half = x();
     step(200);
     expect(x()).toBeGreaterThan(half + 10);
+  });
+
+  it('raises the first row of a session into place from the centre outward, and no row after it', () => {
+    sessionStorage.removeItem('bookmark-bookshelf:arrived');
+    const { shelf } = mount({ pose: { position: 2, open: 0 } });
+    const delay = (slot: number): string => bySlot(shelf, slot).style.getPropertyValue('--bb-delay');
+    for (const book of books(shelf)) expect(book.classList.contains('is-rising')).toBe(true);
+    expect(delay(2)).toBe('');
+    expect(delay(1)).toBe('22ms');
+    expect(delay(3)).toBe('22ms');
+    expect(delay(0)).toBe('44ms');
+    expect(delay(4)).toBe('44ms');
+    for (const end of shelf.element.querySelectorAll('.bb-shelf__bookend')) expect(end.classList.contains('is-rising')).toBe(true);
+    expect(sessionStorage.getItem('bookmark-bookshelf:arrived')).toBe('1');
+    const later = mountShelf(document.body.appendChild(document.createElement('div')), { items: makeItems(5) });
+    expect(later.element.querySelector('.is-rising')).toBeNull();
+  });
+
+  it('lets the first row simply be there under reduced motion, or where the session cannot be written', () => {
+    sessionStorage.removeItem('bookmark-bookshelf:arrived');
+    const still = mount({ pose: { position: 0, open: 0, reduced: true } });
+    expect(still.shelf.element.querySelector('.is-rising')).toBeNull();
+    // That mount did not use up the session's one arrival.
+    expect(sessionStorage.getItem('bookmark-bookshelf:arrived')).toBeNull();
+    const refuse = (): never => {
+      throw new Error('blocked');
+    };
+    vi.stubGlobal('sessionStorage', { getItem: refuse, setItem: refuse });
+    const shut = mountShelf(document.body.appendChild(document.createElement('div')), { items: makeItems(5) });
+    expect(shut.element.querySelector('.is-rising')).toBeNull();
   });
 
   it('stops asking for frames once it is destroyed', () => {

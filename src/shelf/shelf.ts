@@ -99,6 +99,23 @@ interface CaptionText {
   note: boolean;
 }
 
+/** Where the session remembers that a shelf has already come in once. */
+const ARRIVED_KEY = 'bookmark-bookshelf:arrived';
+
+/**
+ * True the first time a shelf is mounted in a browser session, and never again in it. Where the session
+ * cannot be written to, no mount counts as the first, so a row never comes in on every page.
+ */
+function firstInSession(): boolean {
+  try {
+    if (sessionStorage.getItem(ARRIVED_KEY) !== null) return false;
+    sessionStorage.setItem(ARRIVED_KEY, '1');
+    return sessionStorage.getItem(ARRIVED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** Counts mounted shelves, so ids inside each one stay unique on a page with several. */
 let shelfCount = 0;
 
@@ -610,6 +627,16 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
         travelling = true;
       }
     }
+    if (bookend.x === null && entering) {
+      // A bookend that was not there comes in with the volumes, after the one it stands beside.
+      const delay = Math.min(STAGGER_REACH, items.length) * STAGGER_MS;
+      element.style.setProperty('--bb-delay', `${delay}ms`);
+      element.classList.add('is-rising');
+      later(() => {
+        element.classList.remove('is-rising');
+        element.style.removeProperty('--bb-delay');
+      }, delay + ENTER_MS);
+    }
     bookend.x = x;
     element.hidden = false;
     element.style.transform = `translate3d(${x}px, 0, 0)`;
@@ -879,7 +906,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(refresh) : null;
   observer?.observe(scene);
 
+  // The first row of a session rises into place from the centre outward; after that a row is simply there.
+  if (items.length > 0 && !still() && firstInSession()) entering = { arrive: new Set() };
   refresh();
+  entering = null;
   mounted = true;
 
   return {

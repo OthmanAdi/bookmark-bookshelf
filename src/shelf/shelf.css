@@ -197,7 +197,9 @@
   .bb-book.is-rising .bb-book__spine,
   .bb-book.is-rising .bb-book__board,
   .bb-book.is-rising .bb-book__slip,
-  .bb-book.is-rising::after {
+  .bb-book.is-rising::after,
+  .bb-shelf__bookend.is-rising .bb-bookend__edge,
+  .bb-shelf__bookend.is-rising .bb-bookend__face {
     animation: bb-appear var(--bb-dur-3) var(--bb-ease-out) var(--bb-delay, 0ms) backwards;
   }
 
