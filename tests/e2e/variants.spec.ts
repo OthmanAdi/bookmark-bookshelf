@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import {
   LOOKS,
   SECOND_EXAMPLE,
+  addLink,
   captionLine,
   captionTitle,
   centredControl,
@@ -167,8 +168,10 @@ test.describe('looks', () => {
     await noteLooksWhileLoading(page);
     await openApp(page);
     expect(await looksWhileLoading(page)).toEqual(['paper']);
+    await addLink(page, { url: 'https://example.org/a-link-of-my-own', title: 'A link of my own' });
     await chooseLook(page, 'oak');
     await reloadApp(page);
+    await expect(shelfOf(page)).toHaveAttribute('data-variant', 'oak');
     expect(await looksWhileLoading(page)).toEqual(['oak']);
   });
 
