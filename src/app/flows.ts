@@ -3,6 +3,7 @@ import { toast } from './dom';
 import { createEditor, type LinkPreset } from './editor';
 import { clearAddress, readAddress } from './flow-address';
 import { receiveFromLink } from './flow-arrive';
+import { bringLinksInFlow } from './flow-bring';
 import { sendPageHereFlow } from './flow-bookmarklet';
 import { removeExampleLinks } from './flow-examples';
 import { takeLinksOutFlow } from './flow-export';
@@ -98,7 +99,7 @@ export function createFlows(context: FlowContext): Flows {
   return {
     addLink: (preset) => editor.add(preset),
     editLink: (id) => editor.edit(id),
-    bringLinksIn: () => undefined,
+    bringLinksIn: (files) => bringLinksInFlow(context, files),
     takeLinksOut: () => takeLinksOutFlow(store),
     shareShelf: (shelfId) => shareShelfFlow(store, shelfId),
     handIn: (shelfId) => handInFlow(store, shelfId),
