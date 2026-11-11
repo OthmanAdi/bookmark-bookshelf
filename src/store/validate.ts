@@ -1,4 +1,5 @@
 import type { Result } from './types';
+import { cleanLine, cleanText } from './clean-text';
 import { fail, ok } from './result';
 
 export const LIMITS = {
@@ -30,20 +31,21 @@ export function hostnameTitle(url: string): string {
 
 /** An empty title falls back to the host name of the (already normalised) URL. */
 export function checkTitle(raw: string, url: string): Result<string> {
-  const title = raw.trim() || hostnameTitle(url);
+  const title = cleanLine(raw) || hostnameTitle(url);
   return title.length > LIMITS.title ? tooLong('title', LIMITS.title) : ok(title);
 }
 
 /** Empty text means "not set" and comes back as `undefined`. */
 export function checkOptionalText(raw: string, field: 'author' | 'note'): Result<string | undefined> {
-  const text = raw.trim();
+  const text = field === 'note' ? cleanText(raw).trim() : cleanLine(raw);
   if (text.length > LIMITS[field]) return tooLong(field, LIMITS[field]);
   return ok(text === '' ? undefined : text);
 }
 
 export function checkReadingText(raw: string): Result<string | undefined> {
-  if (raw.length > LIMITS.readingText) return tooLong('readingText', LIMITS.readingText);
-  return ok(raw.trim() === '' ? undefined : raw);
+  const text = cleanText(raw);
+  if (text.length > LIMITS.readingText) return tooLong('readingText', LIMITS.readingText);
+  return ok(text.trim() === '' ? undefined : text);
 }
 
 /** Tags are normalised rather than rejected: trimmed, de-duplicated, capped in length and count. */
@@ -52,7 +54,7 @@ export function normalizeTags(raw: readonly string[]): string[] {
   const tags: string[] = [];
   for (const item of raw) {
     if (typeof item !== 'string') continue;
-    const tag = item.trim().slice(0, LIMITS.tagLength).trim();
+    const tag = cleanLine(item).slice(0, LIMITS.tagLength).trim();
     const folded = tag.toLowerCase();
     if (tag === '' || seen.has(folded)) continue;
     seen.add(folded);
@@ -64,14 +66,14 @@ export function normalizeTags(raw: readonly string[]): string[] {
 
 /** A shelf description. Empty means "not set". */
 export function checkDescription(raw: string): Result<string | undefined> {
-  const text = raw.trim();
+  const text = cleanText(raw).trim();
   if (text.length > LIMITS.shelfDescription) return tooLong('description', LIMITS.shelfDescription);
   return ok(text === '' ? undefined : text);
 }
 
 /** The person who put a shelf together. Empty means "not set". */
 export function checkShelfAuthor(raw: string): Result<string | undefined> {
-  const text = raw.trim();
+  const text = cleanLine(raw);
   if (text.length > LIMITS.shelfAuthor) return tooLong('author', LIMITS.shelfAuthor);
   return ok(text === '' ? undefined : text);
 }
@@ -108,13 +110,13 @@ export function checkMinutes(value: number): Result<number> {
 
 /** A private note. Empty means "no note". */
 export function checkPrivateNote(raw: string): Result<string | undefined> {
-  const text = raw.trim();
+  const text = cleanText(raw).trim();
   if (text.length > LIMITS.privateNote) return tooLong('note', LIMITS.privateNote);
   return ok(text === '' ? undefined : text);
 }
 
 export function checkShelfName(raw: string): Result<string> {
-  const name = raw.trim();
+  const name = cleanLine(raw);
   if (name === '') return fail('invalid-name', 'A shelf needs a name.', 'name');
   if (name.length > LIMITS.shelfName) return tooLong('name', LIMITS.shelfName);
   return ok(name);

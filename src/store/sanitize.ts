@@ -24,6 +24,7 @@ import {
   checkDue,
   checkLang,
   checkOptionalText,
+  checkPrivateNote,
   checkReadingText,
   checkShelfAuthor,
   checkShelfName,
@@ -261,8 +262,8 @@ export function readNotes(value: unknown, bookmarkIds: IdMap): Record<string, st
   if (!isObject(value)) return notes;
   for (const [written, text] of Object.entries(value)) {
     const id = bookmarkIds.get(written);
-    const note = cutText(text, LIMITS.privateNote);
-    if (id !== undefined && note !== '') notes[id] = note;
+    const note = checkPrivateNote(cutText(text, LIMITS.privateNote));
+    if (id !== undefined && note.ok && note.value !== undefined) notes[id] = note.value;
   }
   return notes;
 }
