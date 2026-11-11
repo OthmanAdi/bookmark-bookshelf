@@ -230,10 +230,15 @@ export function computeRow(
   return poses;
 }
 
-/** Left and right edge of a posed volume along the row, foot and head together, in the px `pose.x` is in. */
-export function extentOf(pose: SlotPose, size: VolumeSize): [number, number] {
+/**
+ * Left and right edge of a posed volume along the row, foot and head together, in the px `pose.x` is in.
+ * With `upTo`, only the part of the volume below that height counts: a leaning volume reaches less far
+ * sideways low down than at its head, which is what something shorter standing beside it meets.
+ */
+export function extentOf(pose: SlotPose, size: VolumeSize, upTo?: number): [number, number] {
   const radians = pose.angle * DEG;
-  const spread = size.bookHeight * Math.abs(Math.sin(pose.lean * DEG));
+  const head = size.bookHeight * Math.abs(Math.sin(pose.lean * DEG));
+  const spread = upTo === undefined ? head : Math.min(head, Math.max(0, upTo) * Math.abs(Math.tan(pose.lean * DEG)));
   const leftFoot = -(size.spineWidth / 2) * Math.cos(radians);
   const rightFoot = (size.spineWidth / 2) * Math.cos(radians) + size.coverWidth * Math.sin(radians);
   return [pose.x + leftFoot - (pose.lean < 0 ? spread : 0), pose.x + rightFoot + (pose.lean > 0 ? spread : 0)];

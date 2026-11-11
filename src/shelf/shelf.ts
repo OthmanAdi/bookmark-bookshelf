@@ -56,6 +56,8 @@ const NARROW_SPINE = 40;
 /** A bookend's plate is this share of the look's spine width thick, and never thinner than the minimum. */
 const BOOKEND_SHARE = 0.1;
 const BOOKEND_MIN = 4;
+/** How tall a bookend stands, as a share of the look's volume height. */
+const BOOKEND_TALL = 0.62;
 /** Space in px a standing row keeps between each bookend and the edge of the scene. */
 const BOOKEND_AIR = 4;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
@@ -184,6 +186,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     root.style.setProperty('--bb-floor-y', `${FLOOR_ROOM}px`);
     root.style.setProperty('--bb-gap', `${geometry.gap}px`);
     root.style.setProperty('--bb-bookend-w', `${bookendWidth()}px`);
+    root.style.setProperty('--bb-bookend-h', `${geometry.bookHeight * BOOKEND_TALL}px`);
     scene.style.perspective = `${geometry.perspective}px`;
     measureSizes();
     decideRow();
@@ -444,6 +447,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const poses = fixed
       ? computeStandingRow(position, geometry, count, sized).poses
       : computeRow(position, geometry, range.from, range.to, sized);
+    // A bookend is shorter than a volume: it meets a volume leaning toward it below the head.
+    const bookendTall = geometry.bookHeight * BOOKEND_TALL;
     for (const slotPose of poses) {
       const node = nodes.get(slotPose.slot);
       if (!node) continue;
@@ -485,8 +490,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       }
       node.element.classList.toggle('is-turned', slotPose.weight > 0.98);
 
-      if (!loop && slotPose.slot === 0) start = extentOf(slotPose, sizeOf(0))[0] + away - bookendGap;
-      if (!loop && slotPose.slot === count - 1) end = extentOf(slotPose, sizeOf(count - 1))[1] + away + bookendGap;
+      if (!loop && slotPose.slot === 0) start = extentOf(slotPose, sizeOf(0), bookendTall)[0] + away - bookendGap;
+      if (!loop && slotPose.slot === count - 1) end = extentOf(slotPose, sizeOf(count - 1), bookendTall)[1] + away + bookendGap;
     }
     placeBookend(bookends.start, start);
     placeBookend(bookends.end, end);

@@ -501,6 +501,7 @@
 /*
  * Bookends close a row that does not loop: a thin plate standing across the row, built like a volume
  * (an edge facing the viewer and two faces running back), with a curved back so it reads as a bookend.
+ * It is shorter than a volume, and a volume that leans toward it rests on its top corner.
  */
 .bb-shelf {
   --bb-bookend: #4b4842;
@@ -511,7 +512,7 @@
   left: calc(var(--bb-bookend-w, 6px) / -2);
   bottom: 0;
   width: var(--bb-bookend-w, 6px);
-  height: calc(var(--bb-book-h) * 0.62);
+  height: var(--bb-bookend-h, calc(var(--bb-book-h) * 0.62));
   transform-origin: 50% 100%;
   transform-style: preserve-3d;
   pointer-events: none;

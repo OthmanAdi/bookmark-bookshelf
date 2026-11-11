@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeRow,
   computeStandingRow,
+  extentOf,
   focusWeight,
   gapWeight,
   LOOP_FILL,
@@ -332,6 +333,18 @@ describe('a row that stands still', () => {
     expect(row.left).toBeCloseTo(-row.right, 9);
     expect(row.poses.map((pose) => pose.slot)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(computeStandingRow(0, paper, 0)).toEqual({ poses: [], left: 0, right: 0 });
+  });
+
+  it('measures how far a leaning volume reaches below a given height', () => {
+    const pose = computeStandingRow(0, paper, 4).poses[0]!;
+    expect(pose.lean).toBeLessThan(0);
+    const [headLeft, right] = extentOf(pose, paper);
+    const [lowLeft, lowRight] = extentOf(pose, paper, paper.bookHeight * 0.5);
+    // Leaning left, it reaches about half as far at half its height, and its right side is its foot either way.
+    expect(lowLeft - headLeft).toBeCloseTo((paper.bookHeight * Math.sin((4.4 * Math.PI) / 180)) / 2, 0);
+    expect(lowRight).toBe(right);
+    expect(extentOf(pose, paper, 0)[0]).toBeGreaterThan(lowLeft);
+    expect(extentOf(pose, paper, paper.bookHeight * 3)[0]).toBe(headLeft);
   });
 
   it('turns the presented volume where it stands: the far volumes hardly move', () => {

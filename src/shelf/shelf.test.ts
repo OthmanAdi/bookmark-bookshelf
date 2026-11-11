@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCover } from './cover-art';
+import { computeStandingRow, extentOf, scaleGeometry } from './layout';
 import { DEFAULT_LIGHT, faceShades } from './light';
 import { mountShelf } from './shelf';
 import type { ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions } from './types';
@@ -92,7 +93,7 @@ describe('mountShelf rendering', () => {
     const xOf = (element: HTMLElement): number => Number(/translate3d\(([-\d.e]+)px/.exec(element.style.transform)?.[1]);
     const ends = [...shelf.element.querySelectorAll<HTMLElement>('.bb-shelf__bookend')];
     const resting = xOf(bySlot(shelf, 4));
-    for (const position of [0, 0.4, 1, 2.5, 4]) {
+    for (const position of [1, 2, 2.5, 3, 4]) {
       shelf.setPose({ position, open: 0 });
       expect(Math.abs(xOf(ends[0]!) + xOf(ends[1]!))).toBeLessThan(1);
     }
@@ -100,6 +101,25 @@ describe('mountShelf rendering', () => {
     shelf.setPose({ position: 2, open: 0 });
     expect(Math.abs(xOf(bySlot(shelf, 4)) - resting)).toBeLessThan(shelf.pitch() / 4);
     expect(xOf(bySlot(shelf, 2))).toBeGreaterThan(xOf(bySlot(shelf, 1)));
+  });
+
+  it('rests a first volume that leans outward on the top corner of its bookend', () => {
+    const { shelf } = mount();
+    const xOf = (element: HTMLElement): number => Number(/translate3d\(([-\d.e]+)px/.exec(element.style.transform)?.[1]);
+    const start = shelf.element.querySelector<HTMLElement>('.bb-shelf__bookend--start')!;
+    const geometry = shelf.variant.geometry;
+    const scale = shelf.coverSize().height / geometry.bookHeight;
+    const tall = parseFloat(shelf.element.style.getPropertyValue('--bb-bookend-h'));
+    expect(tall).toBeCloseTo(geometry.bookHeight * scale * 0.62, 6);
+    // Paper leans left: the first volume, presented, reaches toward the bookend, further at its head than at the bookend's top.
+    const pose = computeStandingRow(0, scaleGeometry(geometry, scale), 5).poses[0]!;
+    const size = { spineWidth: geometry.spineWidth * scale, bookHeight: geometry.bookHeight * scale, coverWidth: geometry.coverWidth * scale };
+    const atTop = extentOf(pose, size, tall)[0];
+    const atHead = extentOf(pose, size)[0];
+    expect(atTop).toBeGreaterThan(atHead + 5);
+    const half = parseFloat(shelf.element.style.getPropertyValue('--bb-bookend-w')) / 2;
+    expect(xOf(start) + half).toBeGreaterThan(atTop - 2);
+    expect(xOf(start) + half).toBeLessThan(atTop);
   });
 
   it('presents the end volume of a standing row for a position past that end', () => {
