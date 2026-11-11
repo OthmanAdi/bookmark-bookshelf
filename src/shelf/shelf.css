@@ -675,6 +675,10 @@
     transition: none;
   }
 
+  .bb-shelf__arrow:active {
+    scale: none;
+  }
+
   /* With motion the row stays painted under the page so closing finds it in place; here the page simply covers it. */
   .bb-shelf[data-open='1'] .bb-shelf__scene {
     visibility: hidden;
