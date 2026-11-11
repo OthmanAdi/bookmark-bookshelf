@@ -347,7 +347,8 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     readerId = id;
     const active = mountReader(options.readerHost, {
       doc: toReaderDoc(bookmark, langOf(bookmark)),
-      example: options.isExample?.(id) ?? false,
+      // The notice is about the text, so a link without one does not carry it.
+      example: Boolean(bookmark.reading) && (options.isExample?.(id) ?? false),
       progress: store.progress(id),
       cover,
       coverAspect: coverAspect(),
