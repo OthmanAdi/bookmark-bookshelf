@@ -16,7 +16,7 @@ export interface ReaderHistoryOptions {
   isOpen(): boolean;
   open(id: string): void;
   close(): void;
-  history?: Pick<History, 'pushState' | 'back' | 'state'>;
+  history?: Pick<History, 'pushState' | 'replaceState' | 'back' | 'state'>;
   target?: Pick<Window, 'addEventListener' | 'removeEventListener'>;
 }
 
@@ -56,8 +56,12 @@ export function createReaderHistory(options: ReaderHistoryOptions): ReaderHistor
   return {
     opened(id) {
       // Forward, or a reload while reading, already stands on this entry.
-      if (readerId(history.state) === id) return;
-      history.pushState({ bbReader: id } satisfies ReaderState, '');
+      const standing = readerId(history.state);
+      if (standing === id) return;
+      const state = { bbReader: id } satisfies ReaderState;
+      // The reader has one entry. Going on to another link rewrites it, so one Back still closes the reader.
+      if (standing !== null) history.replaceState(state, '');
+      else history.pushState(state, '');
     },
     closed() {
       if (closingFromHistory) {

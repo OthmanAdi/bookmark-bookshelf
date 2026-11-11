@@ -13,6 +13,9 @@ function fakeHistory() {
       entries.splice(index + 1, entries.length, state);
       index += 1;
     },
+    replaceState(state: unknown) {
+      entries[index] = state;
+    },
     back() {
       if (index === 0) return;
       index -= 1;

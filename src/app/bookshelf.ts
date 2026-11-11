@@ -1,6 +1,6 @@
 import './bookshelf.css';
 import { createShelfMotion, prefersReducedMotion, type ShelfMotion } from '../motion';
-import { mountReader, type ReaderDoc, type ReaderHandle } from '../reader';
+import { defaultReaderLabels, estimateMinutes, mountReader, type ReaderDoc, type ReaderHandle } from '../reader';
 import { createCover, mountShelf, type ShelfHandle, type ShelfItem } from '../shelf';
 import { outlineOf } from '../shelf/cover-outline';
 import { hashText, imprintOf } from '../shelf/imprint';
@@ -182,6 +182,15 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
   };
 
   /** The link that follows on the open shelf and is not yet read, when a single shelf is open. */
+  /** Reading time ready to print, or nothing for a link without a text. */
+  const minutesOf = (bookmark: Bookmark): string | undefined => {
+    const text = bookmark.reading?.text?.trim();
+    return text ? defaultReaderLabels.minutes(estimateMinutes(text)) : undefined;
+  };
+
+  /** True while "Next" swaps one open link for another. */
+  let handingOver = false;
+
   const nextUnread = (id: string): Bookmark | undefined => {
     if (store.session().shelfId === null) return undefined;
     const index = bookmarks.findIndex((bookmark) => bookmark.id === id);
@@ -358,8 +367,18 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       onMyNote: (text) => void store.setNote(id, text),
       done: store.isDone(id),
       onDone: (done) => void store.setDone(id, done),
-      next: following ? { title: following.title } : undefined,
-      onNext: following ? () => void close({ immediate: true }).then(() => open(following.id)) : undefined,
+      next: following ? { title: following.title, minutes: minutesOf(following) } : undefined,
+      onNext: following
+        ? () => {
+            // One reader gives way to the next: to the host the reader never closed.
+            handingOver = true;
+            void close({ immediate: true })
+              .finally(() => {
+                handingOver = false;
+              })
+              .then(() => open(following.id));
+          }
+        : undefined,
       textScale: store.session().textScale,
       onTextScale: (scale) => store.setSession({ textScale: scale }),
       onSaveText: (text) => {
@@ -431,7 +450,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       const originUsable = origin !== null && origin.isConnected && origin.getClientRects().length > 0 && !shelf.element.contains(origin);
       if (originUsable) origin.focus({ preventScroll: true });
       else shelf.focusCurrent();
-      options.onOpenChange?.(undefined);
+      if (!handingOver) options.onOpenChange?.(undefined);
     };
     closing = run().finally(() => {
       closing = null;
