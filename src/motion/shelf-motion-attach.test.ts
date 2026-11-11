@@ -199,12 +199,82 @@ describe('motion.attach drag', () => {
   it('with loop false, resists dragging past the end and settles back inside', () => {
     const { clock, motion, drag, fire } = setup({ loop: false, count: 5, initial: 4 });
     drag(-3 * PITCH);
-    // Raw travel would be 7. The rubber band keeps 35 percent of the overshoot.
-    expect(motion.state.position).toBeCloseTo(4 + 3 * 0.35, 10);
+    // Raw travel would be 7, three items past the end. The default pull limit is eight items:
+    // (1 - 1 / (3 * 0.55 / 8 + 1)) * 8.
+    expect(motion.state.position).toBeCloseTo(4 + (1 - 1 / ((3 * 0.55) / 8 + 1)) * 8, 10);
+    expect(motion.state.overscroll).toBeCloseTo(motion.state.position - 4, 10);
     expect(motion.state.target).toBe(4);
     fire('pointerup', { x: 200, t: 1000 });
     clock.advance(2000);
     expect(motion.state.position).toBe(4);
+  });
+
+  it('reports the overscroll in items and clears it when the row is back inside', () => {
+    const { clock, motion, drag, fire } = setup({ loop: false });
+    expect(motion.state.overscroll).toBe(0);
+    drag(PITCH);
+    expect(motion.state.overscroll).toBe(motion.state.position);
+    expect(motion.state.overscroll).toBeLessThan(0);
+    fire('pointerup', { x: 600, t: 1000 });
+    clock.advance(2000);
+    expect(motion.state.overscroll).toBe(0);
+  });
+
+  it('gives less and less the further a finite row is pulled, and never more than the limit', () => {
+    const pulled: number[] = [];
+    for (const items of [1, 2, 4, 8, 20, 200]) {
+      const { motion, drag } = setup({ loop: false });
+      drag(items * PITCH);
+      pulled.push(-motion.state.overscroll);
+    }
+    for (let index = 1; index < pulled.length; index++) expect(pulled[index]!).toBeGreaterThan(pulled[index - 1]!);
+    // The first items resist at 0.55 and every step gives less than the one before.
+    expect(pulled[0]!).toBeGreaterThan(0.5);
+    expect(pulled[0]!).toBeLessThan(0.55);
+    expect(pulled[1]! - pulled[0]!).toBeLessThan(pulled[0]!);
+    expect(pulled[pulled.length - 1]!).toBeLessThan(8);
+  });
+
+  it('uses the scene width to bound the pull when the host gives it', () => {
+    const clock = createManualClock();
+    const motion = createShelfMotion({ count: 12, clock, loop: false });
+    const element = document.createElement('div');
+    element.setPointerCapture = vi.fn();
+    motion.attach(element, { pxPerItem: () => PITCH, extent: () => 400 });
+    element.dispatchEvent(pointer('pointerdown', { x: 500, t: 0 }));
+    element.dispatchEvent(pointer('pointermove', { x: 5000, t: 20 }));
+    expect(motion.state.overscroll).toBeLessThan(0);
+    expect(motion.state.overscroll).toBeGreaterThan(-4);
+    expect(motion.state.overscroll).toBeLessThan(-3);
+  });
+
+  it('starts returning on the spring at once after release and never freezes', () => {
+    const { clock, motion, drag, fire } = setup({ loop: false });
+    drag(3 * PITCH);
+    fire('pointerup', { x: 800, t: 1000 });
+    const pulledTo = motion.state.position;
+    expect(pulledTo).toBeLessThan(-0.5);
+    let previous = pulledTo;
+    for (let frame = 0; frame < 20; frame++) {
+      clock.advance(1000 / 60);
+      expect(motion.state.position).toBeGreaterThan(previous);
+      previous = motion.state.position;
+    }
+    clock.advance(3000);
+    expect(motion.state.position).toBe(0);
+    expect(motion.state.settled).toBe(true);
+  });
+
+  it('does not jump when a row that is still pulled past its end is grabbed again', () => {
+    const { clock, motion, drag, fire } = setup({ loop: false });
+    drag(3 * PITCH);
+    fire('pointerup', { x: 800, t: 1000 });
+    clock.advance(100);
+    const before = motion.state.position;
+    fire('pointerdown', { x: 500, t: 1200 });
+    fire('pointermove', { x: 510, t: 1210 });
+    fire('pointermove', { x: 500, t: 1220 });
+    expect(motion.state.position).toBeCloseTo(before, 6);
   });
 
   it('with loop true, dragging past index 0 is not resisted', () => {
@@ -337,6 +407,14 @@ describe('motion.attach wheel', () => {
     expect(motion.state.target).toBe(1);
     clock.advance(2000);
     expect(motion.state.position).toBe(1);
+  });
+
+  it('resists a wheel pushed past the end of a finite row', () => {
+    const { motion, element } = setup({ loop: false, count: 5, initial: 4 });
+    wheel(element, { deltaX: 3 * PITCH });
+    expect(motion.state.overscroll).toBeGreaterThan(0.5);
+    expect(motion.state.overscroll).toBeLessThan(3);
+    expect(motion.state.position).toBeCloseTo(4 + motion.state.overscroll, 10);
   });
 
   it('ignores the wheel when disabled or detached', () => {

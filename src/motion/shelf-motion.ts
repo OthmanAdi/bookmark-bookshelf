@@ -17,6 +17,12 @@ export interface ShelfMotionState {
   target: number;
   /** `target` wrapped into 0..count-1. */
   focus: number;
+  /**
+   * How far `position` lies outside a finite row, in items: negative before the first volume, positive past the
+   * last, 0 inside the row and always 0 when looping. A renderer can lay out `position - overscroll` and
+   * translate the whole row by `overscroll`.
+   */
+  overscroll: number;
   /** 0 closed, 1 open. Already eased. */
   open: number;
   /** Linear time of the open or close, 0 closed to 1 open, not eased. Reversing keeps it continuous. */
@@ -80,6 +86,8 @@ export interface TrackStart {
 export interface AttachOptions {
   /** Horizontal distance between two neighbouring volumes at rest, in px. Used when `track` is absent or declines. */
   pxPerItem: () => number;
+  /** Width of the visible scene in px. It bounds how far a finite row can be pulled past its end. */
+  extent?: () => number;
   /**
    * Called when a drag begins. Return a function from pointer x to row position and the drag follows it, so
    * what was grabbed stays under the pointer whatever the spacing. Return null to drag by `pxPerItem`.
@@ -117,7 +125,10 @@ const FLICK_MAX_ITEMS = 6;
 const RELEASE_PROJECTION_MS = 180;
 /** How far past the visible volume repeated steps may aim. A held key never queues further than this. */
 const STEP_LEAD_ITEMS = 2;
-const RUBBER_BAND = 0.35;
+/** Resistance at the start of a pull past the end of a finite row; it grows stiffer as the pull lengthens. */
+const OVERSCROLL_RESISTANCE = 0.55;
+/** Pull limit in items when the host does not report the scene width. */
+const DEFAULT_OVERSCROLL_ITEMS = 8;
 const REDUCED_FADE_MS = 150;
 const WHEEL_SETTLE_MS = 140;
 /**
@@ -179,6 +190,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     velocity: 0,
     target: start,
     focus: wrapIndex(start, count),
+    overscroll: 0,
     open: 0,
     openTime: 0,
     openTarget: 0,
@@ -201,6 +213,9 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   let openResolvers: Array<() => void> = [];
 
   let dragOrigin = 0;
+  let dragBias = 0;
+  let wheelRaw = 0;
+  let overscrollItems = DEFAULT_OVERSCROLL_ITEMS;
   let dragStartTarget = 0;
   let dragTravel = 0;
   let dragSamples: PositionSample[] = [];
@@ -215,6 +230,14 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     if (count <= 0) return 0;
     const whole = Math.round(index);
     return loop ? whole : clamp(whole, 0, count - 1);
+  }
+
+  function syncOverscroll(): void {
+    if (loop || count <= 0) {
+      state.overscroll = 0;
+      return;
+    }
+    state.overscroll = state.position - clamp(state.position, 0, count - 1);
   }
 
   function emit(): void {
@@ -293,6 +316,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     }
 
     const openResting = stepOpen(time);
+    syncOverscroll();
     state.settled = positionResting && openResting && !state.dragging;
     emit();
     if (!state.settled) frame = clock.request(tick);
@@ -306,6 +330,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
       travel = null;
       state.position = state.target;
       state.velocity = 0;
+      syncOverscroll();
       emit();
       if (openRaw === state.openTarget && !state.dragging) state.settled = true;
       return;
@@ -337,6 +362,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     state.position = index;
     state.velocity = 0;
     setTarget(index);
+    syncOverscroll();
     emit();
   }
 
@@ -365,17 +391,41 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     return done;
   }
 
+  /** Pull of `distance` items past an end of a finite row to the distance the row actually moves. */
+  function resist(distance: number): number {
+    return (1 - 1 / ((distance * OVERSCROLL_RESISTANCE) / overscrollItems + 1)) * overscrollItems;
+  }
+
+  /** The inverse of `resist`. */
+  function unresist(moved: number): number {
+    const share = Math.min(moved / overscrollItems, 0.999999);
+    return (share / (1 - share)) * (overscrollItems / OVERSCROLL_RESISTANCE);
+  }
+
+  /** Where a finite row actually sits when the pointer asks for `position`: it gives progressively less past the ends. */
   function limitDragPosition(position: number): number {
     if (loop || count <= 0) return position;
     const max = count - 1;
-    if (position < 0) return position * RUBBER_BAND;
-    if (position > max) return max + (position - max) * RUBBER_BAND;
+    if (position < 0) return -resist(-position);
+    if (position > max) return max + resist(position - max);
+    return position;
+  }
+
+  /** The position the pointer would have to ask for to put a finite row at `position`. */
+  function unlimitPosition(position: number): number {
+    if (loop || count <= 0) return position;
+    const max = count - 1;
+    if (position < 0) return -unresist(-position);
+    if (position > max) return max + unresist(position - max);
     return position;
   }
 
   function attach(element: HTMLElement, attachOptions: AttachOptions): Unsubscribe {
     const isEnabled = (): boolean => (attachOptions.enabled ? attachOptions.enabled() : true) && count > 0;
     const pitch = (): number => Math.max(1, attachOptions.pxPerItem());
+    const measureOverscroll = (): void => {
+      overscrollItems = attachOptions.extent ? Math.max(1, attachOptions.extent() / pitch()) : DEFAULT_OVERSCROLL_ITEMS;
+    };
 
     const detachDrag = attachDrag(
       element,
@@ -384,7 +434,10 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
           travel = null;
           state.dragging = true;
           state.velocity = 0;
-          dragOrigin = state.position;
+          measureOverscroll();
+          // Grabbing a row that is still pulled past its end carries on from where the pointer would have put it.
+          dragOrigin = unlimitPosition(state.position);
+          dragBias = dragOrigin - state.position;
           dragStartTarget = state.target;
           dragTravel = 0;
           dragSamples = [];
@@ -393,7 +446,8 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
         },
         onMove(dx, event, x) {
           dragTravel = dx;
-          state.position = limitDragPosition(dragTrack ? dragTrack(x) : dragOrigin - dx / pitch());
+          state.position = limitDragPosition(dragTrack ? dragTrack(x) + dragBias : dragOrigin - dx / pitch());
+          syncOverscroll();
           pushSample(dragSamples, event.timeStamp, state.position);
           setTarget(state.position);
           wake();
@@ -412,7 +466,10 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
           destination = clamp(destination, dragStartTarget - FLICK_MAX_ITEMS, dragStartTarget + FLICK_MAX_ITEMS);
           setTarget(destination);
           state.velocity = cancelled || state.reduced ? 0 : itemsPerMs;
-          if (state.reduced) state.position = state.target;
+          if (state.reduced) {
+            state.position = state.target;
+            syncOverscroll();
+          }
           wake();
         },
       },
@@ -427,8 +484,14 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
       if (!event.shiftKey && Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
       event.preventDefault();
       travel = null;
+      if (wheelTimer === null) {
+        measureOverscroll();
+        wheelRaw = unlimitPosition(state.position);
+      }
       state.dragging = true;
-      state.position = limitDragPosition(state.position + sideways / pitch());
+      wheelRaw += sideways / pitch();
+      state.position = limitDragPosition(wheelRaw);
+      syncOverscroll();
       state.velocity = 0;
       setTarget(state.position);
       wake();
