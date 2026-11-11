@@ -107,6 +107,28 @@ describe('motion.attach drag', () => {
     expect(motion.state.target).toBe(3);
   });
 
+  it('carries the speed of the last 80 ms of positions, not the speed of the whole drag', () => {
+    const { motion, fire } = setup();
+    fire('pointerdown', { x: 900, t: 0 });
+    fire('pointermove', { x: 500, t: 100 });
+    fire('pointermove', { x: 495, t: 400 });
+    fire('pointermove', { x: 490, t: 440 });
+    fire('pointermove', { x: 485, t: 480 });
+    fire('pointerup', { x: 485, t: 480 });
+    // 10 px in 80 ms is 0.125 px/ms, which is 0.00125 items per ms at a pitch of 100.
+    expect(motion.state.velocity).toBeCloseTo(0.00125, 6);
+  });
+
+  it('carries no speed when the pointer rested for longer than the window before release', () => {
+    const { motion, fire } = setup();
+    fire('pointerdown', { x: 900, t: 0 });
+    fire('pointermove', { x: 700, t: 20 });
+    fire('pointermove', { x: 500, t: 40 });
+    fire('pointerup', { x: 500, t: 400 });
+    expect(motion.state.velocity).toBe(0);
+    expect(motion.state.target).toBe(4);
+  });
+
   it('a fast flick moves at least one volume in its direction', () => {
     const { clock, motion, fire } = setup({ initial: 5 });
     fire('pointerdown', { x: 500, t: 0 });

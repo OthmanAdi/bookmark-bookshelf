@@ -95,6 +95,8 @@ export interface ShelfMotion {
 const FLICK_SPEED = 0.35; // px per ms
 const FLICK_MIN_TRAVEL = 24; // px
 const FLICK_DECAY_MS = 325;
+/** Window of recent positions that gives the speed of a released drag. */
+const RELEASE_VELOCITY_WINDOW_MS = 80;
 const FLICK_MAX_ITEMS = 6;
 /** Every release looks this far ahead before it snaps, so a gentle push never slides back against the hand. */
 const RELEASE_PROJECTION_MS = 180;
@@ -109,6 +111,32 @@ const WHEEL_SETTLE_MS = 140;
  * earlier timestamp than the call.
  */
 const FIRST_FRAME_MS = 1000 / 60;
+
+/** Row position at a moment, in items. Release speed is measured from these, never from pixels. */
+interface PositionSample {
+  time: number;
+  position: number;
+}
+
+const POSITION_SAMPLES = 16;
+
+function pushSample(samples: PositionSample[], time: number, position: number): void {
+  samples.push({ time, position });
+  if (samples.length > POSITION_SAMPLES) samples.shift();
+}
+
+/** Items per millisecond over the samples no older than `windowMs` before `now`. Zero when they say nothing. */
+function sampleVelocity(samples: PositionSample[], now: number, windowMs: number): number {
+  let first: PositionSample | undefined;
+  let last: PositionSample | undefined;
+  for (const sample of samples) {
+    if (now - sample.time > windowMs) continue;
+    first ??= sample;
+    last = sample;
+  }
+  if (!first || !last || last.time <= first.time) return 0;
+  return (last.position - first.position) / (last.time - first.time);
+}
 
 interface Travel {
   from: number;
@@ -160,6 +188,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   let dragOrigin = 0;
   let dragStartTarget = 0;
   let dragTravel = 0;
+  let dragSamples: PositionSample[] = [];
 
   function readReduced(): boolean {
     const value = options.reducedMotion;
@@ -342,20 +371,22 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
           dragOrigin = state.position;
           dragStartTarget = state.target;
           dragTravel = 0;
+          dragSamples = [];
           wake();
         },
-        onMove(dx) {
+        onMove(dx, event) {
           dragTravel = dx;
           state.position = limitDragPosition(dragOrigin - dx / pitch());
+          pushSample(dragSamples, event.timeStamp, state.position);
           setTarget(state.position);
           wake();
         },
-        onEnd(velocityX, cancelled) {
+        onEnd(_velocityX, cancelled, time) {
           // A released drag always settles on the spring, whatever the travel timing: it has to feel held.
           travel = null;
           state.dragging = false;
-          const itemsPerMs = -velocityX / pitch();
-          const isFlick = !cancelled && Math.abs(velocityX) >= FLICK_SPEED && Math.abs(dragTravel) >= FLICK_MIN_TRAVEL;
+          const itemsPerMs = cancelled ? 0 : sampleVelocity(dragSamples, time, RELEASE_VELOCITY_WINDOW_MS);
+          const isFlick = !cancelled && Math.abs(itemsPerMs) * pitch() >= FLICK_SPEED && Math.abs(dragTravel) >= FLICK_MIN_TRAVEL;
           let destination = Math.round(state.position + itemsPerMs * (isFlick ? FLICK_DECAY_MS : RELEASE_PROJECTION_MS));
           if (isFlick && destination === dragStartTarget) {
             // A flick always moves at least one volume in its direction.

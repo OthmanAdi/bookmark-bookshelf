@@ -139,6 +139,15 @@ describe('attachDrag release', () => {
     expect(r.ends).toEqual([{ velocity: 1, cancelled: false }]);
   });
 
+  it('passes the timestamp of the releasing event', () => {
+    const times: number[] = [];
+    const r = rig({ onEnd: (_velocity, _cancelled, time) => void times.push(time) });
+    r.fire('pointerdown', { x: 0, t: 0 });
+    r.fire('pointermove', { x: 30, t: 20 });
+    r.fire('pointerup', { x: 30, t: 55 });
+    expect(times).toEqual([55]);
+  });
+
   it('reports zero velocity when the pointer rested before release', () => {
     const r = rig();
     r.fire('pointerdown', { x: 0, t: 0 });

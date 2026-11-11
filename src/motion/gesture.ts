@@ -10,8 +10,11 @@ export interface DragHandlers {
   onStart?(event: PointerEvent): void;
   /** `dx` is the horizontal distance from where the pointer went down, in px. */
   onMove(dx: number, event: PointerEvent): void;
-  /** `velocityX` is in px per millisecond. `cancelled` is true after pointercancel or lost capture. */
-  onEnd(velocityX: number, cancelled: boolean): void;
+  /**
+   * `velocityX` is in px per millisecond. `cancelled` is true after pointercancel or lost capture. `time` is the
+   * timestamp of the releasing event, on the same scale as the `timeStamp` of the move events.
+   */
+  onEnd(velocityX: number, cancelled: boolean, time: number): void;
 }
 
 export interface DragOptions {
@@ -110,7 +113,7 @@ export function attachDrag(element: HTMLElement, handlers: DragHandlers, options
         suppressClick = false;
       }, 0);
     }
-    handlers.onEnd(velocity, cancelled);
+    handlers.onEnd(velocity, cancelled, event.timeStamp);
   };
 
   const onPointerUp = (event: PointerEvent): void => finish(event, false);
