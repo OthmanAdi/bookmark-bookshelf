@@ -605,17 +605,25 @@
 
 .bb-shelf__title {
   font-family: var(--bb-font-serif);
-  font-size: var(--bb-text-title);
+  font-size: var(--bb-text-lead);
   font-weight: 600;
   letter-spacing: -0.01em;
-  line-height: 1.15;
+  line-height: var(--bb-leading-snug);
   text-wrap: balance;
 }
 
+/* The source or the person's note: words, never set as a label. */
 .bb-shelf__meta {
-  margin-top: var(--bb-s-2);
+  margin-top: var(--bb-s-1);
   color: var(--bb-ink-soft);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--bb-font-serif);
+  font-size: var(--bb-text-ui);
+  line-height: var(--bb-leading-ui);
+  text-wrap: balance;
+}
+
+.bb-shelf__meta.is-note {
+  font-style: italic;
 }
 
 .bb-shelf__actions {

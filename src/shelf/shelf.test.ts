@@ -247,7 +247,38 @@ describe('mountShelf rendering', () => {
   it('shows the caption of the centred item', () => {
     const { shelf } = mount();
     expect(shelf.element.querySelector('.bb-shelf__title')?.textContent).toBe('Title 0');
-    expect(shelf.element.querySelector('.bb-shelf__meta')?.textContent).toContain('1 / 5');
+    expect(shelf.element.querySelector('.bb-shelf__meta')?.textContent).toBe('site0.example');
+    expect(shelf.element.querySelector('.bb-shelf__meta')?.classList.contains('is-note')).toBe(false);
+  });
+
+  it('shows the note in the caption when there is one, and no counter', () => {
+    const items = makeItems(5).map((item, index) => (index === 1 ? { ...item, note: 'For the essay on archives.' } : item));
+    const { shelf } = mount({ items });
+    shelf.setPose({ position: 1, open: 0, reduced: true });
+    const meta = shelf.element.querySelector('.bb-shelf__meta');
+    expect(meta?.textContent).toBe('For the essay on archives.');
+    expect(meta?.classList.contains('is-note')).toBe(true);
+    expect(shelf.element.querySelector('.bb-shelf__caption')?.textContent).not.toMatch(/\d+ \/ \d+/);
+  });
+
+  it('fades the old caption out before the new one comes in, landing on the latest', () => {
+    const fades: Array<{ onfinish: (() => void) | null; cancel: () => void }> = [];
+    const spy = vi.spyOn(HTMLElement.prototype, 'animate').mockImplementation(() => {
+      const fade = { onfinish: null as (() => void) | null, cancel: vi.fn() };
+      fades.push(fade);
+      return fade as unknown as Animation;
+    });
+    const { shelf } = mount();
+    const title = (): string | null | undefined => shelf.element.querySelector('.bb-shelf__title')?.textContent;
+    shelf.setPose({ position: 1, open: 0 });
+    shelf.setPose({ position: 2, open: 0 });
+    expect(title()).toBe('Title 0');
+    expect(shelf.element.dataset.focusId).toBe('id-2');
+    expect(fades).toHaveLength(1);
+    fades[0]?.onfinish?.();
+    expect(title()).toBe('Title 2');
+    expect(fades).toHaveLength(2);
+    spy.mockRestore();
   });
 
   it('places the presented cover with its size, lean and turn', () => {

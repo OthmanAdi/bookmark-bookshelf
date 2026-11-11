@@ -59,6 +59,17 @@ const TAP_MAX_MS = 700;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 1.5;
 
+/** The old caption leaves quickly and the new one arrives a little slower, so the eye lands on it. */
+const CAPTION_OUT_MS = 90;
+const CAPTION_IN_MS = 160;
+
+interface CaptionText {
+  title: string;
+  meta: string;
+  /** True when the meta line is the person's own note rather than the source. */
+  note: boolean;
+}
+
 /** Counts mounted shelves, so ids inside each one stay unique on a page with several. */
 let shelfCount = 0;
 
@@ -130,8 +141,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   const caption = el('div', 'bb-shelf__caption');
   caption.setAttribute('aria-hidden', 'true');
   const captionTitle = el('p', 'bb-shelf__title');
-  const captionMeta = el('p', 'bb-shelf__meta bb-label');
+  const captionMeta = el('p', 'bb-shelf__meta');
   caption.append(captionTitle, captionMeta);
+  let captionFade: Animation | null = null;
+  let nextCaption: CaptionText | null = null;
   caption.hidden = options.caption === false;
 
   // How to use the row, read with every volume's name, so the keyboard model never has to be guessed.
@@ -277,14 +290,50 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
 
   function syncCaption(): void {
     const item = items[wrap(centre, items.length)];
-    captionTitle.textContent = item?.title ?? '';
-    const parts: string[] = [];
-    if (item?.source) parts.push(item.source);
-    if (item) parts.push(`${wrap(centre, items.length) + 1} / ${items.length}`);
-    if (item && (item.progress ?? 0) > 0) parts.push(`${Math.round((item.progress ?? 0) * 100)}% read`);
-    captionMeta.textContent = parts.join('  ·  ');
+    // The note says why the link was kept; without one, where it comes from.
+    const note = item?.note?.trim() ?? '';
+    showCaption({ title: item?.title ?? '', meta: note || item?.source || '', note: note !== '' });
     root.dataset.focus = String(wrap(centre, items.length));
     root.dataset.focusId = item?.id ?? '';
+  }
+
+  function writeCaption(text: CaptionText): void {
+    captionTitle.textContent = text.title;
+    captionMeta.textContent = text.meta;
+    captionMeta.classList.toggle('is-note', text.note);
+  }
+
+  /**
+   * A new caption replaces the old one by a quick fade out and a slower fade in, never by sliding. While
+   * the row travels fast the fade simply continues and the caption that lands is the latest one.
+   */
+  function showCaption(text: CaptionText): void {
+    const quiet =
+      pose.reduced === true ||
+      typeof caption.animate !== 'function' ||
+      (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if (quiet || caption.hidden || captionTitle.textContent === '') {
+      captionFade?.cancel();
+      captionFade = null;
+      writeCaption(text);
+      return;
+    }
+    nextCaption = text;
+    if (captionFade) return;
+    const out = caption.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: CAPTION_OUT_MS,
+      easing: 'ease-in',
+      fill: 'forwards',
+    });
+    captionFade = out;
+    out.onfinish = () => {
+      if (captionFade !== out) return;
+      captionFade = null;
+      if (nextCaption) writeCaption(nextCaption);
+      nextCaption = null;
+      caption.animate([{ opacity: 0 }, { opacity: 1 }], { duration: CAPTION_IN_MS, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+      out.cancel();
+    };
   }
 
   function syncNodes(from: number, to: number): void {
@@ -351,8 +400,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       nodes.clear();
       placeBookend(bookends.start, null);
       placeBookend(bookends.end, null);
-      captionTitle.textContent = '';
-      captionMeta.textContent = '';
+      captionFade?.cancel();
+      captionFade = null;
+      writeCaption({ title: '', meta: '', note: false });
       // An empty shelf has no centred volume.
       centre = Number.NaN;
       presented = null;
@@ -634,6 +684,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     refresh,
     destroy() {
       alive = false;
+      captionFade?.cancel();
       observer?.disconnect();
       row.removeEventListener('click', onClick);
       scene.removeEventListener('pointerdown', onPointerDown);
