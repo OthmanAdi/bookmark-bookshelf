@@ -1,8 +1,9 @@
 import './bookshelf.css';
-import { createShelfMotion, prefersReducedMotion, type ShelfMotion } from '../motion';
+import { createShelfMotion, prefersReducedMotion, type ShelfMotion, type ShelfMotionState } from '../motion';
 import { mountReader, type ReaderDoc, type ReaderHandle } from '../reader';
-import { createCover, mountShelf, type Box, type ShelfHandle, type ShelfItem } from '../shelf';
+import { createCover, mountShelf, type ShelfHandle, type ShelfItem } from '../shelf';
 import type { Bookmark, Store } from '../store';
+import { createFlight, type Flight, type FlightEnd, type FlightStart } from './flight';
 
 /**
  * Full composition: store + shelf + motion + reader.
@@ -29,6 +30,7 @@ export interface BookshelfOptions {
 export interface Bookshelf {
   readonly shelf: ShelfHandle;
   readonly motion: ShelfMotion;
+  /** The volume that is visibly in the centre right now. */
   current(): Bookmark | undefined;
   isOpen(): boolean;
   /** Brings a volume to the centre. */
@@ -78,13 +80,51 @@ function toReaderDoc(bookmark: Bookmark): ReaderDoc {
 
 const KNOWN_VARIANT_FALLBACK = 'paper';
 
+function wrap(index: number, count: number): number {
+  return count <= 0 ? 0 : ((index % count) + count) % count;
+}
+
+/** Where the presented cover stands, from the shelf when it can say exactly and from its box otherwise. */
+function startOf(shelf: ShelfHandle): FlightStart | null {
+  const exact = (shelf as ShelfHandle & { coverPlacement?: () => FlightStart | null }).coverPlacement?.();
+  if (exact) return exact;
+  const box = shelf.coverBox();
+  if (!box) return null;
+  const size = shelf.coverSize();
+  const geometry = shelf.variant.geometry;
+  return {
+    cx: box.x + box.width / 2,
+    cy: box.y + box.height / 2,
+    width: size.width,
+    height: size.height,
+    lean: geometry.focusLean,
+    yaw: 90 - geometry.focusAngle,
+  };
+}
+
+/** Where the cover lands beside the page. Null when that place is not on screen. */
+function endOf(reader: ReaderHandle): FlightEnd | null {
+  const target = (reader as ReaderHandle & { flightTarget?: () => FlightEnd | null }).flightTarget?.() ?? reader.coverSlotRect();
+  if (!target || target.width <= 0 || target.height <= 0) return null;
+  const onScreen = target.y + target.height > 0 && target.y < window.innerHeight && target.x + target.width > 0 && target.x < window.innerWidth;
+  return onScreen ? target : null;
+}
+
+/** Linear time of the opening, 0 to 1, falling back to the eased value on engines that only report that. */
+function timeOf(state: Readonly<ShelfMotionState>): number {
+  return (state as Readonly<ShelfMotionState> & { openTime?: number }).openTime ?? state.open;
+}
+
 export function createBookshelf(options: BookshelfOptions): Bookshelf {
   const { store } = options;
   const themePage = options.themePage ?? true;
   let bookmarks: Bookmark[] = [];
   let reader: ReaderHandle | null = null;
   let readerId: string | null = null;
-  let flightFrom: Box | null = null;
+  let flight: Flight | null = null;
+  /** The reader's own cover gives way to the flying one on the first frame of a close, never before. */
+  let coverLeavesOnMove = false;
+  let closing: Promise<void> | null = null;
   let lastFocusId: string | null = null;
   let savedFocusId: string | null = store.session().focusId;
   let savingFromReader = false;
@@ -119,7 +159,13 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     timing: shelf.variant.motion,
   });
 
-  const current = (): Bookmark | undefined => bookmarks[motion.state.focus];
+  /** What the person sees in the centre, which during a move is not yet where the row is heading. */
+  const current = (): Bookmark | undefined => {
+    if (bookmarks.length === 0) return undefined;
+    const nearest = Math.round(motion.state.position);
+    const index = shelf.loop ? wrap(nearest, bookmarks.length) : Math.min(bookmarks.length - 1, Math.max(0, nearest));
+    return bookmarks[index];
+  };
   // Set before subscribing so construction does not fire a focus change at a half-built host.
   lastFocusId = current()?.id ?? null;
 
@@ -128,11 +174,25 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     enabled: () => reader === null,
   });
 
+  function landFlight(): void {
+    flight?.destroy();
+    flight = null;
+    coverLeavesOnMove = false;
+  }
+
   const stopMotion = motion.subscribe((state) => {
+    const time = timeOf(state);
     shelf.setPose({ position: state.position, open: state.open, reduced: state.reduced });
-    reader?.setReveal(state.open, state.reduced ? null : flightFrom);
+    if (flight) {
+      if (coverLeavesOnMove && state.open < 1) {
+        reader?.setCoverVisible(false);
+        coverLeavesOnMove = false;
+      }
+      flight.set(time);
+    }
+    reader?.setReveal(time, null);
     shelf.element.dataset.settled = state.settled ? '1' : '0';
-    // Tell the host as soon as another volume reaches the centre, so its actions never describe the previous one.
+    // Caption and actions follow the volume that is visibly in the centre.
     const focused = current();
     const focusedId = focused?.id ?? null;
     if (focusedId !== lastFocusId) {
@@ -153,6 +213,15 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     else void open(intent.id);
   });
 
+  // Escape closes from the first frame of an opening, before focus has reached the reader.
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape' || !reader || event.defaultPrevented) return;
+    if (reader.element.contains(document.activeElement)) return;
+    event.preventDefault();
+    void close();
+  };
+  document.addEventListener('keydown', onKeyDown);
+
   function setBackgroundInert(inert: boolean): void {
     for (const element of options.background ?? []) element.inert = inert;
     document.documentElement.classList.toggle('bb-reading', inert);
@@ -171,6 +240,21 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     motion.goTo(target, showOptions);
   }
 
+  /** Puts one cover in the air between the shelf and the page. Returns false when there is nowhere to fly. */
+  function takeOff(bookmark: Bookmark, mark: string, active: ReaderHandle): boolean {
+    const start = startOf(shelf);
+    const end = endOf(active);
+    if (!start || !end) return false;
+    const cover = createCover(toShelfItem(bookmark, 0), mark);
+    const shelfCover = shelf.coverSize();
+    const scale = shelfCover.width > 0 ? end.width / shelfCover.width : 1;
+    cover.style.setProperty('--bb-cover-k', String(scale));
+    const spineEdge = Math.abs(Math.sin((start.yaw * Math.PI) / 180)) * shelf.variant.geometry.spineWidth * scale;
+    flight = createFlight({ cover, clothClass: `bb-cloth--${bookmark.cover.cloth}`, start, end, spineEdge });
+    flight.set(timeOf(motion.state));
+    return true;
+  }
+
   async function open(id: string, openOptions: { immediate?: boolean; editCopy?: boolean } = {}): Promise<void> {
     if (reader || destroyed) return;
     const bookmark = store.get(id);
@@ -182,14 +266,16 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       store.setSession({ shelfId: bookmark.shelfId });
       refresh();
     }
-    show(id, { immediate: true });
+    // A volume that is already in the centre flies from where it is; anything else is brought there first.
+    if (current()?.id !== id) show(id, { immediate: true });
 
     const item = toShelfItem(bookmark, 0);
     const geometry = shelf.variant.geometry;
     // Same catalogue mark as the volume on the shelf, so the hand-off after the flight changes nothing.
-    const cover = createCover(item, String(bookmarks.findIndex((entry) => entry.id === id) + 1).padStart(2, '0'));
+    const mark = String(bookmarks.findIndex((entry) => entry.id === id) + 1).padStart(2, '0');
+    const cover = createCover(item, mark);
     readerId = id;
-    reader = mountReader(options.readerHost, {
+    const active = mountReader(options.readerHost, {
       doc: toReaderDoc(bookmark),
       progress: store.progress(id),
       cover,
@@ -203,68 +289,75 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
         savingFromReader = false;
       },
     });
+    reader = active;
 
     const immediate = openOptions.immediate === true;
-    const flying = !immediate && !motion.state.reduced;
-    flightFrom = flying ? shelf.coverBox() : null;
-    const slot = reader.coverSlotRect();
+    const slot = active.coverSlotRect();
     // Tell the reader's cover how much larger it is than a cover on the shelf: its shadow, corners and
-    // hairlines then match the flying volume exactly and the swap at the end of the flight is invisible.
+    // hairlines then match the flying volume exactly and the hand-off at the end of the flight is invisible.
     const shelfCover = shelf.coverSize();
     if (slot && shelfCover.width > 0) cover.style.setProperty('--bb-cover-k', String(slot.width / shelfCover.width));
-    shelf.setStage(flying ? slot : null);
-    // While the book is in the air the reader's own cover stays hidden; they swap when it lands.
-    reader.setCoverVisible(!flying);
+    const flying = !immediate && !motion.state.reduced && takeOff(bookmark, mark, active);
+    // While the volume is in the air the reader's own cover stays hidden; they change places when it lands.
+    active.setCoverVisible(!flying);
     setBackgroundInert(true);
     store.setSession({ openId: id, focusId: id });
     options.onOpenChange?.(bookmark);
 
     await motion.setOpen(true, { immediate });
-    if (!reader || readerId !== id) return;
-    reader.setReveal(1);
-    reader.setCoverVisible(true);
+    // An opening that was reversed on the way is finished by the close that reversed it.
+    if (reader !== active || readerId !== id || motion.state.openTarget !== 1) return;
+    active.setReveal(1);
+    active.setCoverVisible(true);
+    landFlight();
     // The stored percent may come from another screen size. Replace it with what this layout actually shows.
-    if (store.progress(id)) store.setProgress(id, reader.progress());
+    if (store.progress(id)) store.setProgress(id, active.progress());
     if (openOptions.editCopy) {
       // An item without text already shows the paste field; one with text needs the edit button pressed.
-      const field = reader.element.querySelector<HTMLTextAreaElement>('.bb-reader__paste-field');
+      const field = active.element.querySelector<HTMLTextAreaElement>('.bb-reader__paste-field');
       if (field) field.focus();
-      else reader.element.querySelector<HTMLButtonElement>('.bb-reader__edit')?.click();
+      else active.element.querySelector<HTMLButtonElement>('.bb-reader__edit')?.click();
     } else {
-      reader.focus();
+      active.focus();
     }
   }
 
-  async function close(closeOptions: { immediate?: boolean } = {}): Promise<void> {
+  function close(closeOptions: { immediate?: boolean } = {}): Promise<void> {
+    // A second request while the first is still running joins it; it must not end the first one early.
+    if (closing) return closing;
     const active = reader;
-    if (!active) return;
-    store.flush();
-    const immediate = closeOptions.immediate === true;
-    const flying = !immediate && !motion.state.reduced;
-    if (flying) {
-      // Fly back from wherever the cover is now: the reader may have been scrolled.
-      const slot = active.coverSlotRect();
-      const visible = slot !== null && slot.y + slot.height > 0 && slot.y < window.innerHeight;
-      shelf.setStage(visible ? slot : null);
-      flightFrom = flightFrom ?? shelf.coverBox();
-      active.setCoverVisible(!visible);
-    }
-    store.setSession({ openId: null });
-    await motion.setOpen(false, { immediate });
-    if (reader !== active) return;
-    active.destroy();
-    reader = null;
-    readerId = null;
-    flightFrom = null;
-    shelf.setStage(null);
-    setBackgroundInert(false);
-    refresh();
-    const origin = opener;
-    opener = null;
-    const originUsable = origin !== null && origin.isConnected && origin.getClientRects().length > 0 && !shelf.element.contains(origin);
-    if (originUsable) origin.focus({ preventScroll: true });
-    else shelf.focusCurrent();
-    options.onOpenChange?.(undefined);
+    if (!active) return Promise.resolve();
+    const run = async (): Promise<void> => {
+      store.flush();
+      const immediate = closeOptions.immediate === true;
+      const bookmark = readerId ? store.get(readerId) : undefined;
+      if (immediate || motion.state.reduced) {
+        landFlight();
+      } else if (!flight && bookmark) {
+        // Fly back from wherever the cover is now: the page may have been scrolled.
+        const mark = String(bookmarks.findIndex((entry) => entry.id === bookmark.id) + 1).padStart(2, '0');
+        coverLeavesOnMove = takeOff(bookmark, mark, active);
+      }
+      store.setSession({ openId: null });
+      await motion.setOpen(false, { immediate });
+      if (reader !== active) return;
+      active.destroy();
+      reader = null;
+      readerId = null;
+      landFlight();
+      setBackgroundInert(false);
+      refresh();
+      const origin = opener;
+      opener = null;
+      const originUsable = origin !== null && origin.isConnected && origin.getClientRects().length > 0 && !shelf.element.contains(origin);
+      if (originUsable) origin.focus({ preventScroll: true });
+      else shelf.focusCurrent();
+      options.onOpenChange?.(undefined);
+    };
+    closing = run().finally(() => {
+      closing = null;
+    });
+    return closing;
   }
 
   function refresh(): void {
@@ -323,10 +416,12 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     refresh,
     destroy() {
       destroyed = true;
+      document.removeEventListener('keydown', onKeyDown);
       stopMotion();
       stopIntents();
       stopStore();
       detachGesture();
+      landFlight();
       reader?.destroy();
       motion.destroy();
       shelf.destroy();

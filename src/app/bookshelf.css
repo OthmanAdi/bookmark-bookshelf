@@ -17,3 +17,49 @@ body {
 .bb-reader__cover-slot {
   --bb-reader-cover-shadow: none;
 }
+
+/*
+ * The flight layer: one cover above everything while a volume travels between the shelf and the page.
+ * It never takes a pointer, and only the transform and two opacities change while it moves.
+ */
+.bb-flight {
+  position: fixed;
+  inset: 0;
+  z-index: var(--bb-z-flight);
+  pointer-events: none;
+  perspective: 2000px;
+}
+
+.bb-flight__book {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+
+/* The long shadow a volume casts while it is off the shelf. It fades in on lift and out on landing. */
+.bb-flight__shadow {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  box-shadow: 0 24px 48px -16px var(--bb-flight-shadow, rgba(26, 24, 21, 0.45));
+  opacity: 0;
+}
+
+/* The edge of the spine still showing beside a cover that is not yet square to the viewer. */
+.bb-flight__spine {
+  position: absolute;
+  top: 0;
+  right: 100%;
+  bottom: 0;
+  transform-origin: 100% 50%;
+  background-color: var(--cloth);
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.18));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-flight {
+    display: none;
+  }
+}
