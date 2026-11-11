@@ -10,7 +10,16 @@ import { createMemoryStorage, createStore, type Bookmark } from '../store';
  * Homepage: the real composition on an in-memory store, so trying it here
  * never touches the library kept by the app.
  */
-const store = createStore({ storage: createMemoryStorage(), seed: () => sampleLibrary(), syncTabs: false });
+const firstLook = document.documentElement.dataset.variant;
+const store = createStore({
+  storage: createMemoryStorage(),
+  // Starts in the look the page was first painted in, so the shelf is built once and nothing changes colour.
+  seed: () => {
+    const library = sampleLibrary();
+    return firstLook ? { ...library, session: { ...library.session, variant: firstLook } } : library;
+  },
+  syncTabs: false,
+});
 
 const looks = must<HTMLElement>('#looks');
 const prev = must<HTMLButtonElement>('#prev');
@@ -73,9 +82,14 @@ const lookButtons = listVariants().map((variant) => {
 });
 looks.replaceChildren(...lookButtons);
 
+const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+
+/** The browser's own bar takes the ground of the look, so a dark page is not framed in a light strip. */
 function syncLooks(): void {
   const active = bookshelf.shelf.variant.name;
   for (const choice of lookButtons) choice.setAttribute('aria-pressed', String(choice.dataset.look === active));
+  const ground = getComputedStyle(document.documentElement).getPropertyValue('--bb-paper').trim();
+  if (themeColor && ground) themeColor.content = ground;
 }
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');

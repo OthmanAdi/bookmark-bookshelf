@@ -5,6 +5,7 @@
  */
 :root {
   /* ground and ink */
+  --bb-color-scheme: light;
   --bb-paper: #efebe2;
   --bb-paper-raised: #f6f3ec;
   --bb-sheet: #fbf9f4;
@@ -134,6 +135,11 @@
   --bb-z-flight: 50;
   --bb-z-dialog: 60;
   --bb-z-toast: 70;
+}
+
+/* The one dark look: scrollbars, form controls and their pop-ups follow it. */
+:root[data-variant='night'] {
+  --bb-color-scheme: dark;
 }
 
 @media (max-width: 40rem) {
