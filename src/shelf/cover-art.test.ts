@@ -256,8 +256,8 @@ describe('createCover', () => {
   });
 
   it('sets the imprint at the foot and nothing about the site at the head', () => {
-    const cover = createCover(item({ source: 'en.wikipedia.org' }));
-    expect(cover.querySelector('.bb-cover__foot > .bb-cover__imprint')?.textContent).toBe('Wikipedia');
+    const cover = createCover(item({ source: 'www.w3.org' }));
+    expect(cover.querySelector('.bb-cover__foot > .bb-cover__imprint')?.textContent).toBe('W3');
     expect(cover.querySelector('.bb-cover__head')?.textContent).toBe('A Title');
   });
 
@@ -315,14 +315,14 @@ describe('createCover', () => {
   });
 
   it('lays out every cover from one site the same way, so a site reads as a series', () => {
-    const one = createCover(item({ source: 'en.wikipedia.org' })).dataset.layout;
-    expect(createCover(item({ source: 'de.wikipedia.org', title: 'Other' })).dataset.layout).toBe(one);
-    expect(createCover(item({ source: 'https://www.wikipedia.org/wiki/X' })).dataset.layout).toBe(one);
-    expect(layoutOf('en.wikipedia.org')).toBe(one);
+    const one = createCover(item({ source: 'en.example.org' })).dataset.layout;
+    expect(createCover(item({ source: 'de.example.org', title: 'Other' })).dataset.layout).toBe(one);
+    expect(createCover(item({ source: 'https://www.example.org/wiki/X' })).dataset.layout).toBe(one);
+    expect(layoutOf('en.example.org')).toBe(one);
   });
 
   it('uses all four layouts across sites and the plate for a link with no site', () => {
-    const sites = ['example.org', 'example.com', 'example.net', 'wikipedia.org', 'w3.org', 'mozilla.org', 'archive.org', 'stanford.edu'];
+    const sites = ['example.org', 'example.com', 'example.net', 'example.edu', 'w3.org', 'ietf.org', 'iso.org', 'unicode.org'];
     expect(new Set(sites.map(layoutOf))).toEqual(new Set(LAYOUTS));
     expect(createCover(item()).dataset.layout).toBe('plate');
   });
@@ -353,7 +353,7 @@ describe('createCover', () => {
 
   it('prints the shape of the saved text as the plate when there is one', () => {
     const outline = [-0.3, 1, 0.4, 0.8];
-    const cover = createCover(item({ outline, pattern: 'dots', source: 'en.wikipedia.org' }));
+    const cover = createCover(item({ outline, pattern: 'dots', source: 'www.w3.org' }));
     expect(cover.dataset.plate).toBe('outline');
     const rules = cover.querySelectorAll('.bb-cover__plate rect');
     expect(rules).toHaveLength(outline.length);
