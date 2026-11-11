@@ -191,7 +191,34 @@ export interface BookmarkPatch {
   minutes?: number | null;
 }
 
-export type ChangeReason = 'bookmarks' | 'shelves' | 'progress' | 'session' | 'replace' | 'external';
+export type ChangeReason =
+  | 'bookmarks'
+  | 'shelves'
+  | 'progress'
+  | 'done'
+  | 'notes'
+  | 'session'
+  | 'replace'
+  | 'external';
+
+/** Fields of a shelf that can be changed. An empty string removes an optional field. */
+export interface ShelfPatch {
+  name?: string;
+  description?: string;
+  lang?: string;
+  author?: string;
+  /** `YYYY-MM-DD`. */
+  due?: string;
+}
+
+/** A removed link with everything personal that went with it, so the caller can offer undo. */
+export interface RemovedBookmark {
+  bookmark: Bookmark;
+  progress?: Progress;
+  /** When it was marked read. */
+  done?: string;
+  note?: string;
+}
 
 export interface StoreEvent {
   type: 'change';
@@ -231,20 +258,31 @@ export interface Store {
 
   addBookmark(input: BookmarkInput): Result<Bookmark>;
   updateBookmark(id: string, patch: BookmarkPatch): Result<Bookmark>;
-  /** Removes a volume and returns it with its progress so the caller can offer undo. */
-  removeBookmark(id: string): { bookmark: Bookmark; progress?: Progress } | undefined;
-  restoreBookmark(entry: { bookmark: Bookmark; progress?: Progress }): void;
+  /** Removes a volume and returns it with its progress, done mark and note so the caller can offer undo. */
+  removeBookmark(id: string): RemovedBookmark | undefined;
+  restoreBookmark(entry: RemovedBookmark): void;
   /** Moves a volume to another shelf and/or to an index inside the shelf. */
   moveBookmark(id: string, to: { shelfId?: string; index?: number }): Result<Bookmark>;
 
   addShelf(name: string): Result<Shelf>;
   renameShelf(id: string, name: string): Result<Shelf>;
+  /** Changes the name, description, language, author or due date of a shelf in one step. */
+  updateShelf(id: string, patch: ShelfPatch): Result<Shelf>;
   /** Removes a shelf. Its volumes move to `moveTo`, or to the first remaining shelf. */
   removeShelf(id: string, moveTo?: string): Result<void>;
 
   progress(id: string): Progress | undefined;
   setProgress(id: string, value: { block: number; ratio: number; percent: number }): void;
   clearProgress(id: string): void;
+
+  /** Whether the person marked this link read. */
+  isDone(id: string): boolean;
+  /** Marks a link read or not read. Marking a link that is already read keeps the first time. */
+  setDone(id: string, done: boolean): Result<void>;
+  /** The private note on a link, or an empty string. */
+  note(id: string): string;
+  /** Sets the private note, at most 2,000 characters. An empty text removes it. */
+  setNote(id: string, text: string): Result<void>;
 
   session(): Session;
   setSession(patch: Partial<Session>): void;

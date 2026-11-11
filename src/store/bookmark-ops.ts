@@ -1,4 +1,4 @@
-import type { Bookmark, BookmarkInput, BookmarkPatch, LibraryV2, Progress, Result } from './types';
+import type { Bookmark, BookmarkInput, BookmarkPatch, LibraryV2, RemovedBookmark, Result } from './types';
 import { defaultCover, mergeCover } from './cover';
 import { ownValue } from './ids';
 import { placeBookmark, shelfBookmarks, sortLibrary } from './ordering';
@@ -112,20 +112,28 @@ export function updateBookmarkIn(lib: LibraryV2, ctx: OpContext, id: string, pat
   return ok(draft);
 }
 
-export function removeBookmarkFrom(lib: LibraryV2, id: string): { bookmark: Bookmark; progress?: Progress } | undefined {
+export function removeBookmarkFrom(lib: LibraryV2, id: string): RemovedBookmark | undefined {
   const bookmark = findBookmark(lib, id);
   if (!bookmark) return undefined;
+  const removed: RemovedBookmark = { bookmark };
   const progress = ownValue(lib.progress, id);
+  if (progress) removed.progress = progress;
+  const done = ownValue(lib.done, id);
+  if (done !== undefined) removed.done = done;
+  const note = ownValue(lib.notes, id);
+  if (note !== undefined) removed.note = note;
   lib.bookmarks.splice(lib.bookmarks.indexOf(bookmark), 1);
   delete lib.progress[id];
+  delete lib.done[id];
+  delete lib.notes[id];
   if (lib.session.focusId === id) lib.session.focusId = null;
   if (lib.session.openId === id) lib.session.openId = null;
   sortLibrary(lib);
-  return progress ? { bookmark, progress } : { bookmark };
+  return removed;
 }
 
-/** Puts a removed volume and its progress back at the old position. Ignored if the id is taken. */
-export function restoreBookmarkTo(lib: LibraryV2, entry: { bookmark: Bookmark; progress?: Progress }): boolean {
+/** Puts a removed volume and what was personal to it back at the old position. Ignored if the id is taken. */
+export function restoreBookmarkTo(lib: LibraryV2, entry: RemovedBookmark): boolean {
   if (findBookmark(lib, entry.bookmark.id)) return false;
   const fallback = lib.shelves[0]?.id;
   const shelfId = hasShelf(lib, entry.bookmark.shelfId) ? entry.bookmark.shelfId : fallback;
@@ -134,6 +142,8 @@ export function restoreBookmarkTo(lib: LibraryV2, entry: { bookmark: Bookmark; p
   lib.bookmarks.push(restored);
   placeBookmark(lib, restored, shelfId, entry.bookmark.order);
   if (entry.progress) lib.progress[restored.id] = clone(entry.progress);
+  if (entry.done !== undefined) lib.done[restored.id] = entry.done;
+  if (entry.note !== undefined) lib.notes[restored.id] = entry.note;
   return true;
 }
 

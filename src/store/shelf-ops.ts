@@ -1,8 +1,8 @@
-import type { LibraryV2, Result, Shelf } from './types';
+import type { LibraryV2, Result, Shelf, ShelfPatch } from './types';
 import type { OpContext } from './bookmark-ops';
 import { shelfBookmarks, sortLibrary } from './ordering';
 import { fail, notFound, ok } from './result';
-import { checkShelfName } from './validate';
+import { checkDescription, checkDue, checkLang, checkShelfAuthor, checkShelfName } from './validate';
 
 function nameTaken(lib: LibraryV2, name: string, exceptId?: string): boolean {
   const folded = name.toLowerCase();
@@ -22,14 +22,44 @@ export function addShelfTo(lib: LibraryV2, ctx: OpContext, rawName: string): Res
   return ok(shelf);
 }
 
-export function renameShelfIn(lib: LibraryV2, id: string, rawName: string): Result<Shelf> {
+type OptionalShelfField = 'description' | 'lang' | 'author' | 'due';
+
+const OPTIONAL_CHECKS: Array<[OptionalShelfField, (raw: string) => Result<string | undefined>]> = [
+  ['description', checkDescription],
+  ['lang', checkLang],
+  ['author', checkShelfAuthor],
+  ['due', checkDue],
+];
+
+/** Checks every given field first, then applies them all, so a bad field changes nothing. */
+export function updateShelfIn(lib: LibraryV2, id: string, patch: ShelfPatch): Result<Shelf> {
   const shelf = lib.shelves.find((item) => item.id === id);
   if (!shelf) return notFound('shelf');
-  const name = checkShelfName(rawName);
-  if (!name.ok) return name;
-  if (nameTaken(lib, name.value, id)) return duplicate();
-  shelf.name = name.value;
+  let name: string | undefined;
+  if (patch.name !== undefined) {
+    const checked = checkShelfName(patch.name);
+    if (!checked.ok) return checked;
+    if (nameTaken(lib, checked.value, id)) return duplicate();
+    name = checked.value;
+  }
+  const values: Array<[OptionalShelfField, string | undefined]> = [];
+  for (const [field, check] of OPTIONAL_CHECKS) {
+    const raw = patch[field];
+    if (raw === undefined) continue;
+    const checked = check(typeof raw === 'string' ? raw : '');
+    if (!checked.ok) return checked;
+    values.push([field, checked.value]);
+  }
+  if (name !== undefined) shelf.name = name;
+  for (const [field, value] of values) {
+    if (value === undefined) delete shelf[field];
+    else shelf[field] = value;
+  }
   return ok(shelf);
+}
+
+export function renameShelfIn(lib: LibraryV2, id: string, rawName: string): Result<Shelf> {
+  return updateShelfIn(lib, id, { name: rawName });
 }
 
 /** Moves the shelf's volumes to the end of the target shelf, then drops the shelf. */

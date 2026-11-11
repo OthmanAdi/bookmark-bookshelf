@@ -26,11 +26,12 @@ import { defaultIdFactory, ownValue } from './ids';
 import { mergeLibrary } from './merge';
 import { migrateLibrary } from './migrate';
 import { orderedBookmarks } from './ordering';
+import { setDoneIn, setNoteIn } from './personal-ops';
 import { loadLibrary, saveLibrary } from './persistence';
 import { normalizeProgress } from './progress';
 import { clone, cloneResult, ok } from './result';
 import { applySessionPatch } from './session-ops';
-import { addShelfTo, removeShelfFrom, renameShelfIn } from './shelf-ops';
+import { addShelfTo, removeShelfFrom, renameShelfIn, updateShelfIn } from './shelf-ops';
 import { resolveStorage } from './storage';
 
 type Listener = (event: StoreEvent) => void;
@@ -96,6 +97,13 @@ export function createStore(options: StoreOptions = {}): Store {
     return error ? { ok: false, error } : cloneResult(value);
   }
 
+  /** For changes that may turn out to be none: nothing is written or announced unless the value says so. */
+  function mutateFlag(reasons: ChangeReason[], run: () => Result<boolean>): Result<void> {
+    const { value, error } = commit(reasons, run, (result) => result.ok && result.value);
+    if (!value.ok) return value;
+    return error ? { ok: false, error } : ok(undefined);
+  }
+
   function scheduleProgressWrite(): void {
     if (progressTimer !== undefined) return;
     progressTimer = setTimeout(() => {
@@ -144,6 +152,7 @@ export function createStore(options: StoreOptions = {}): Store {
 
     addShelf: (name): Result<Shelf> => mutate(['shelves'], () => addShelfTo(lib, ctx, name)),
     renameShelf: (id, name): Result<Shelf> => mutate(['shelves'], () => renameShelfIn(lib, id, name)),
+    updateShelf: (id, patch): Result<Shelf> => mutate(['shelves'], () => updateShelfIn(lib, id, patch)),
     removeShelf: (id, moveTo) => mutate(['shelves', 'bookmarks'], () => removeShelfFrom(lib, id, moveTo)),
 
     progress: (id): Progress | undefined => {
@@ -167,6 +176,11 @@ export function createStore(options: StoreOptions = {}): Store {
         Boolean,
       );
     },
+
+    isDone: (id) => Object.hasOwn(lib.done, id),
+    setDone: (id, done) => mutateFlag(['done'], () => setDoneIn(lib, ctx, id, done)),
+    note: (id) => ownValue(lib.notes, id) ?? '',
+    setNote: (id, text) => mutateFlag(['notes'], () => setNoteIn(lib, id, text)),
 
     session: (): Session => clone(lib.session),
     setSession: (patch) => {
