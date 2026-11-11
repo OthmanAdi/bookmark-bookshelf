@@ -450,17 +450,24 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       store.setSession({ openId: null });
       await motion.setOpen(false, { immediate });
       if (reader !== active) return;
+      const origin = opener;
+      opener = null;
+      const giveFocusBack = (): void => {
+        const usable = origin !== null && origin.isConnected && origin.getClientRects().length > 0 && !shelf.element.contains(origin);
+        if (usable) origin.focus({ preventScroll: true });
+        else shelf.focusCurrent();
+      };
+      // Focus goes back while the reader is still there, so the browser can tell a key from a pointer: a tap on
+      // the close button leaves no ring on the volume, Escape leaves one.
+      setBackgroundInert(false);
+      giveFocusBack();
       active.destroy();
       reader = null;
       readerId = null;
       landFlight();
-      setBackgroundInert(false);
       refresh();
-      const origin = opener;
-      opener = null;
-      const originUsable = origin !== null && origin.isConnected && origin.getClientRects().length > 0 && !shelf.element.contains(origin);
-      if (originUsable) origin.focus({ preventScroll: true });
-      else shelf.focusCurrent();
+      // Redrawing the row may have taken the focused control away.
+      if (!document.activeElement || document.activeElement === document.body) giveFocusBack();
       if (!handingOver) options.onOpenChange?.(undefined);
     };
     closing = run().finally(() => {
