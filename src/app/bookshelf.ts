@@ -149,6 +149,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
   let savingFromReader = false;
   let opener: HTMLElement | null = null;
   let destroyed = false;
+  let motionRef: ShelfMotion | null = null;
 
   /** Catalogue marks by date added across the whole library, so a volume keeps its mark on every shelf. */
   let marks = new Map<string, string>();
@@ -195,6 +196,8 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     label: options.label ?? 'Bookshelf',
     caption: options.caption,
     arrows: options.arrows,
+    // Whether the row loops depends on how many volumes the stage can hold, which the shelf finds out.
+    onLoopChange: (loop) => motionRef?.setLoop(loop),
   });
   if (themePage) document.documentElement.dataset.variant = shelf.variant.name;
 
@@ -203,13 +206,15 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     bookmarks.findIndex((bookmark) => bookmark.id === store.session().focusId),
   );
 
-  const motion = createShelfMotion({
+  const motion: ShelfMotion = createShelfMotion({
     count: bookmarks.length,
     loop: shelf.loop,
     initial: startIndex,
     reducedMotion: prefersReducedMotion,
     timing: shelf.variant.motion,
   });
+
+  motionRef = motion;
 
   /** What the person sees in the centre, which during a move is not yet where the row is heading. */
   const current = (): Bookmark | undefined => {
