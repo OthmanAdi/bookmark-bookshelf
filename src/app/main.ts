@@ -28,10 +28,15 @@ import { renderChoices, renderViewMenu, type ViewMode } from './shell-view-menu'
  * The app shell: page chrome around the composed bookshelf.
  * State lives in the store; this file turns clicks into store calls and redraws.
  */
-/** True when this browser has no library yet, so the look painted before load was chosen for a first visit. */
+/**
+ * True when this browser has stored nothing yet, so the look painted before load was chosen for a first
+ * visit. The look lives beside the library under a key of its own, and a person may have chosen one
+ * before they changed any link.
+ */
 function firstVisit(): boolean {
   try {
-    return window.localStorage.getItem(DEFAULT_STORAGE_KEY) === null;
+    const storage = window.localStorage;
+    return storage.getItem(DEFAULT_STORAGE_KEY) === null && storage.getItem(`${DEFAULT_STORAGE_KEY}:session`) === null;
   } catch {
     return false;
   }
