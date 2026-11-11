@@ -23,13 +23,45 @@
   /* type */
   --bb-font-serif: 'Newsreader Variable', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
   --bb-font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  --bb-text-micro: 0.6875rem; /* 11px labels */
-  --bb-text-small: 0.8125rem;
-  --bb-text-body: 1rem;
-  --bb-text-read: 1.1875rem; /* 19px reading size */
-  --bb-text-title: clamp(1.375rem, 1.1rem + 1vw, 1.75rem);
-  --bb-text-display: clamp(2.25rem, 1.4rem + 3.6vw, 4.25rem);
-  --bb-track-label: 0.09em;
+  /*
+   * One scale at a ratio of about 1.2. Each size has its own line height so lines of
+   * different sizes still land on a 4px grid. Mono capitals at the micro size are for
+   * metadata figures only (counts, percent, minutes, dates), never for controls or for
+   * anything a person typed.
+   */
+  --bb-text-micro: 0.6875rem; /* 11 / 16 */
+  --bb-text-small: 0.875rem; /* 14 / 20: hints, fine print, toasts, field labels */
+  --bb-text-ui: 0.9375rem; /* 15 / 20: buttons, tabs, menus, the bar */
+  --bb-text-body: 1rem; /* 16 / 24: inputs, notes, dialog body */
+  --bb-text-read: clamp(1.0625rem, 0.9rem + 0.6vw, 1.1875rem); /* 17 to 19, reader body */
+  --bb-text-lead: 1.4375rem; /* 23 / 30: caption title, dialog title, homepage deck */
+  --bb-text-title: 1.75rem; /* 28 / 34: reader h2 */
+  --bb-text-heading: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem); /* 28 to 44: reader title, section titles */
+  --bb-text-display: clamp(2.75rem, 5vw + 1rem, 5.25rem); /* 44 to 84: homepage hero only */
+
+  --bb-line-micro: 1rem;
+  --bb-line-small: 1.25rem;
+  --bb-line-ui: 1.25rem;
+  --bb-line-body: 1.5rem;
+  --bb-line-lead: 1.875rem;
+  --bb-line-title: 2.125rem;
+
+  --bb-leading-display: 0.98;
+  --bb-leading-tight: 1.1;
+  --bb-leading-snug: 1.25;
+  --bb-leading-ui: 1.33;
+  --bb-leading-body: 1.5;
+  --bb-leading-read: 1.58;
+
+  --bb-track-label: 0.08em;
+  --bb-track-display: -0.03em;
+  --bb-track-heading: -0.02em;
+
+  /* Display and heading sizes carry their own contrast through the optical size; small titles need the weight. */
+  --bb-weight-text: 400;
+  --bb-weight-ui: 500;
+  --bb-weight-display: 500;
+  --bb-weight-title: 600;
 
   /* spacing scale */
   --bb-s-1: 0.25rem;
