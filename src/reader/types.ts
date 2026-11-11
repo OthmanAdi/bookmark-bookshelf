@@ -47,6 +47,7 @@ export interface Box {
 }
 
 export interface ReaderLabels {
+  /** The bar button that returns to the shelf. */
   close: string;
   openOriginal: string;
   editCopy: string;
@@ -56,7 +57,10 @@ export interface ReaderLabels {
   emptyTitle: string;
   emptyBody: string;
   progress: (percent: number) => string;
+  /** Reading time, for example "6 min". */
   minutes: (minutes: number) => string;
+  /** The saved date as a sentence start, for example "Saved 14 Sep 2026". It receives the formatted date. */
+  saved: (date: string) => string;
 }
 
 export interface ReaderOptions {

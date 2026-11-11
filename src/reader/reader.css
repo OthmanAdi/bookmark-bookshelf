@@ -38,7 +38,7 @@
   outline: none;
 }
 
-/* Bar */
+/* Bar: the button starts on the text axis and the readout ends on the layout's right edge. */
 .bb-reader__bar {
   position: sticky;
   top: 0;
@@ -47,27 +47,51 @@
   align-items: center;
   gap: var(--bb-s-4);
   min-height: var(--bb-reader-bar);
-  padding: 0 var(--bb-s-4);
+  padding-inline: max(
+    var(--bb-s-4),
+    calc((100% - var(--bb-reader-max, 76rem)) / 2 + var(--bb-reader-pad-inline, var(--bb-s-6)))
+  );
   background: var(--bb-sheet);
   border-bottom: var(--bb-hairline) solid var(--bb-rule);
 }
 
 .bb-reader__close {
-  min-width: 2.5rem;
   flex: none;
 }
 
-.bb-reader__host-label {
+/* The title appears here once the heading has scrolled away, with the thumbnail of the cover on narrow screens. */
+.bb-reader__bar-title {
+  display: flex;
   flex: 1;
+  align-items: center;
+  gap: var(--bb-s-3);
+  min-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--bb-dur-2) var(--bb-ease-out),
+    visibility 0s linear var(--bb-dur-2);
+}
+
+.bb-reader__bar[data-away] .bb-reader__bar-title,
+.bb-reader__bar[data-landing] .bb-reader__bar-title {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.bb-reader__bar-text {
   min-width: 0;
   overflow: hidden;
   color: var(--bb-ink-soft);
+  font-size: var(--bb-text-ui, var(--bb-text-body));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .bb-reader__readout {
   flex: none;
+  margin-left: auto;
   color: var(--bb-ink-faint);
   font-variant-numeric: tabular-nums;
 }
@@ -97,8 +121,14 @@
   border-radius: var(--bb-r-1);
 }
 
-.bb-reader__thumb[data-landing] {
+.bb-reader__bar[data-landing] .bb-reader__thumb {
   display: block;
+}
+
+@media (max-width: 899.98px) {
+  .bb-reader__bar[data-away] .bb-reader__thumb {
+    display: block;
+  }
 }
 
 .bb-reader__thumb-face {

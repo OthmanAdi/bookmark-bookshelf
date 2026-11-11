@@ -2,7 +2,7 @@ import './reader.css';
 import './reader-text.css';
 import { buildArticleParts, fillBody } from './article';
 import type { ArticleHandlers } from './article';
-import { hostnameOf, resolveLabels } from './meta';
+import { resolveLabels } from './meta';
 import { createProgressTracker, measureBlocks } from './progress';
 import { revealFrame } from './reveal';
 import { buildShell } from './shell';
@@ -37,7 +37,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     onChange: (position, silent) => {
       showProgress(position);
       // Once the person moves, the bar thumbnail goes back to following the cover beside the text.
-      if (!silent) shell.thumb.removeAttribute('data-landing');
+      if (!silent) bar.removeAttribute('data-landing');
       if (!silent) options.onProgress?.(position);
     },
   });
@@ -64,6 +64,26 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     },
   };
 
+  let titleWatch: IntersectionObserver | null = null;
+
+  // The bar shows the title once the heading has scrolled out under it.
+  function watchTitle(): void {
+    titleWatch?.disconnect();
+    titleWatch = null;
+    const heading = shell.article.querySelector('h1');
+    if (!heading || typeof IntersectionObserver !== 'function') return;
+    titleWatch = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[entries.length - 1];
+        if (!entry) return;
+        const gone = !entry.isIntersecting && entry.boundingClientRect.bottom <= (entry.rootBounds?.top ?? 0) + 1;
+        bar.toggleAttribute('data-away', gone);
+      },
+      { root: sheet, rootMargin: `-${Math.round(bar.getBoundingClientRect().height)}px 0px 0px 0px`, threshold: [0, 1] },
+    );
+    titleWatch.observe(heading);
+  }
+
   function render(focusTarget: 'field' | 'edit' | null = null, relayout = true): void {
     const parts = buildArticleParts(dom, { source, labels, titleId, canEdit, handlers });
     shell.article.replaceChildren(...parts.nodes);
@@ -73,7 +93,8 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     });
     body = parts.body;
     editButton = parts.editButton;
-    shell.hostLabel.textContent = hostnameOf(source.url);
+    shell.barText.textContent = source.title;
+    watchTitle();
     const field = fillBody({ dom, body, source, labels, fieldId: `${uid}-paste`, canEdit, editing, handlers });
     if (focusTarget === 'field') field?.focus({ preventScroll: true });
     if (focusTarget === 'edit') (editButton ?? sheet).focus({ preventScroll: true });
@@ -152,14 +173,14 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
       const height = root.clientHeight || dom.defaultView?.innerHeight || 0;
       const onScreen = slot.width > 0 && slot.height > 0 && slot.y >= barBottom - 1 && slot.y + slot.height <= height + 1;
       if (onScreen) {
-        shell.thumb.removeAttribute('data-landing');
+        bar.removeAttribute('data-landing');
         return slot;
       }
       // Beside the text the cover has scrolled away (or is not laid out): land in the bar.
-      shell.thumb.setAttribute('data-landing', '');
+      bar.setAttribute('data-landing', '');
       const thumb = box(shell.thumb.getBoundingClientRect());
       if (thumb.width > 0 && thumb.height > 0) return thumb;
-      shell.thumb.removeAttribute('data-landing');
+      bar.removeAttribute('data-landing');
       return slot.width > 0 && slot.height > 0 ? slot : null;
     },
     coverSlotRect() {
@@ -188,6 +209,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
       destroyed = true;
       tracker.destroy();
       observer?.disconnect();
+      titleWatch?.disconnect();
       shell.closeButton.removeEventListener('click', closeClick);
       root.removeEventListener('keydown', onKeydown);
       root.remove();

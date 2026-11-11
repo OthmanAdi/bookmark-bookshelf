@@ -24,18 +24,23 @@ export interface ArticleInput {
   handlers: ArticleHandlers;
 }
 
-function buildKicker(dom: Document, source: ReaderDoc): HTMLElement {
-  const kicker = el(dom, 'p', 'bb-reader__kicker bb-label');
-  const host = hostnameOf(source.url);
+/** One sentence-case line: when it was saved and how long it takes to read. */
+function buildSavedLine(dom: Document, source: ReaderDoc, labels: ReaderLabels): HTMLElement | null {
   const saved = formatSavedDate(source.addedAt, dom.documentElement.lang);
-  if (host) kicker.append(host);
-  if (host && saved) kicker.append(' · ');
+  const minutes = source.text?.trim() ? labels.minutes(estimateMinutes(source.text)) : '';
+  if (!saved && !minutes) return null;
+  const line = el(dom, 'p', 'bb-reader__saved');
   if (saved) {
+    const sentence = labels.saved(saved.text);
+    const at = sentence.indexOf(saved.text);
     const time = el(dom, 'time', undefined, saved.text);
     time.setAttribute('datetime', saved.iso);
-    kicker.appendChild(time);
+    if (at < 0) line.append(sentence, ' ', time);
+    else line.append(sentence.slice(0, at), time, sentence.slice(at + saved.text.length));
   }
-  return kicker;
+  if (saved && minutes) line.append(', ');
+  if (minutes) line.append(minutes);
+  return line;
 }
 
 function buildOpenOriginal(dom: Document, source: ReaderDoc, labels: ReaderLabels): HTMLElement {
@@ -53,18 +58,17 @@ function buildOpenOriginal(dom: Document, source: ReaderDoc, labels: ReaderLabel
   return link;
 }
 
-/** Everything inside the article: kicker, title, byline, note, reading time, actions and the body shell. */
+/** Everything inside the article: saved line, title, byline, note, actions and the body shell. */
 export function buildArticleParts(dom: Document, input: ArticleInput): ArticleParts {
   const { source, labels } = input;
-  const nodes: Node[] = [buildKicker(dom, source)];
+  const nodes: Node[] = [];
+  const savedLine = buildSavedLine(dom, source, labels);
+  if (savedLine) nodes.push(savedLine);
   const title = el(dom, 'h1', 'bb-reader__title', source.title);
   title.id = input.titleId;
   nodes.push(title);
   if (source.author) nodes.push(el(dom, 'p', 'bb-reader__byline', source.author));
   if (source.note) nodes.push(el(dom, 'p', 'bb-reader__note', source.note));
-  if (source.text?.trim()) {
-    nodes.push(el(dom, 'p', 'bb-reader__time bb-label', labels.minutes(estimateMinutes(source.text))));
-  }
 
   const actions = el(dom, 'div', 'bb-reader__actions');
   actions.appendChild(buildOpenOriginal(dom, source, labels));

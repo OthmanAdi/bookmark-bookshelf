@@ -57,22 +57,40 @@ describe('structure', () => {
     expect(query('.bb-reader__layout').contains(query('.bb-reader__cover'))).toBe(true);
   });
 
-  it('has a visible Close button', () => {
+  it('has a visible button back to the shelf', () => {
     mount();
     const close = query<HTMLButtonElement>('.bb-reader__close');
-    expect(close.textContent).toBe('Close');
+    expect(close.textContent).toBe('Back to shelf');
     expect(close.type).toBe('button');
   });
 
-  it('shows hostname, date, byline, note, reading time and the readout', () => {
+  it('shows one saved line, byline, note and the readout, and names the host only on the button', () => {
     mount();
-    expect(query('.bb-reader__host-label').textContent).toBe('example.com');
-    expect(query('.bb-reader__kicker').textContent).toContain('example.com');
-    expect(query('.bb-reader__kicker time').getAttribute('datetime')).toContain('2026-03-04');
+    expect(query('.bb-reader__saved').textContent).toBe('Saved 4 Mar 2026, 1 min');
+    expect(query('.bb-reader__saved time').getAttribute('datetime')).toContain('2026-03-04');
     expect(query('.bb-reader__byline').textContent).toBe('Jo Writer');
     expect(query('.bb-reader__note').textContent).toBe('Read on the train');
-    expect(query('.bb-reader__time').textContent).toBe('1 min read');
     expect(query('.bb-reader__readout').getAttribute('aria-live')).toBe('off');
+    const article = query('.bb-reader__doc').textContent ?? '';
+    expect(article.match(/example\.com/g)).toHaveLength(1);
+    expect(query('.bb-reader__open').textContent).toContain('example.com');
+    expect(host.querySelector('.bb-reader__host-label, .bb-reader__time, .bb-reader__kicker')).toBeNull();
+  });
+
+  it('puts the saved line before the title and leaves it out when there is nothing to say', () => {
+    mount();
+    expect(query('.bb-reader__saved').nextElementSibling).toBe(query('h1'));
+    handle?.destroy();
+    mount({ doc: { ...doc, addedAt: undefined, text: undefined } });
+    expect(host.querySelector('.bb-reader__saved')).toBeNull();
+  });
+
+  it('keeps a copy of the title in the bar, hidden from assistive technology', () => {
+    mount();
+    expect(query('.bb-reader__bar-title').getAttribute('aria-hidden')).toBe('true');
+    expect(query('.bb-reader__bar-text').textContent).toBe('A quiet essay');
+    handle?.update({ ...doc, title: 'Another' });
+    expect(query('.bb-reader__bar-text').textContent).toBe('Another');
   });
 
   it('links to the original safely', () => {
@@ -143,14 +161,14 @@ describe('flight target', () => {
     const reader = mount({ cover: document.createElement('div') });
     laidOut(reader, rect(16, 120, 80, 130));
     expect(reader.flightTarget()).toEqual({ x: 16, y: 120, width: 80, height: 130 });
-    expect(query('.bb-reader__thumb').hasAttribute('data-landing')).toBe(false);
+    expect(query('.bb-reader__bar').hasAttribute('data-landing')).toBe(false);
   });
 
   it('is the bar thumbnail once the cover place has scrolled away', () => {
     const reader = mount({ cover: document.createElement('div') });
     laidOut(reader, rect(16, -900, 80, 130));
     expect(reader.flightTarget()).toEqual({ x: 60, y: 8, width: 27, height: 40 });
-    expect(query('.bb-reader__thumb').hasAttribute('data-landing')).toBe(true);
+    expect(query('.bb-reader__bar').hasAttribute('data-landing')).toBe(true);
   });
 
   it('keeps the thumbnail out of assistive technology and holds its own copy of the cover', () => {
@@ -233,7 +251,7 @@ describe('empty state and the paste panel', () => {
     expect(label.getAttribute('for')).toBe(field.id);
     expect(query('.bb-reader__save').textContent).toBe('Save');
     expect(query('.bb-reader__cancel').textContent).toBe('Cancel');
-    expect(host.querySelector('.bb-reader__time')).toBeNull();
+    expect(query('.bb-reader__saved').textContent).toBe('Saved 4 Mar 2026');
   });
 
   it('hides the panel and the edit button without onSaveText', () => {
@@ -253,7 +271,7 @@ describe('empty state and the paste panel', () => {
     expect(query('.bb-reader__body h2').textContent).toBe('Pasted');
     expect(query('.bb-reader__body p').textContent).toBe('Hello <b>there</b>');
     expect(host.querySelector('.bb-reader__body b')).toBeNull();
-    expect(query('.bb-reader__time')).toBeTruthy();
+    expect(query('.bb-reader__saved').textContent).toBe('Saved 4 Mar 2026, 1 min');
   });
 
   it('reopens the panel pre-filled from Edit reading copy, and Cancel returns to the text', () => {

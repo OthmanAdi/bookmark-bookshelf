@@ -4,7 +4,7 @@ export const WORDS_PER_MINUTE = 220;
 
 /** `progress` receives a whole percent from 0 to 100. */
 export const defaultReaderLabels: ReaderLabels = {
-  close: 'Close',
+  close: 'Back to shelf',
   openOriginal: 'Open original',
   editCopy: 'Edit reading copy',
   saveCopy: 'Save',
@@ -15,7 +15,8 @@ export const defaultReaderLabels: ReaderLabels = {
     'Paste the text you want to read and it is kept with this link. You can stop and pick it up later, ' +
     'and the original page stays one click away.',
   progress: (percent) => `${percent}% read`,
-  minutes: (minutes) => `${minutes} min read`,
+  minutes: (minutes) => `${minutes} min`,
+  saved: (date) => `Saved ${date}`,
 };
 
 /** Merges overrides over the defaults, ignoring keys that are explicitly undefined. */
@@ -49,12 +50,21 @@ export interface SavedDate {
   iso: string;
 }
 
+const EN_OPTIONS: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+
+/** Plain English reads day first with a three-letter month: the locale data spells September "Sept". */
+function formatEnglish(date: Date): string {
+  const part = (type: string): string =>
+    new Intl.DateTimeFormat('en-US', EN_OPTIONS).formatToParts(date).find((entry) => entry.type === type)?.value ?? '';
+  return `${part('day')} ${part('month')} ${part('year')}`;
+}
+
 export function formatSavedDate(addedAt: string | undefined, locale?: string): SavedDate | null {
   if (!addedAt) return null;
   const date = new Date(addedAt);
   if (Number.isNaN(date.getTime())) return null;
   try {
-    const text = new Intl.DateTimeFormat(locale || undefined, { dateStyle: 'medium' }).format(date);
+    const text = !locale || /^en$/i.test(locale) ? formatEnglish(date) : new Intl.DateTimeFormat(locale, EN_OPTIONS).format(date);
     return { text, iso: date.toISOString() };
   } catch {
     return null;

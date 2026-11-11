@@ -9,7 +9,9 @@ export interface ShellRefs {
   sheet: HTMLElement;
   bar: HTMLElement;
   closeButton: HTMLButtonElement;
-  hostLabel: HTMLElement;
+  /** Holds the thumbnail and the title; it appears once the title has scrolled under the bar. */
+  barTitle: HTMLElement;
+  barText: HTMLElement;
   /** Small copy of the cover in the bar, where the cover lands when the one beside the text has scrolled away. */
   thumb: HTMLElement;
   readout: HTMLElement;
@@ -48,16 +50,20 @@ function buildBar(dom: Document, labels: ReaderLabels, cover: HTMLElement | null
   const bar = el(dom, 'header', 'bb-reader__bar');
   const closeButton = el(dom, 'button', 'bb-reader__close bb-button', labels.close);
   closeButton.type = 'button';
-  const hostLabel = el(dom, 'span', 'bb-reader__host-label bb-label');
   const readout = el(dom, 'span', 'bb-reader__readout bb-label');
   readout.setAttribute('aria-live', 'off');
   const thumb = buildThumb(dom, cover, ratio);
+  const barTitle = el(dom, 'div', 'bb-reader__bar-title');
+  // The title is already the dialog's name and the page's heading, so this copy stays out of the reading order.
+  barTitle.setAttribute('aria-hidden', 'true');
+  const barText = el(dom, 'span', 'bb-reader__bar-text');
+  barTitle.append(thumb, barText);
   const line = el(dom, 'div', 'bb-reader__line');
   line.setAttribute('aria-hidden', 'true');
   const lineFill = el(dom, 'div', 'bb-reader__line-fill');
   line.appendChild(lineFill);
-  bar.append(closeButton, thumb, hostLabel, readout, line);
-  return { bar, closeButton, hostLabel, thumb, readout, lineFill };
+  bar.append(closeButton, barTitle, readout, line);
+  return { bar, closeButton, barTitle, barText, thumb, readout, lineFill };
 }
 
 function coverRatio(aspect: number | undefined): string {
@@ -90,7 +96,7 @@ export function buildShell(dom: Document, input: ShellInput): ShellRefs {
   sheet.style.opacity = '0';
   sheet.tabIndex = -1; // clicks inside land here, so Escape and Tab keep working
   const ratio = coverRatio(input.coverAspect);
-  const { bar, closeButton, hostLabel, thumb, readout, lineFill } = buildBar(dom, input.labels, input.cover, ratio);
+  const { bar, closeButton, barTitle, barText, thumb, readout, lineFill } = buildBar(dom, input.labels, input.cover, ratio);
   const layout = el(dom, 'div', 'bb-reader__layout');
   if (!input.cover) layout.classList.add('bb-reader__layout--bare');
   const article = el(dom, 'article', 'bb-reader__doc');
@@ -100,5 +106,5 @@ export function buildShell(dom: Document, input: ShellInput): ShellRefs {
   sheet.append(bar, layout);
   windowEl.appendChild(sheet);
   root.appendChild(windowEl);
-  return { root, windowEl, sheet, bar, closeButton, hostLabel, thumb, readout, lineFill, layout, article, coverSlot: slot };
+  return { root, windowEl, sheet, bar, closeButton, barTitle, barText, thumb, readout, lineFill, layout, article, coverSlot: slot };
 }

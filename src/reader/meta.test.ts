@@ -25,7 +25,7 @@ describe('labels and helpers', () => {
   });
 
   it('has the documented default texts', () => {
-    expect(defaultReaderLabels.close).toBe('Close');
+    expect(defaultReaderLabels.close).toBe('Back to shelf');
     expect(defaultReaderLabels.emptyTitle).toBe('No reading copy yet');
     expect(defaultReaderLabels.emptyBody).toContain('Paste the text you want to read');
     expect(JSON.stringify(Object.values(defaultReaderLabels).filter((v) => typeof v === 'string'))).not.toMatch(
@@ -39,7 +39,9 @@ describe('labels and helpers', () => {
   });
 
   it('formats saved dates and rejects invalid ones', () => {
-    expect(formatSavedDate('2026-03-04T10:00:00Z', 'en')?.text).toMatch(/2026/);
+    expect(formatSavedDate('2026-03-04T10:00:00Z', 'en')?.text).toBe('4 Mar 2026');
+    expect(formatSavedDate('2026-09-14T10:00:00Z')?.text).toBe('14 Sep 2026');
+    expect(formatSavedDate('2026-03-04T10:00:00Z', 'de')?.text).toMatch(/4\. M.*2026/);
     expect(formatSavedDate('nonsense')).toBeNull();
     expect(formatSavedDate(undefined)).toBeNull();
   });
