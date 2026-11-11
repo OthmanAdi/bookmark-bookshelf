@@ -38,7 +38,12 @@ const host = document.querySelector<HTMLElement>('#shelf')!;
 const log = document.querySelector<HTMLElement>('#log')!;
 const picker = document.querySelector<HTMLSelectElement>('#variant')!;
 
-const shelf = mountShelf(host, { items, label: 'Demo shelf' });
+const shelf = mountShelf(host, {
+  items,
+  label: 'Demo shelf',
+  // The shelf decides whether the row goes round: it depends on how many volumes the scene can hold.
+  onLoopChange: (loop) => motion.setLoop(loop),
+});
 const motion = createShelfMotion({
   count: items.length,
   loop: shelf.loop,
@@ -47,10 +52,14 @@ const motion = createShelfMotion({
 });
 
 motion.subscribe((state) => {
-  shelf.setPose({ position: state.position, open: 0 });
+  shelf.setPose({ position: state.position, open: 0, velocity: state.velocity * 1000 });
   shelf.element.dataset.settled = state.settled ? '1' : '0';
 });
-motion.attach(shelf.surface, { pxPerItem: () => shelf.pitch() });
+motion.attach(shelf.surface, {
+  pxPerItem: () => shelf.pitch(),
+  // The volume that was grabbed stays under the hand, whatever the spacing.
+  track: (start) => shelf.trackFrom(start),
+});
 
 shelf.on((intent) => {
   if (intent.type === 'focus') motion.goTo(intent.slot);
