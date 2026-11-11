@@ -9,6 +9,7 @@ import {
   resolveVariant,
   VARIANTS,
 } from './variants';
+import { DEFAULT_LIGHT } from './light';
 import type { Variant } from './types';
 
 describe('VARIANTS', () => {
@@ -29,6 +30,22 @@ describe('VARIANTS', () => {
   it('includes the default and lists every variant', () => {
     expect(VARIANTS[DEFAULT_VARIANT]).toBeDefined();
     expect(listVariants().map((variant) => variant.name).sort()).toEqual(Object.keys(VARIANTS).sort());
+  });
+
+  it('gives every look its own light, and only Night a lamp', () => {
+    for (const variant of Object.values(VARIANTS)) {
+      const { light } = variant;
+      expect(light, variant.name).toBeDefined();
+      expect(light!.ambient).toBeGreaterThan(0);
+      expect(light!.ambient).toBeLessThan(1);
+      // The light is in front of the row, or nothing a person sees would be lit.
+      expect(light!.z).toBeGreaterThan(0);
+      expect(light!.tint).toMatch(/^#[0-9a-f]{3,6}$/);
+    }
+    expect(VARIANTS.night?.light?.lamp).toBeDefined();
+    for (const name of ['paper', 'oak', 'pocket']) expect(VARIANTS[name]?.light?.lamp, name).toBeUndefined();
+    // Paper is lit like a look that names no light, so a custom look built from it matches the default.
+    expect(VARIANTS.paper?.light).toEqual(DEFAULT_LIGHT);
   });
 
   it('makes oak the only row with two ends', () => {

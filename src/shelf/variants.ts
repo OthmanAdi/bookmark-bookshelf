@@ -1,3 +1,4 @@
+import { DEFAULT_LAMP, DEFAULT_LIGHT } from './light';
 import type { Geometry, Variant, VariantMotion } from './types';
 
 /**
@@ -40,6 +41,8 @@ export const VARIANTS: Record<string, Variant> = {
     summary: 'One endless row of cloth spines on a paper ground. The default.',
     geometry: paperGeometry,
     motion: steadyMotion,
+    // A window at the upper left, a little in front of the row.
+    light: DEFAULT_LIGHT,
     loop: true,
   },
   oak: {
@@ -59,6 +62,8 @@ export const VARIANTS: Record<string, Variant> = {
       perspective: 1500,
     },
     motion: steadyMotion,
+    // A reading-room light further to the side, with warm brown shade from the wood around the books.
+    light: { x: -0.5, z: 0.87, ambient: 0.38, tint: '#140a02' },
     loop: false,
   },
   night: {
@@ -75,6 +80,8 @@ export const VARIANTS: Record<string, Variant> = {
       perspective: 1300,
     },
     motion: steadyMotion,
+    // One lamp above the centre: the volumes near it are lit, the ends of the row fall into the dark.
+    light: DEFAULT_LAMP,
     loop: true,
   },
   pocket: {
@@ -92,6 +99,8 @@ export const VARIANTS: Record<string, Variant> = {
       perspective: 2400,
     },
     motion: steadyMotion,
+    // Flat, even light from nearly in front: paper has little sheen and soft shade.
+    light: { x: -0.3, z: 0.95, ambient: 0.55, tint: '#000' },
     loop: true,
   },
 };
