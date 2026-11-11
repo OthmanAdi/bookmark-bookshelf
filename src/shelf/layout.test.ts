@@ -5,6 +5,7 @@ import {
   computeStandingRow,
   easeTravel,
   extentOf,
+  fitGeometry,
   focusWeight,
   gapWeight,
   giveOf,
@@ -12,6 +13,7 @@ import {
   LOOP_FILL,
   pitchAt,
   pullOf,
+  READABLE_SPINE_PX,
   restLength,
   restPitch,
   rowStands,
@@ -654,6 +656,37 @@ describe('visibleRange', () => {
     const narrow = visibleRange(0, paper, WIDTH, 100, true, 0);
     const wide = visibleRange(0, paper, WIDTH, 100, true, 5);
     expect(wide.to - wide.from).toBe(narrow.to - narrow.from + 10);
+  });
+});
+
+describe('fitGeometry', () => {
+  it('is the look scaled, wherever its spines stay readable', () => {
+    expect(fitGeometry(paper, 1)).toEqual(scaleGeometry(paper, 1));
+    expect(fitGeometry(paper, 1.5)).toEqual(scaleGeometry(paper, 1.5));
+    expect(fitGeometry(paper, 0.8)).toEqual(scaleGeometry(paper, 0.8));
+  });
+
+  it('makes the volumes of a small scene shorter but leaves their spines wide enough to read', () => {
+    const small = fitGeometry(paper, 0.5);
+    expect(small.spineWidth).toBe(READABLE_SPINE_PX);
+    expect(small.bookHeight).toBe(paper.bookHeight / 2);
+    expect(small.coverWidth).toBe(paper.coverWidth / 2);
+    expect(small.gap).toBe(paper.gap / 2);
+    // Fewer of them fit in view than if they had been made narrower.
+    expect(restPitch(small)).toBeGreaterThan(restPitch(scaleGeometry(paper, 0.5)));
+  });
+
+  it('never makes a spine wider than the look has it at full size', () => {
+    const pocket = VARIANTS.pocket!.geometry;
+    expect(pocket.spineWidth).toBeLessThan(READABLE_SPINE_PX);
+    expect(fitGeometry(pocket, 0.5).spineWidth).toBe(pocket.spineWidth);
+    expect(fitGeometry(pocket, 1.2).spineWidth).toBeCloseTo(pocket.spineWidth * 1.2, 9);
+  });
+
+  it('does not change the look it is given', () => {
+    const copy = { ...paper };
+    fitGeometry(paper, 0.4);
+    expect(paper).toEqual(copy);
   });
 });
 

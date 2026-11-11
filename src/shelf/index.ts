@@ -8,6 +8,7 @@ export { DEFAULT_LAMP, DEFAULT_LIGHT, faceShades, lampReach, sheenOf, sweepOf, t
 export {
   computeRow,
   computeStandingRow,
+  fitGeometry,
   focusWeight,
   gapWeight,
   grabbedX,

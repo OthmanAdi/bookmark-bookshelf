@@ -407,6 +407,25 @@ describe('mountShelf rendering', () => {
     expect(shelf.pitch()).not.toBeCloseTo(shelf.pitchAt(0.5), 3);
   });
 
+  it('keeps spines wide enough to read on a small scene by making the volumes shorter, not narrower', () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(360);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(250);
+    const { shelf } = mount({ items: makeItems(12) });
+    const spine = (): number => parseFloat(shelf.element.style.getPropertyValue('--bb-spine-w'));
+    const height = (): number => parseFloat(shelf.element.style.getPropertyValue('--bb-book-h'));
+    expect(height()).toBeLessThan(200);
+    expect(spine()).toBe(44);
+    // A title that would not fit on one line at a readable size is set on two.
+    const long = mountShelf(document.body.appendChild(document.createElement('div')), {
+      items: [{ id: 'long', title: 'A Short History of the Footnote in Print' }, ...makeItems(11)],
+    });
+    const title = long.element.querySelector<HTMLElement>('.bb-book[data-id="long"] .bb-spine__title');
+    expect(parseFloat(title?.style.fontSize ?? '0')).toBeGreaterThanOrEqual(10);
+    // A look whose spines are thinner than that at full size keeps its own width.
+    shelf.setVariant('pocket');
+    expect(spine()).toBe(36);
+  });
+
   it('leaves volumes of a shelf without sizes at the look size', () => {
     const { shelf } = mount();
     expect(bySlot(shelf, 1).style.getPropertyValue('--bb-spine-w')).toBe('');

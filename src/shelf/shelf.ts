@@ -21,13 +21,13 @@ import {
   computeStandingRow,
   easeTravel,
   extentOf,
+  fitGeometry,
   giveOf,
   pitchAt,
   pullOf,
   restPitch,
   rowStands,
   samePose,
-  scaleGeometry,
   settleOf,
   solvePosition,
   swayOf,
@@ -300,7 +300,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     // On a narrow screen the turned cover and at least one spine each side must still fit.
     const byWidth = (sceneWidth * 0.94) / (base.coverWidth + 2 * (base.spineWidth + base.gap) + 2 * base.focusGap);
     const factor = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.min(byHeight, byWidth)));
-    geometry = scaleGeometry(base, factor);
+    geometry = fitGeometry(base, factor);
     root.style.setProperty('--bb-spine-w', `${geometry.spineWidth}px`);
     root.style.setProperty('--bb-book-h', `${geometry.bookHeight}px`);
     root.style.setProperty('--bb-cover-w', `${geometry.coverWidth}px`);
@@ -824,7 +824,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     // The host carries a copy of the cover to the page. The shelf only leaves its place empty and makes
     // room around it. Under reduced motion nothing in the row moves; the page simply fades in over it.
     const parting = opening && !pose.reduced && openSlot !== null;
-    const scale = geometry.spineWidth / variant.geometry.spineWidth;
+    const scale = geometry.bookHeight / variant.geometry.bookHeight;
 
     presented = null;
     let start: number | null = null;

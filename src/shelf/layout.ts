@@ -474,6 +474,23 @@ export function visibleRange(
   return { from: Math.max(0, from), to: Math.min(count - 1, to) };
 }
 
+/**
+ * A spine this wide can carry a title on two lines of at least 10 px. On a small scene the volumes get
+ * shorter but their spines do not get narrower than this (or than the look makes them at full size, if
+ * that is less): fewer volumes fit in view, and each can still be read.
+ */
+export const READABLE_SPINE_PX = 44;
+
+/**
+ * A look's geometry at the scale that fits a scene, with spines kept wide enough to read: everything is
+ * scaled together except that the spine stops at `READABLE_SPINE_PX`.
+ */
+export function fitGeometry(geometry: Geometry, factor: number): Geometry {
+  const scaled = scaleGeometry(geometry, factor);
+  scaled.spineWidth = Math.max(scaled.spineWidth, Math.min(geometry.spineWidth, READABLE_SPINE_PX));
+  return scaled;
+}
+
 export function scaleGeometry(geometry: Geometry, factor: number): Geometry {
   return {
     spineWidth: geometry.spineWidth * factor,
