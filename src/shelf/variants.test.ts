@@ -60,9 +60,16 @@ describe('VARIANTS', () => {
     expect(VARIANTS.night?.geometry.focusAngle).toBe(86);
   });
 
-  it('makes oak the only row with two ends', () => {
-    expect(VARIANTS.oak?.loop).toBe(false);
-    expect(VARIANTS.paper?.loop).toBe(true);
+  it('leaves it to the shelf whether a row is long enough to loop', () => {
+    for (const variant of Object.values(VARIANTS)) expect(variant.loop, variant.name).toBe(true);
+  });
+
+  it('sums up every look in one plain sentence', () => {
+    for (const variant of Object.values(VARIANTS)) {
+      const { summary } = variant;
+      expect(summary, variant.name).toMatch(/^[A-Z][^.!?]*\.$/);
+      expect(summary.length, variant.name).toBeLessThanOrEqual(90);
+    }
   });
 });
 

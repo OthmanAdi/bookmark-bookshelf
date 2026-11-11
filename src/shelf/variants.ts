@@ -39,7 +39,7 @@ export const VARIANTS: Record<string, Variant> = {
   paper: {
     name: 'paper',
     label: 'Paper Row',
-    summary: 'One endless row of cloth spines on a paper ground. The default.',
+    summary: 'Cloth-bound volumes on a warm paper ground, the one in front in a printed jacket.',
     geometry: paperGeometry,
     motion: steadyMotion,
     // A window at the upper left, a little in front of the row.
@@ -49,7 +49,7 @@ export const VARIANTS: Record<string, Variant> = {
   oak: {
     name: 'oak',
     label: 'Oak Library',
-    summary: 'Thicker, shorter volumes standing on a wooden board with a back panel. The row has two ends.',
+    summary: 'Thick, deep-coloured library bindings standing on a wooden shelf, lettered in gold.',
     geometry: {
       ...paperGeometry,
       spineWidth: 66,
@@ -65,12 +65,12 @@ export const VARIANTS: Record<string, Variant> = {
     motion: steadyMotion,
     // A reading-room light further to the side, with warm brown shade from the wood around the books.
     light: { x: -0.5, z: 0.87, ambient: 0.38, tint: '#140a02' },
-    loop: false,
+    loop: true,
   },
   night: {
     name: 'night',
     label: 'Night Study',
-    summary: 'A dark room with one lamp over the middle of the shelf. The centred volume slides forward into its light.',
+    summary: 'A dark room with one lamp over the middle of the shelf.',
     geometry: {
       ...paperGeometry,
       gap: 12,
@@ -90,7 +90,7 @@ export const VARIANTS: Record<string, Variant> = {
   pocket: {
     name: 'pocket',
     label: 'Pocket Paperbacks',
-    summary: 'Thin, tightly packed paperbacks in flat colour with small covers.',
+    summary: 'Thin paperbacks in bright printed colours, packed tightly together.',
     geometry: {
       ...paperGeometry,
       spineWidth: 36,
