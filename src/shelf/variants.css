@@ -515,15 +515,17 @@
 :root[data-variant='pocket'] .bb-cloth--rust,
 .bb-shelf[data-variant='pocket'] .bb-cloth--rust {
   --cloth: #ef5b3a;
-  --cloth-ink: #fff6ea;
+  /* Light lettering on this orange stops at 3.15:1; black holds 5.40:1. */
+  --cloth-ink: #1a1412;
   --cloth-art: #23252b;
 }
 
 :root[data-variant='pocket'] .bb-cloth--moss,
 .bb-shelf[data-variant='pocket'] .bb-cloth--moss {
-  --cloth: #2f9e6b;
+  /* A step deeper than a bright green, so its light lettering holds 5.17:1. */
+  --cloth: #1f7a52;
   --cloth-ink: #f4fff7;
-  --cloth-art: #133b2a;
+  --cloth-art: #c6f0d6;
 }
 
 :root[data-variant='pocket'] .bb-cloth--plum,
@@ -544,7 +546,7 @@
 .bb-shelf[data-variant='pocket'] .bb-cloth--slate {
   --cloth: #8fa6b8;
   --cloth-ink: #14202b;
-  --cloth-art: #f6f3ea;
+  --cloth-art: #1d2a36;
 }
 
 :root[data-variant='pocket'] .bb-cloth--teal,

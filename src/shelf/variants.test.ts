@@ -260,6 +260,29 @@ describe('colour roles of each look', () => {
     pass('--bb-accent-ink', '--bb-accent-strong');
   });
 
+  it.each(Object.keys(VARIANTS))('%s: every cloth carries legible lettering and a visible device', (look) => {
+    document.documentElement.dataset.variant = look;
+    for (const cloth of CLOTHS) {
+      const volume = document.createElement('div');
+      volume.className = `bb-cloth--${cloth}`;
+      document.body.appendChild(volume);
+      const computed = getComputedStyle(volume);
+      const root = getComputedStyle(document.documentElement);
+      // A value the cloth does not set itself is inherited from the page root, as a browser would.
+      const read = (name: string): string => computed.getPropertyValue(name).trim() || root.getPropertyValue(name).trim();
+      expect(contrast(read('--cloth-ink'), read('--cloth')), `${look} ${cloth} lettering`).toBeGreaterThanOrEqual(4.5);
+      // The second colour carries the spine's device and the cover's drawing: a graphic, so 3:1.
+      expect(contrast(read('--cloth-art'), read('--cloth')), `${look} ${cloth} device`).toBeGreaterThanOrEqual(3);
+      if (look === 'oak') {
+        for (const stop of ['--bb-foil-1', '--bb-foil-2', '--bb-foil-3']) {
+          expect(contrast(read(stop), read('--cloth')), `oak ${cloth} ${stop}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+      volume.remove();
+    }
+    delete document.documentElement.dataset.variant;
+  });
+
   it.each(Object.keys(VARIANTS))('%s: focus can never be mistaken for an error', (look) => {
     const role = roles(look);
     const apart = Math.abs(hue(role['--bb-focus-ring']!) - hue(role['--bb-danger']!));
