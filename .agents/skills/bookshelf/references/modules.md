@@ -48,7 +48,7 @@ Handle
 | Member | Use |
 |---|---|
 | `setPose({ position, open, reduced? })` | Draws one frame. `position` is a float index: 3.4 is 40 % of the way from volume 3 to volume 4. While `open` is above 0 the shelf hides the centred volume and moves its neighbours apart a little. It does not fly the cover: the host does (see composition.md). With `reduced` the row stays as it is |
-| `setItems(items)` | Changes what stands in the row. A volume whose item stays (same `id`) keeps its element. Follow with `motion.setCount(n, index)` |
+| `setItems(items, change?)` | Changes what stands in the row. A volume whose item stays (same `id`) keeps its element and travels to its new place, and under reduced motion it is there at once. `change.arrive` lists ids the person has just added, which the shelf brings in from above. Follow with `motion.setCount(n, index)` |
 | `setVariant(name)` | Switches the look. Follow with `motion.setLoop(shelf.loop)` and `motion.setTiming(shelf.variant.motion)` |
 | `loop` | whether the row repeats endlessly right now |
 | `fixed` | true while the row is short enough to stand whole in the scene. Do not let a drag or the wheel move such a row |

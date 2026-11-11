@@ -35,10 +35,11 @@ On the shelf:
 - Spine titles are fitted to their spine, spines are dressed in one of three ways by site, and reading progress shows as a slip of card standing in the pages.
 - Covers sit on a fixed grid in four layouts chosen by site, so links from one site read as a series. The site's name is printed at the foot as an imprint. Plates are printed in two inks, and a link with saved text gets the shape of that text as its plate. A link marked as read carries a tick.
 - A row too short to fill the scene stands still in the middle between two bookends.
+- When the order or the open shelf changes, the volumes that stay travel to their new places. With reduced motion they are there at once.
 
 For people who reuse a module:
 
-- Shelf: `ShelfItem.thickness`, `stature`, `outline`, `lang`, `note` and `done`; `ShelfOptions.onLoopChange`; `ShelfHandle.fixed`, `pitchAt()` and `coverPlacement()`; `Variant.light`; an `aspect` option on `createCover()`; the light and layout functions exported from `src/shelf/index.ts`.
+- Shelf: `ShelfItem.thickness`, `stature`, `outline`, `lang`, `note` and `done`; `ShelfOptions.onLoopChange`; `ShelfHandle.fixed`, `pitchAt()` and `coverPlacement()`; a second argument to `setItems()` that names the items just added; `Variant.light`; an `aspect` option on `createCover()`; the light and layout functions exported from `src/shelf/index.ts`.
 - Motion: `state.openTime` (linear time of an open or close) and `state.overscroll`; `attach` options `extent` and `track`, which lets a host keep the grabbed volume under the pointer.
 - Store: `readOnly`, `usage()`, `lastError()`, `findByUrl()`, `removeBookmarks()` and `restoreBookmarks()`, `updateShelf()` and `restoreShelf()`, `isDone()` and `setDone()`, `note()` and `setNote()`, `exportShelf()` and `importShelf()`, `importFolders()` and `importLinks()`. Pure functions for search, sorting, shelf statistics, reading time, the hand-in summary, the bookmarks format, pasted lists, shelf files, shelf links and add requests are exported from `src/store/index.ts`.
 - Reader: options for the private note, the read mark, the next link, the text size and the example notice; `ReaderDoc.lang`; handle members `flightTarget()`, `handleKey()`, `setMyNote()`, `setDone()` and `setNext()`.
