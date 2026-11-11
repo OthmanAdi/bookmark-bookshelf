@@ -19,8 +19,23 @@ export interface ShelfItem {
   /** Cover pattern name. Unknown names fall back to the first pattern. */
   pattern?: string;
   seed?: number;
-  /** Reading progress 0 to 1. Above 0 a ribbon marks the volume. */
+  /** Reading progress 0 to 1. Above 0 a slip marks the volume. */
   progress?: number;
+  /** How thick the volume is, 0 to 1. Left out, every volume has the look's base thickness. */
+  thickness?: number;
+  /** How tall the volume stands, 0 to 1. Left out, every volume has the look's full height. */
+  stature?: number;
+  /**
+   * The shape of the saved text, one value per paragraph in reading order: its length relative to the
+   * longest, 0 to 1. A heading is given as a negative value. The cover can print it as its plate.
+   */
+  outline?: number[];
+  /** Language of the title, as a BCP 47 tag. Lets the cover hyphenate correctly. */
+  lang?: string;
+  /** One line about the volume, shown in the caption when the shelf draws it. */
+  note?: string;
+  /** True when the person has marked the volume as read. */
+  done?: boolean;
 }
 
 /** One frame of the shelf. */
@@ -83,6 +98,20 @@ export interface VariantMotion {
   swap: boolean;
 }
 
+/**
+ * Where the light of a look comes from. `x` and `z` are a direction in the floor plane (x to the right,
+ * z toward the viewer), `ambient` is the share of light a face gets when it is turned fully away, and
+ * `tint` is the colour of shade. With `lamp`, the light is a point above the centre of the row and
+ * falls off with distance along the row, measured in cover widths.
+ */
+export interface Light {
+  x: number;
+  z: number;
+  ambient: number;
+  tint: string;
+  lamp?: { reach: number; floor: number };
+}
+
 export interface Variant {
   name: string;
   label: string;
@@ -90,6 +119,8 @@ export interface Variant {
   summary: string;
   geometry: Geometry;
   motion: VariantMotion;
+  /** Left out, the look is lit from the upper left like the default. */
+  light?: Light;
   /** Whether the row repeats endlessly. */
   loop: boolean;
 }
