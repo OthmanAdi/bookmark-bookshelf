@@ -640,6 +640,22 @@
   background: linear-gradient(rgba(26, 24, 21, 0.3), rgba(26, 24, 21, 0));
 }
 
+/* ---------- changing look ---------- */
+
+/*
+ * The page ground and the colour of its text change over the same short time as the row fades out and
+ * back, so a dark look and a light one pass through a middle tone rather than swapping in one frame.
+ * Only the look sets these colours, so nothing else ever animates them.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-variant] body,
+  .bb-shelf[data-variant] {
+    transition-property: background-color, color;
+    transition-duration: var(--bb-dur-2);
+    transition-timing-function: var(--bb-ease-in-out);
+  }
+}
+
 /* ---------- forced colours: what a look adds must not hide what the system colours show ---------- */
 
 @media (forced-colors: active) {
