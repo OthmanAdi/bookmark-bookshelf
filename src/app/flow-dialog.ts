@@ -11,8 +11,8 @@ export type DialogSize = 'small' | 'medium' | 'wide';
 export interface DialogOptions {
   title: string;
   size?: DialogSize;
-  /** Called when a click on the backdrop should close the dialog. Return false to keep it open. */
-  onBackdrop?: () => boolean;
+  /** True while the dialog holds something typed that a stray click on the backdrop would throw away. */
+  isDirty?: () => boolean;
 }
 
 export interface FlowDialog {
@@ -59,9 +59,9 @@ export function createDialog(options: DialogOptions): FlowDialog {
   dialog.addEventListener('pointerdown', (event) => {
     pressedOnBackdrop = event.target === dialog;
   });
-  dialog.addEventListener('click', (event) => {
+  dialog.addEventListener('click', async (event) => {
     if (event.target !== dialog || !pressedOnBackdrop) return;
-    if (options.onBackdrop?.() === false) return;
+    if (options.isDirty?.() && !(await askToDiscard())) return;
     closeDialog(dialog);
   });
 
@@ -86,6 +86,11 @@ export function createDialog(options: DialogOptions): FlowDialog {
     },
     close: () => closeDialog(dialog),
   };
+}
+
+/** The question asked before something typed is thrown away. */
+export function askToDiscard(what = 'This has not been saved.'): Promise<boolean> {
+  return askConfirm({ title: 'Discard what you typed?', message: what, confirm: 'Discard', cancel: 'Keep editing' });
 }
 
 export interface ConfirmOptions {

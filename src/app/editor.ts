@@ -1,7 +1,7 @@
 import { CLOTHS, PATTERNS } from '../shelf';
 import type { Bookmark, BookmarkInput, Store } from '../store';
 import { button, make, must, option, toast } from './dom';
-import { askConfirm, closeDialog } from './flow-dialog';
+import { askToDiscard, closeDialog } from './flow-dialog';
 import { clearErrorOnInput, ensureHint, errorElement, markRequired, setFieldError } from './flow-fields';
 import { titleFromAddress } from './flow-title';
 
@@ -204,12 +204,7 @@ export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created
   dialog.addEventListener('click', async (event) => {
     if (event.target !== dialog || !pressedOnBackdrop) return;
     if (values() === untouched) return closeDialog(dialog);
-    const discard = await askConfirm({
-      title: 'Discard what you typed?',
-      message: 'This link has not been saved.',
-      confirm: 'Discard',
-      cancel: 'Keep editing',
-    });
+    const discard = await askToDiscard('This link has not been saved.');
     if (discard) closeDialog(dialog);
   });
 

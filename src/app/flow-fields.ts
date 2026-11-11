@@ -99,3 +99,33 @@ export function markRequired(control: HTMLElement): void {
   label.appendChild(make('span', 'bb-field__required', ' (required)'));
   control.setAttribute('aria-required', 'true');
 }
+
+export interface FieldSpec {
+  label: string;
+  name: string;
+  /** Instruction that stays visible under the control. */
+  hint?: string;
+}
+
+/** A labelled control with its hint and its error place, ready to put in a dialog. */
+export function buildField(control: HTMLElement, spec: FieldSpec): HTMLElement {
+  control.setAttribute('name', spec.name);
+  control.id = control.id || `field-${spec.name}`;
+  const label = make('label', 'bb-field');
+  label.appendChild(make('span', 'bb-label', spec.label));
+  label.appendChild(control);
+  const group = make('div', GROUP);
+  group.appendChild(label);
+  if (spec.hint) {
+    const hint = make('p', 'bb-field__hint', spec.hint);
+    hint.id = `hint-${spec.name}`;
+    group.appendChild(hint);
+    describe(control, hint.id, true);
+  }
+  const note = make('p', 'bb-field__error');
+  note.id = `error-${spec.name}`;
+  note.hidden = true;
+  group.appendChild(note);
+  clearErrorOnInput(control);
+  return group;
+}

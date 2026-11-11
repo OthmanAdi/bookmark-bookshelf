@@ -1,19 +1,19 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { Store } from '../store';
 import { makeStore, mountPage, tick } from './flow-test-helpers';
-import { removeShelfFlow } from './flow-shelf';
+import { describeShelfFlow, removeShelfFlow } from './flow-shelf';
 import type { FlowContext } from './flows';
 
 let store: Store;
-let setShelf: ReturnType<typeof vi.fn>;
-let refresh: ReturnType<typeof vi.fn>;
+let setShelf: Mock<(id: string | null) => void>;
+let refresh: Mock<() => void>;
 let context: FlowContext;
 
 beforeEach(() => {
   mountPage();
   store = makeStore();
-  setShelf = vi.fn();
-  refresh = vi.fn();
+  setShelf = vi.fn<(id: string | null) => void>();
+  refresh = vi.fn<() => void>();
   context = { store, bookshelf: { setShelf } as unknown as FlowContext['bookshelf'], refresh };
 });
 
@@ -103,5 +103,52 @@ describe('removing a shelf', () => {
     press('Remove shelf');
     await done;
     expect(store.shelves().some((shelf) => shelf.id === empty.value.id)).toBe(false);
+  });
+});
+
+describe('describing a shelf', () => {
+  const dialog = (): HTMLDialogElement => document.querySelector('dialog[open]') as HTMLDialogElement;
+  const field = (name: string): HTMLInputElement => dialog().querySelector(`[name="${name}"]`) as HTMLInputElement;
+
+  it('opens with the current values and focus in the first field', () => {
+    const shelf = store.shelves().find((entry) => entry.description) ?? store.shelves()[0];
+    describeShelfFlow(context, shelf?.id as string);
+    expect(dialog().textContent).toContain(`About ${shelf?.name}`);
+    expect(field('description').value).toBe(shelf?.description ?? '');
+    expect(document.activeElement).toBe(field('description'));
+  });
+
+  it('saves the four details and redraws the frame', () => {
+    const shelf = store.shelves()[1];
+    describeShelfFlow(context, shelf?.id as string);
+    field('description').value = 'Read before the lesson.';
+    field('author').value = 'Ms Example';
+    field('lang').value = 'de';
+    field('due').value = '2027-03-31';
+    dialog().querySelector<HTMLFormElement>('form')?.requestSubmit();
+    expect(document.querySelector('dialog[open]')).toBeNull();
+    const saved = store.shelves().find((entry) => entry.id === shelf?.id);
+    expect(saved).toMatchObject({ description: 'Read before the lesson.', author: 'Ms Example', lang: 'de', due: '2027-03-31' });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it('shows a refused value under its own field', () => {
+    const shelf = store.shelves()[1];
+    describeShelfFlow(context, shelf?.id as string);
+    field('lang').value = 'not a code!';
+    dialog().querySelector<HTMLFormElement>('form')?.requestSubmit();
+    expect(dialog().open).toBe(true);
+    expect(field('lang').getAttribute('aria-invalid')).toBe('true');
+    expect(document.getElementById('error-lang')?.textContent).not.toBe('');
+    expect(document.activeElement).toBe(field('lang'));
+  });
+
+  it('clears a detail when its field is emptied', () => {
+    const shelf = store.shelves().find((entry) => entry.description) ?? store.shelves()[0];
+    store.updateShelf(shelf?.id as string, { description: 'Something.' });
+    describeShelfFlow(context, shelf?.id as string);
+    field('description').value = '';
+    dialog().querySelector<HTMLFormElement>('form')?.requestSubmit();
+    expect(store.shelves().find((entry) => entry.id === shelf?.id)?.description).toBeUndefined();
   });
 });
