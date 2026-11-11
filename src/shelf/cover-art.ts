@@ -31,135 +31,163 @@ function shape(name: string, attributes: Record<string, string | number>): SVGEl
 
 const round = (value: number): number => Math.round(value * 100) / 100;
 
-type Painter = (random: () => number) => SVGElement[];
+/**
+ * A painter draws into a box `w` wide and `h` high (in viewBox units, `w` is always 100) and keeps every
+ * shape inside it, so the composition is fixed to the plate's own edges and nothing is ever cropped.
+ */
+type Painter = (random: () => number, w: number, h: number) => SVGElement[];
+
+/**
+ * An arch standing on the bottom edge: the upper half of a ring centred `legs` above the base, with
+ * straight sides down to it. With no inner radius it is a solid half disc on legs.
+ */
+function arch(cx: number, base: number, outer: number, inner: number, legs = 0): string {
+  const o = round(outer);
+  const i = round(inner);
+  const b = round(base);
+  const spring = round(base - legs);
+  const outside = `M${round(cx - o)} ${b} L${round(cx - o)} ${spring} A${o} ${o} 0 0 1 ${round(cx + o)} ${spring} L${round(cx + o)} ${b}`;
+  if (i <= 0) return `${outside} Z`;
+  return `${outside} L${round(cx + i)} ${b} L${round(cx + i)} ${spring} A${i} ${i} 0 0 0 ${round(cx - i)} ${spring} L${round(cx - i)} ${b} Z`;
+}
+
+/** Where a ray leaving the middle of the bottom edge at `angle` (0 to the right, PI/2 straight up) meets the box. */
+function rayEnd(x: number, w: number, h: number, angle: number): [number, number] {
+  const dx = Math.cos(angle);
+  const dy = -Math.sin(angle);
+  let t = h / -dy;
+  if (dx > 1e-9) t = Math.min(t, (w - x) / dx);
+  if (dx < -1e-9) t = Math.min(t, x / -dx);
+  return [x + t * dx, h + t * dy];
+}
 
 const painters: Record<PatternName, Painter> = {
-  arcs(random) {
-    const centre = 50 + (random() - 0.5) * 36;
+  arcs(random, w, h) {
+    const cx = w * (0.5 + (random() - 0.5) * 0.24);
+    const reach = Math.min(cx, w - cx, h);
+    // In a box taller than the arches are wide, they rise on straight sides to the head of the box.
+    const legs = Math.max(0, h - reach);
     const rings = 5 + Math.floor(random() * 3);
-    const step = 78 / rings;
-    const shapes: SVGElement[] = [];
-    for (let ring = rings - 1; ring >= 0; ring--) {
-      shapes.push(
-        shape('circle', {
-          cx: round(centre),
-          cy: 100,
-          r: round(12 + ring * step),
-          fill: 'none',
-          stroke: 'currentColor',
-          'stroke-width': round(step * 0.42),
-          opacity: round(1 - ring * 0.09),
-        }),
-      );
+    const pitch = reach / (rings + 0.6);
+    const shapes: SVGElement[] = [shape('path', { d: arch(cx, h, pitch * 0.9, 0, legs), fill: 'currentColor' })];
+    for (let ring = 1; ring <= rings; ring++) {
+      const outer = Math.min(reach, pitch * (ring + 0.6));
+      shapes.push(shape('path', { d: arch(cx, h, outer, outer - pitch * 0.58, legs), fill: 'currentColor' }));
     }
-    shapes.push(shape('circle', { cx: round(centre), cy: 100, r: 6, fill: 'currentColor' }));
     return shapes;
   },
 
-  bars(random) {
+  bars(random, w, h) {
     const count = 9 + Math.floor(random() * 5);
-    const slot = 100 / count;
+    const slot = w / count;
     const shapes: SVGElement[] = [];
     for (let index = 0; index < count; index++) {
-      const height = 18 + random() * 76;
+      const height = h * (0.18 + random() * 0.76);
       shapes.push(
         shape('rect', {
           x: round(index * slot + slot * 0.19),
-          y: round(100 - height),
+          y: round(h - height),
           width: round(slot * 0.62),
           height: round(height),
           fill: 'currentColor',
-          opacity: random() > 0.35 ? 1 : 0.5,
         }),
       );
     }
     return shapes;
   },
 
-  dots(random) {
-    const focusX = 15 + random() * 70;
-    const focusY = 15 + random() * 70;
+  dots(random, w, h) {
+    const columns = 7;
+    const pitch = w / columns;
+    const rows = Math.max(1, Math.floor(h / pitch + 0.001));
+    const top = (h - rows * pitch) / 2;
+    const focusX = w * (0.15 + random() * 0.7);
+    const focusY = h * (0.15 + random() * 0.7);
+    const span = Math.max(w, h) * 1.1;
     const shapes: SVGElement[] = [];
-    const cells = 7;
-    const pitch = 100 / cells;
-    for (let row = 0; row < cells; row++) {
-      for (let column = 0; column < cells; column++) {
+    for (let row = 0; row < rows; row++) {
+      for (let column = 0; column < columns; column++) {
         const x = column * pitch + pitch / 2;
-        const y = row * pitch + pitch / 2;
-        const distance = Math.hypot(x - focusX, y - focusY) / 110;
-        const radius = 1.1 + 4.6 * Math.pow(Math.max(0, 1 - distance), 1.6);
+        const y = top + row * pitch + pitch / 2;
+        const near = Math.max(0, 1 - Math.hypot(x - focusX, y - focusY) / span);
+        const radius = pitch * (0.08 + 0.33 * Math.pow(near, 1.6));
         shapes.push(shape('circle', { cx: round(x), cy: round(y), r: round(radius), fill: 'currentColor' }));
       }
     }
     return shapes;
   },
 
-  rays(random) {
-    const originX = 22 + random() * 56;
+  rays(random, w, h) {
+    const x = w * (0.3 + random() * 0.4);
     const count = 13 + Math.floor(random() * 7);
     const shapes: SVGElement[] = [];
     for (let index = 0; index < count; index++) {
-      const angle = Math.PI * (0.04 + (0.92 * index) / (count - 1));
+      const angle = Math.PI * (0.06 + (0.88 * index) / (count - 1));
+      const spread = index % 3 === 0 ? 0.024 : 0.012;
+      const [ax, ay] = rayEnd(x, w, h, angle - spread);
+      const [bx, by] = rayEnd(x, w, h, angle + spread);
       shapes.push(
-        shape('line', {
-          x1: round(originX),
-          y1: 100,
-          x2: round(originX - Math.cos(angle) * 150),
-          y2: round(100 - Math.sin(angle) * 150),
-          stroke: 'currentColor',
-          'stroke-width': index % 3 === 0 ? 2.6 : 1.3,
-          'stroke-linecap': 'round',
-        }),
+        shape('polygon', { points: `${round(x)},${round(h)} ${round(ax)},${round(ay)} ${round(bx)},${round(by)}`, fill: 'currentColor' }),
       );
     }
-    shapes.push(shape('circle', { cx: round(originX), cy: 100, r: round(11 + random() * 8), fill: 'currentColor' }));
+    const sun = Math.min(x, w - x, h) * (0.16 + random() * 0.1);
+    shapes.push(shape('path', { d: arch(x, h, sun, 0), fill: 'currentColor' }));
     return shapes;
   },
 
-  tiles(random) {
-    const cells = 5;
-    const size = 100 / cells;
+  tiles(random, w, h) {
+    const columns = 5;
+    const rows = Math.max(1, Math.round(h / (w / columns)));
+    const size = Math.min(w / columns, h / rows);
+    const left = (w - columns * size) / 2;
+    const top = (h - rows * size) / 2;
+    const s = round(size);
     const shapes: SVGElement[] = [];
-    for (let row = 0; row < cells; row++) {
-      for (let column = 0; column < cells; column++) {
-        const x = column * size;
-        const y = row * size;
-        const corner = Math.floor(random() * 4);
-        // A quarter disc anchored in one of the four corners of the cell.
+    for (let row = 0; row < rows; row++) {
+      for (let column = 0; column < columns; column++) {
+        const x0 = round(left + column * size);
+        const y0 = round(top + row * size);
+        const x1 = round(x0 + s);
+        const y1 = round(y0 + s);
+        // A quarter disc whose centre is one corner of the cell.
         const paths = [
-          `M${x} ${y} h${size} a${size} ${size} 0 0 1 -${size} ${size} z`,
-          `M${x + size} ${y} v${size} a${size} ${size} 0 0 1 -${size} -${size} z`,
-          `M${x + size} ${y + size} h-${size} a${size} ${size} 0 0 1 ${size} -${size} z`,
-          `M${x} ${y + size} v-${size} a${size} ${size} 0 0 1 ${size} ${size} z`,
+          `M${x0} ${y0} L${x1} ${y0} A${s} ${s} 0 0 1 ${x0} ${y1} Z`,
+          `M${x1} ${y0} L${x1} ${y1} A${s} ${s} 0 0 1 ${x0} ${y0} Z`,
+          `M${x1} ${y1} L${x0} ${y1} A${s} ${s} 0 0 1 ${x1} ${y0} Z`,
+          `M${x0} ${y1} L${x0} ${y0} A${s} ${s} 0 0 1 ${x1} ${y1} Z`,
         ];
-        shapes.push(
-          shape('path', { d: paths[corner] ?? paths[0]!, fill: 'currentColor', opacity: random() > 0.3 ? 1 : 0.45 }),
-        );
+        shapes.push(shape('path', { d: paths[Math.floor(random() * 4)] ?? paths[0]!, fill: 'currentColor' }));
       }
     }
     return shapes;
   },
 
-  waves(random) {
+  waves(random, w, h) {
     const lines = 7 + Math.floor(random() * 3);
-    const gap = 100 / (lines + 1);
-    const wavelength = 22 + random() * 22;
+    const gap = h / (lines + 1);
+    const wavelength = w * (0.22 + random() * 0.22);
     const shapes: SVGElement[] = [];
     for (let line = 0; line < lines; line++) {
+      const width = line % 2 === 0 ? 2.8 : 1.4;
       const y = gap * (line + 1);
-      const amplitude = 2.5 + random() * 4.5;
-      const phase = random() * wavelength;
-      let path = `M${round(-phase)} ${round(y)}`;
-      for (let x = -phase; x < 100 + wavelength; x += wavelength) {
-        path += ` q${round(wavelength / 4)} ${round(-amplitude)} ${round(wavelength / 2)} 0 t${round(wavelength / 2)} 0`;
+      const amplitude = Math.min(2.5 + random() * 4.5, gap * 0.4);
+      const phase = random() * Math.PI * 2;
+      const from = width / 2;
+      const to = w - width / 2;
+      const steps = Math.ceil(((to - from) / wavelength) * 16);
+      const points: string[] = [];
+      for (let step = 0; step <= steps; step++) {
+        const x = from + ((to - from) * step) / steps;
+        points.push(`${round(x)},${round(y + amplitude * Math.sin((x / wavelength) * Math.PI * 2 + phase))}`);
       }
       shapes.push(
-        shape('path', {
-          d: path,
+        shape('polyline', {
+          points: points.join(' '),
           fill: 'none',
           stroke: 'currentColor',
-          'stroke-width': line % 2 === 0 ? 2.8 : 1.4,
+          'stroke-width': width,
           'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
         }),
       );
     }
@@ -167,16 +195,21 @@ const painters: Record<PatternName, Painter> = {
   },
 };
 
-/** The drawing alone, as a decorative SVG that fills its box. */
-export function createCoverArt(pattern: string | undefined, seed = 1): SVGSVGElement {
+/**
+ * The drawing alone, as a decorative SVG. `aspect` is the width of the box it is shown in divided by its
+ * height; the drawing is composed for that box and shown whole (`meet`), never cropped to fit.
+ */
+export function createCoverArt(pattern: string | undefined, seed = 1, aspect = 1): SVGSVGElement {
+  const w = 100;
+  const h = round(w / (Number.isFinite(aspect) && aspect > 0 ? Math.min(4, Math.max(0.25, aspect)) : 1));
   const svg = document.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
-  svg.setAttribute('viewBox', '0 0 100 100');
-  svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('focusable', 'false');
   svg.classList.add('bb-cover__art');
   const name = resolvePattern(pattern);
-  for (const element of painters[name](createRandom(seed))) svg.appendChild(element);
+  for (const element of painters[name](createRandom(seed), w, h)) svg.appendChild(element);
   return svg;
 }
 
@@ -190,6 +223,24 @@ const LANG = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8}){0,4}$/;
 const HEAD = { top: 10, measure: 79, height: (100 / 0.7) * 0.47 - 10, gap: 3 };
 const AUTHOR = { size: 5.6, leading: 1.2, lines: 2 };
 const TITLE = { max: 13.6, min: 7.5, leading: 1.04 };
+/** The plate in cqw, mirroring cover.css: it hangs from the middle line and stands on the foot line. */
+const PLATE = { width: 79, rule: 5, foot: 14 };
+
+/** Width over height of a cover on the default shelf. */
+export const COVER_ASPECT = 206 / 340;
+
+export interface CoverOptions {
+  /**
+   * Width over height of the box the cover fills. The plate is composed for it, so give the real value
+   * when the cover is not in the default proportion. Defaults to `COVER_ASPECT`.
+   */
+  aspect?: number;
+}
+
+function plateAspect(coverAspect: number): number {
+  const height = 100 / coverAspect;
+  return PLATE.width / Math.max(1, height / 2 - PLATE.foot - PLATE.rule);
+}
 
 function titleBox(item: ShelfItem): TitleBox {
   let height = HEAD.height;
@@ -214,7 +265,8 @@ function textElement(tag: string, className: string, text: string): HTMLElement 
  * said again next to it (caption, reader heading), so it is hidden from
  * assistive technology.
  */
-export function createCover(item: ShelfItem, mark?: string): HTMLElement {
+export function createCover(item: ShelfItem, mark?: string, options: CoverOptions = {}): HTMLElement {
+  const aspect = options.aspect && Number.isFinite(options.aspect) && options.aspect > 0 ? options.aspect : COVER_ASPECT;
   const cover = document.createElement('span');
   cover.className = `bb-cover bb-cloth--${resolveCloth(item.cloth)}`;
   cover.dataset.pattern = resolvePattern(item.pattern);
@@ -234,7 +286,7 @@ export function createCover(item: ShelfItem, mark?: string): HTMLElement {
 
   const plate = document.createElement('span');
   plate.className = 'bb-cover__plate';
-  plate.appendChild(createCoverArt(item.pattern, item.seed ?? 1));
+  plate.appendChild(createCoverArt(item.pattern, item.seed ?? 1, plateAspect(aspect)));
   cover.appendChild(plate);
 
   const imprint = imprintOf(item.source).name;

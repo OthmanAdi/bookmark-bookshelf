@@ -5,6 +5,104 @@ import type { ShelfItem } from './types';
 
 const item = (overrides: Partial<ShelfItem> = {}): ShelfItem => ({ id: 'a', title: 'A Title', ...overrides });
 
+type Bounds = [number, number, number, number];
+
+/** Points on an SVG arc segment with equal radii and no rotation, from the endpoint form (SVG 2, B.2.4). */
+function arcPoints(x1: number, y1: number, r: number, large: boolean, sweep: boolean, x2: number, y2: number): number[][] {
+  const hx = (x1 - x2) / 2;
+  const hy = (y1 - y2) / 2;
+  const radius = Math.max(r, Math.hypot(hx, hy));
+  const root = Math.sqrt(Math.max(0, (radius ** 2 - hx ** 2 - hy ** 2) / (hx ** 2 + hy ** 2 || 1)));
+  const sign = large === sweep ? -1 : 1;
+  const cx = sign * root * hy + (x1 + x2) / 2;
+  const cy = -sign * root * hx + (y1 + y2) / 2;
+  const start = Math.atan2(y1 - cy, x1 - cx);
+  let delta = Math.atan2(y2 - cy, x2 - cx) - start;
+  if (sweep && delta < 0) delta += Math.PI * 2;
+  if (!sweep && delta > 0) delta -= Math.PI * 2;
+  return Array.from({ length: 33 }, (_, step) => {
+    const angle = start + (delta * step) / 32;
+    return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
+  });
+}
+
+/** Every point a path passes through, for absolute M, L, H, V, A and Z, the commands the painters write. */
+function pathPoints(d: string): number[][] {
+  const tokens = d.match(/[MLHVAZ]|-?\d*\.?\d+(?:e-?\d+)?/gi) ?? [];
+  const points: number[][] = [];
+  let x = 0;
+  let y = 0;
+  let command = '';
+  for (let index = 0; index < tokens.length; ) {
+    if (/[a-z]/i.test(tokens[index]!)) command = tokens[index++]!;
+    if (command !== command.toUpperCase()) throw new Error(`relative command ${command} in ${d}`);
+    const next = () => Number(tokens[index++]);
+    if (command === 'M' || command === 'L') [x, y] = [next(), next()];
+    else if (command === 'H') x = next();
+    else if (command === 'V') y = next();
+    else if (command === 'A') {
+      const r = next();
+      next();
+      next();
+      const large = next() === 1;
+      const sweep = next() === 1;
+      const [ex, ey] = [next(), next()];
+      points.push(...arcPoints(x, y, r, large, sweep, ex, ey));
+      [x, y] = [ex, ey];
+    } else if (command === 'Z') continue;
+    else throw new Error(`unexpected command ${command}`);
+    points.push([x, y]);
+  }
+  return points;
+}
+
+function translation(element: Element | null): [number, number] {
+  let dx = 0;
+  let dy = 0;
+  for (let node = element; node && node.tagName.toLowerCase() !== 'svg'; node = node.parentElement) {
+    const match = /translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*\)/.exec(node.getAttribute('transform') ?? '');
+    if (match) [dx, dy] = [dx + Number(match[1]), dy + Number(match[2])];
+  }
+  return [dx, dy];
+}
+
+/** The box that holds every painted shape of a drawing, strokes included. */
+function paintedBounds(svg: SVGSVGElement): Bounds {
+  const box: Bounds = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const element of svg.querySelectorAll('circle, rect, line, polyline, polygon, path')) {
+    const number = (name: string) => Number(element.getAttribute(name) ?? 0);
+    const stroked = (element.getAttribute('stroke') ?? 'none') !== 'none';
+    const pad = stroked ? number('stroke-width') / 2 : 0;
+    const [dx, dy] = translation(element);
+    let points: number[][];
+    switch (element.tagName.toLowerCase()) {
+      case 'circle': {
+        const [cx, cy, r] = [number('cx'), number('cy'), number('r')];
+        points = [[cx - r, cy - r], [cx + r, cy + r]];
+        break;
+      }
+      case 'rect':
+        points = [[number('x'), number('y')], [number('x') + number('width'), number('y') + number('height')]];
+        break;
+      case 'line':
+        points = [[number('x1'), number('y1')], [number('x2'), number('y2')]];
+        break;
+      case 'path':
+        points = pathPoints(element.getAttribute('d') ?? '');
+        break;
+      default:
+        points = (element.getAttribute('points') ?? '').trim().split(/\s+/).map((pair) => pair.split(',').map(Number));
+    }
+    for (const [px = 0, py = 0] of points) {
+      box[0] = Math.min(box[0], px + dx - pad);
+      box[1] = Math.min(box[1], py + dy - pad);
+      box[2] = Math.max(box[2], px + dx + pad);
+      box[3] = Math.max(box[3], py + dy + pad);
+    }
+  }
+  return box;
+}
+
 describe('createCoverArt', () => {
   it.each(PATTERNS)('draws at least one shape for %s', (pattern) => {
     const svg = createCoverArt(pattern, 5);
@@ -37,11 +135,40 @@ describe('createCoverArt', () => {
     }
   });
 
-  it('is a decorative svg that fills its box', () => {
+  it('is a decorative svg shown whole in its box', () => {
     const svg = createCoverArt('arcs', 3);
     expect(svg.getAttribute('viewBox')).toBe('0 0 100 100');
+    expect(svg.getAttribute('preserveAspectRatio')).toBe('xMidYMid meet');
     expect(svg.getAttribute('aria-hidden')).toBe('true');
     expect(svg.classList.contains('bb-cover__art')).toBe(true);
+  });
+
+  it('is composed in the aspect of the box it is shown in', () => {
+    expect(createCoverArt('bars', 3, 1.25).getAttribute('viewBox')).toBe('0 0 100 80');
+    expect(createCoverArt('bars', 3, 0.5).getAttribute('viewBox')).toBe('0 0 100 200');
+    expect(createCoverArt('bars', 3, Number.NaN).getAttribute('viewBox')).toBe('0 0 100 100');
+  });
+
+  describe.each([0.6, 1, 1.45])('in a box %s wide for 1 high', (aspect) => {
+    it.each(PATTERNS)('keeps every shape of %s inside the box', (pattern) => {
+      for (const seed of [1, 2, 7, 99, 2024]) {
+        const svg = createCoverArt(pattern, seed, aspect);
+        const [, , width = 0, height = 0] = (svg.getAttribute('viewBox') ?? '').split(' ').map(Number);
+        const [left, top, right, bottom] = paintedBounds(svg);
+        expect(left).toBeGreaterThanOrEqual(-0.01);
+        expect(top).toBeGreaterThanOrEqual(-0.01);
+        expect(right).toBeLessThanOrEqual(width + 0.01);
+        expect(bottom).toBeLessThanOrEqual(height + 0.01);
+      }
+    });
+
+    it.each(PATTERNS)('uses most of the box for %s, so nothing floats in a corner', (pattern) => {
+      const svg = createCoverArt(pattern, 5, aspect);
+      const [, , width = 0, height = 0] = (svg.getAttribute('viewBox') ?? '').split(' ').map(Number);
+      const [left, top, right, bottom] = paintedBounds(svg);
+      expect(right - left).toBeGreaterThan(width * 0.6);
+      expect(bottom - top).toBeGreaterThan(height * 0.45);
+    });
   });
 });
 
