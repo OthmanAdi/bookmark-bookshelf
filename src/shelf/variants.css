@@ -400,7 +400,7 @@
 
 /* The wall barely catches the lamp, and what it catches fades out well inside the scene. */
 .bb-shelf[data-variant='night'] .bb-shelf__backdrop {
-  background: radial-gradient(ellipse 34% 56% at 50% 64%, rgba(255, 226, 170, 0.06), rgba(255, 226, 170, 0) 100%);
+  background: radial-gradient(ellipse 34% 56% at calc(50% + var(--bb-lamp-x, 0px)) 64%, rgba(255, 226, 170, 0.06), rgba(255, 226, 170, 0) 100%);
 }
 
 .bb-shelf[data-variant='night'] .bb-shelf__floor {
