@@ -104,7 +104,6 @@ test.describe('safety', () => {
 
   for (const address of PAGES) {
     test(`${address} carries a content security policy that allows its own origin only`, async ({ page }) => {
-      test.fixme(address !== '/app.html', 'Only the app page carries a content security policy; the homepage and the three examples have none.');
       await page.goto(address);
       const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
       expect(policy, 'the page has a policy').toBeTruthy();
