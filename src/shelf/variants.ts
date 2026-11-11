@@ -21,13 +21,12 @@ const paperGeometry: Geometry = {
 };
 
 /**
- * Every look moves the same way. A step along the row is eased and quick enough for daily use, and it
- * grows only a little with distance. Opening is one continuous move: the volume stays in view from the
- * shelf to its place beside the page. A dragged or flicked row is never slowed down: it tracks the
- * pointer and settles on a spring.
+ * Every look moves the same way. A step along the row runs on the same spring as a released drag, so a
+ * second press carries its speed instead of starting from rest. Opening is one continuous move: the
+ * volume stays in view from the shelf to its place beside the page.
  */
 const steadyMotion: VariantMotion = {
-  travel: { base: 420, perItem: 70, max: 950 },
+  travel: null,
   openDuration: 720,
   closeDuration: 520,
   openHold: 0,
