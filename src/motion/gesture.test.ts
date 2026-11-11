@@ -244,11 +244,11 @@ describe('attachDrag click suppression', () => {
 });
 
 describe('attachDrag element handling', () => {
-  it('sets touch-action to pan-y while attached and restores it after detach', () => {
+  it('leaves vertical scrolling and pinching to the browser while attached and restores it after detach', () => {
     const element = document.createElement('div');
     element.style.touchAction = 'manipulation';
     const detach = attachDrag(element, { onMove: () => undefined, onEnd: () => undefined });
-    expect(element.style.touchAction).toBe('pan-y');
+    expect(element.style.touchAction).toBe('pan-y pinch-zoom');
     detach();
     expect(element.style.touchAction).toBe('manipulation');
   });

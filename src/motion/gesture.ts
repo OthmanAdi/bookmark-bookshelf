@@ -1,8 +1,8 @@
 /**
  * Horizontal drag recogniser on Pointer Events.
  *
- * The element keeps `touch-action: pan-y`, so the browser still owns vertical
- * scrolling on touch screens. A gesture becomes a drag only after it leaves the
+ * The element keeps `touch-action: pan-y pinch-zoom`, so the browser still owns
+ * vertical scrolling and pinching on touch screens. A gesture becomes a drag only after it leaves the
  * slop radius while moving mostly sideways; otherwise it is left alone and stays
  * a tap or a page scroll.
  */
@@ -51,7 +51,8 @@ const DEFAULTS = { mouseSlop: 4, touchSlop: 8, dominance: 1.2, velocityWindow: 8
 export function attachDrag(element: HTMLElement, handlers: DragHandlers, options: DragOptions = {}): () => void {
   const config = { ...DEFAULTS, ...options };
   const previousTouchAction = element.style.touchAction;
-  element.style.touchAction = 'pan-y';
+  // Vertical scrolling and pinching stay with the browser: a row of small spines must be zoomable.
+  element.style.touchAction = 'pan-y pinch-zoom';
 
   let pointerId: number | null = null;
   let startX = 0;

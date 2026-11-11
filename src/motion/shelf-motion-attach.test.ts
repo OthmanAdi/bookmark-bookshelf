@@ -325,9 +325,9 @@ describe('motion.attach drag', () => {
     expect(motion.state.dragging).toBe(false);
   });
 
-  it('keeps touch-action pan-y while attached and restores it after detach', () => {
+  it('leaves vertical scrolling and pinching to the browser while attached and restores it after detach', () => {
     const { element, detach } = setup();
-    expect(element.style.touchAction).toBe('pan-y');
+    expect(element.style.touchAction).toBe('pan-y pinch-zoom');
     detach();
     expect(element.style.touchAction).toBe('');
   });
