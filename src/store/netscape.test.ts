@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseNetscapeBookmarks } from './netscape';
+import { isNetscapeBookmarks, parseNetscapeBookmarks } from './netscape';
 
 const CHROME_EXPORT = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <!-- This is an automatically generated file.
@@ -336,5 +336,45 @@ describe('parseNetscapeBookmarks', () => {
       expect(() => parseNetscapeBookmarks(text)).not.toThrow();
       expect(performance.now() - start).toBeLessThan(1000);
     });
+  });
+});
+
+describe('isNetscapeBookmarks', () => {
+  it('recognises the doctype of each export', () => {
+    expect(isNetscapeBookmarks(CHROME_EXPORT)).toBe(true);
+    expect(isNetscapeBookmarks(FIREFOX_EXPORT)).toBe(true);
+    expect(isNetscapeBookmarks(SAFARI_EXPORT)).toBe(true);
+  });
+
+  it('ignores case and a leading byte order mark or blank lines', () => {
+    expect(isNetscapeBookmarks('\n\n<!doctype netscape-bookmark-file-1>\n<dl>')).toBe(true);
+    expect(isNetscapeBookmarks(String.fromCodePoint(0xfeff) + '<!DOCTYPE NETSCAPE-Bookmark-file-1>')).toBe(true);
+  });
+
+  it('recognises a file without a doctype by its list of entries', () => {
+    expect(isNetscapeBookmarks('<DL><p>\n  <DT><A HREF="https://example.org/">x</A>')).toBe(true);
+    expect(isNetscapeBookmarks('<dl>\n<dt><h3>Folder</h3>')).toBe(true);
+    expect(isNetscapeBookmarks('<H1>Bookmarks</H1><DL class="x"><DT><A HREF="https://example.org/">x</A>')).toBe(true);
+  });
+
+  it('is false for a JSON library, plain text and other pages', () => {
+    expect(isNetscapeBookmarks('{"format":"bookmark-bookshelf","version":2,"shelves":[]}')).toBe(false);
+    expect(isNetscapeBookmarks('[]')).toBe(false);
+    expect(isNetscapeBookmarks('')).toBe(false);
+    expect(isNetscapeBookmarks('Some notes about <DL> lists')).toBe(false);
+    expect(isNetscapeBookmarks('<html><body><dl><dd>term</dd></dl></body></html>')).toBe(false);
+    expect(isNetscapeBookmarks(undefined as unknown as string)).toBe(false);
+  });
+
+  it('only looks at the first 2,000 characters', () => {
+    expect(isNetscapeBookmarks(' '.repeat(2000) + '<!DOCTYPE NETSCAPE-Bookmark-file-1>')).toBe(false);
+    expect(isNetscapeBookmarks(' '.repeat(1900) + '<!DOCTYPE NETSCAPE-Bookmark-file-1>')).toBe(true);
+  });
+
+  it('stays fast on repeated near matches', () => {
+    const start = performance.now();
+    expect(isNetscapeBookmarks('<dl' + ' '.repeat(5000))).toBe(false);
+    expect(isNetscapeBookmarks('<dl>'.repeat(1000))).toBe(false);
+    expect(performance.now() - start).toBeLessThan(100);
   });
 });

@@ -269,3 +269,14 @@ export function parseNetscapeBookmarks(html: string): NetscapeBookmarks {
   }
   return { folders, skipped };
 }
+
+const SNIFF_LENGTH = 2000;
+const SNIFF_DOCTYPE = /netscape-bookmark-file-1/i;
+const SNIFF_LIST = /<dl[^>]{0,200}>\s{0,200}(?:<p>\s{0,200})?<dt/i;
+
+/** Cheap check of the start of a text: is this a browser bookmarks export rather than a JSON library? */
+export function isNetscapeBookmarks(text: string): boolean {
+  if (typeof text !== 'string') return false;
+  const head = text.slice(0, SNIFF_LENGTH);
+  return SNIFF_DOCTYPE.test(head) || SNIFF_LIST.test(head);
+}
