@@ -307,16 +307,18 @@
   pointer-events: none;
 }
 
-/* ---------- Night Study: dark ground, one pool of light ---------- */
+/* ---------- Night Study: a dark room, one lamp over the middle of the shelf ---------- */
 
 :root[data-variant='night'],
 .bb-shelf[data-variant='night'] {
+  --bb-color-scheme: dark;
   --bb-paper: #14161a;
   --bb-paper-raised: #1b1e24;
   --bb-sheet: #1c1f25;
   --bb-ink: #ece8df;
   --bb-ink-soft: #b5b0a6;
-  --bb-ink-faint: #8d897f;
+  /* The smallest text on the dark page still reaches 5.5:1 on the reading sheet. */
+  --bb-ink-faint: #9a958b;
   --bb-rule: rgba(236, 232, 223, 0.18);
   --bb-rule-strong: rgba(236, 232, 223, 0.6);
   --bb-accent: #e0a83f;
@@ -324,19 +326,96 @@
   --bb-accent-ink: #17140c;
   --bb-focus: #8ab4ff;
   --bb-focus-ring: #8ab4ff;
+  /* Lamplight is warm: a board catching it shows a warm sheen. */
+  --bb-light-sheen: #ffe8be;
+  --bb-bookend: #2e3138;
 }
 
 .bb-shelf[data-variant='night'] {
+  color-scheme: dark;
   background: var(--bb-paper);
 }
 
+/*
+ * Cloth in a dark room. The lamp leaves the ends of the row at about six tenths of its light, so every
+ * cloth and its lettering are set far enough apart to keep 4.5:1 there: the darker cloths go deeper with
+ * lighter lettering, and ochre turns to a pale old gold under dark lettering, the only way a mid-tone
+ * cloth keeps its title legible in shade.
+ */
+:root[data-variant='night'] .bb-cloth--bone,
+.bb-shelf[data-variant='night'] .bb-cloth--bone {
+  --cloth: #ebe4d4;
+  --cloth-ink: #141310;
+}
+
+:root[data-variant='night'] .bb-cloth--rust,
+.bb-shelf[data-variant='night'] .bb-cloth--rust {
+  --cloth: #6c2716;
+  --cloth-ink: #fdf6ea;
+}
+
+:root[data-variant='night'] .bb-cloth--moss,
+.bb-shelf[data-variant='night'] .bb-cloth--moss {
+  --cloth: #2a3825;
+  --cloth-ink: #f5f1e6;
+}
+
+:root[data-variant='night'] .bb-cloth--plum,
+.bb-shelf[data-variant='night'] .bb-cloth--plum {
+  --cloth: #44263a;
+  --cloth-ink: #f8eef0;
+}
+
+:root[data-variant='night'] .bb-cloth--ochre,
+.bb-shelf[data-variant='night'] .bb-cloth--ochre {
+  --cloth: #f0d27e;
+  --cloth-ink: #100c05;
+}
+
+:root[data-variant='night'] .bb-cloth--slate,
+.bb-shelf[data-variant='night'] .bb-cloth--slate {
+  --cloth: #313b46;
+  --cloth-ink: #f5f6f3;
+}
+
+:root[data-variant='night'] .bb-cloth--teal,
+.bb-shelf[data-variant='night'] .bb-cloth--teal {
+  --cloth: #154143;
+  --cloth-ink: #f0f6f0;
+}
+
+/* The wall barely catches the lamp, and what it catches fades out well inside the scene. */
 .bb-shelf[data-variant='night'] .bb-shelf__backdrop {
-  background: radial-gradient(ellipse 38% 78% at 50% 58%, rgba(255, 226, 170, 0.2), rgba(255, 226, 170, 0.05) 55%, rgba(255, 226, 170, 0) 100%);
+  background: radial-gradient(ellipse 34% 56% at 50% 64%, rgba(255, 226, 170, 0.06), rgba(255, 226, 170, 0) 100%);
 }
 
 .bb-shelf[data-variant='night'] .bb-shelf__floor {
-  height: 26px;
-  background: radial-gradient(ellipse 34% 100% at 50% 0, rgba(255, 226, 170, 0.28), rgba(255, 226, 170, 0) 100%);
+  display: none;
+}
+
+/*
+ * The pool of light lies on the floor where the lamp's light lands: in front of and under the volumes
+ * nearest it, in the same 3D space as they are, so it is foreshortened like the floor itself and the
+ * presented volume, slid forward, stands in it. It sits a pixel under the floor line so the contact
+ * shadows lie on top. It moves with the lamp when the shelf says where the lamp stands (`--bb-lamp-x`).
+ */
+.bb-shelf[data-variant='night'] .bb-shelf__row::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--bb-cover-w) * -3);
+  bottom: 0;
+  width: calc(var(--bb-cover-w) * 6);
+  height: calc(var(--bb-cover-w) * 1.8);
+  transform-origin: 50% 100%;
+  transform: translateX(var(--bb-lamp-x, 0px)) translateY(1px) translateZ(calc(var(--bb-cover-w) * 0.8)) rotateX(90deg);
+  background: radial-gradient(
+    closest-side at 50% 62%,
+    rgba(255, 214, 150, 0.36),
+    rgba(255, 214, 150, 0.16) 45%,
+    rgba(255, 214, 150, 0.04) 78%,
+    rgba(255, 214, 150, 0)
+  );
+  pointer-events: none;
 }
 
 /*
@@ -355,11 +434,29 @@
   );
 }
 
+/*
+ * The jacket under the lamp: printed paper like Paper Row's, its head edge catching the lamp above, the
+ * fore-edge faintly, and a long soft shadow falling straight down from a light overhead. No outline.
+ */
 :root[data-variant='night'] .bb-cover,
 .bb-shelf[data-variant='night'] .bb-cover {
+  --bb-weave: var(--bb-grain);
+  --bb-cover-joint: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.26) 0,
+    rgba(0, 0, 0, 0.1) 1.2%,
+    rgba(255, 236, 200, 0.08) 2.4%,
+    rgba(255, 236, 200, 0) 4%,
+    rgba(0, 0, 0, 0.08) 5%,
+    rgba(0, 0, 0, 0) 6.5%
+  );
+  --bb-cover-edge:
+    inset 0 calc(1px * var(--bb-cover-k, 1)) 0 rgba(255, 236, 200, 0.2),
+    inset calc(-1px * var(--bb-cover-k, 1)) 0 0 rgba(255, 236, 200, 0.07),
+    inset 0 calc(-1px * var(--bb-cover-k, 1)) 0 rgba(0, 0, 0, 0.3);
   --bb-cover-shadow:
-    0 0 0 calc(1px * var(--bb-cover-k, 1)) rgba(255, 236, 200, 0.14),
-    0 calc(22px * var(--bb-cover-k, 1)) calc(44px * var(--bb-cover-k, 1)) calc(-18px * var(--bb-cover-k, 1)) rgba(0, 0, 0, 0.9);
+    0 calc(22px * var(--bb-cover-k, 1)) calc(44px * var(--bb-cover-k, 1)) calc(-18px * var(--bb-cover-k, 1)) rgba(0, 0, 0, 0.9),
+    0 calc(2px * var(--bb-cover-k, 1)) calc(4px * var(--bb-cover-k, 1)) rgba(0, 0, 0, 0.35);
 }
 
 /* ---------- Pocket Paperbacks: thin, flat, bright ---------- */

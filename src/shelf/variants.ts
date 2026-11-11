@@ -1,5 +1,5 @@
 import { DEFAULT_LAMP, DEFAULT_LIGHT } from './light';
-import type { Geometry, Variant, VariantMotion } from './types';
+import type { Geometry, Light, Variant, VariantMotion } from './types';
 
 /**
  * Variants change geometry here and look in `variants.css` (scoped by
@@ -34,6 +34,13 @@ const steadyMotion: VariantMotion = {
   openHold: 0,
   swap: false,
 };
+
+/**
+ * Night Study's lamp: over the middle of the row and three cover widths in front of it, with the room
+ * dim rather than black. The ends of the row fall to about six tenths of the light at the centre, the
+ * deepest a spine can go while its title still holds 4.5:1 on Night's cloths.
+ */
+const nightLamp: Light = { ...DEFAULT_LAMP, z: 3, ambient: 0.58, lamp: { reach: 1.5, floor: 0.7 } };
 
 export const VARIANTS: Record<string, Variant> = {
   paper: {
@@ -83,8 +90,7 @@ export const VARIANTS: Record<string, Variant> = {
       perspective: 1300,
     },
     motion: steadyMotion,
-    // One lamp above the centre: the volumes near it are lit, the ends of the row fall into the dark.
-    light: DEFAULT_LAMP,
+    light: nightLamp,
     loop: true,
   },
   pocket: {
