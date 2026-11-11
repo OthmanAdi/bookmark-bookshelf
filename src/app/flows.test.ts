@@ -82,3 +82,18 @@ describe('an address that opens a link', () => {
     expect(document.getElementById('toasts')?.textContent).toContain('That link is not in this library.');
   });
 });
+
+describe('an address that carries a shelf', () => {
+  it('previews it, clears the address, and adds nothing until the person agrees', async () => {
+    const file = store.exportShelf(store.shelves()[0]?.id as string, { includeTexts: false });
+    if (!file.ok) throw new Error(file.error.message);
+    const { encodeShelfLink } = await import('../store/shelf-link');
+    const { fragment } = await encodeShelfLink(file.value);
+    const before = store.shelves().length;
+    setAddress(`/app.html#${fragment}`);
+    flows.handleAddress();
+    expect(window.location.hash).toBe('');
+    await vi.waitFor(() => expect(document.querySelector('dialog[open]')?.textContent).toContain('A shelf has arrived'));
+    expect(store.shelves()).toHaveLength(before);
+  });
+});

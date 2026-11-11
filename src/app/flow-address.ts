@@ -22,8 +22,8 @@ const MAX_ID_LENGTH = 200;
 export function readAddress(location: AddressLocation): AddressIntent | null {
   const hash = typeof location.hash === 'string' ? location.hash : '';
   if (hash.startsWith(SHELF_PREFIX)) {
-    const fragment = hash.slice(SHELF_PREFIX.length);
-    return fragment === '' ? null : { kind: 'shelf', fragment };
+    // The whole fragment, `shelf=1.d.<data>`, is what the link decoder reads.
+    return hash.length === SHELF_PREFIX.length ? null : { kind: 'shelf', fragment: hash.slice(1) };
   }
   const request = parseAddRequest(location);
   if (request) return { kind: 'add', request };

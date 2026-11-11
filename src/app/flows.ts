@@ -2,6 +2,7 @@ import type { Bookshelf } from './bookshelf';
 import { toast } from './dom';
 import { createEditor, type LinkPreset } from './editor';
 import { clearAddress, readAddress } from './flow-address';
+import { receiveFromLink } from './flow-arrive';
 import { sendPageHereFlow } from './flow-bookmarklet';
 import { removeExampleLinks } from './flow-examples';
 import { takeLinksOutFlow } from './flow-export';
@@ -71,6 +72,11 @@ export function createFlows(context: FlowContext): Flows {
     if (intent.kind === 'add') {
       clearAddress(window.location, window.history);
       editor.add({ url: intent.request.url, title: intent.request.title, text: intent.request.text });
+      return;
+    }
+    if (intent.kind === 'shelf') {
+      clearAddress(window.location, window.history);
+      void receiveFromLink(context, intent.fragment);
       return;
     }
     if (intent.kind === 'link') {

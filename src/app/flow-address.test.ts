@@ -24,7 +24,7 @@ describe('reading the address', () => {
   });
 
   it('finds a shelf that arrives as a link', () => {
-    expect(readAddress(at('#shelf=1.d.AAAA'))).toEqual({ kind: 'shelf', fragment: '1.d.AAAA' });
+    expect(readAddress(at('#shelf=1.d.AAAA'))).toEqual({ kind: 'shelf', fragment: 'shelf=1.d.AAAA' });
     expect(readAddress(at('#shelf='))).toBeNull();
   });
 

@@ -461,6 +461,36 @@
   display: none;
 }
 
+/* ---------- a shelf arrives ---------- */
+
+.bb-arrive__name {
+  font-size: var(--bb-text-lead, 1.4375rem);
+  line-height: 1.25;
+}
+
+.bb-arrive__sender,
+.bb-arrive__label {
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+}
+
+.bb-arrive__label {
+  margin-bottom: calc(-1 * var(--bb-s-2));
+}
+
+.bb-arrive__titles {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.bb-arrive__counts {
+  font-weight: 600;
+}
+
+.bb-arrive__skipped {
+  color: var(--flow-danger);
+}
+
 /* ---------- share a shelf ---------- */
 
 .bb-share__heading {
