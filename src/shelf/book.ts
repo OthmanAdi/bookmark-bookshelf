@@ -67,6 +67,8 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   const treatment = TREATMENTS[seriesOf(item.source, TREATMENTS.length)] ?? 'bands';
   const spine = span('bb-book__spine');
   spine.dataset.treatment = treatment;
+  // Every spine keeps room for the check, so marking a link read never changes where its title sits.
+  spine.appendChild(span('bb-spine__done'));
   spine.appendChild(span('bb-spine__mark', markFor(item, index)));
   spine.appendChild(span('bb-spine__rule'));
   const title = span('bb-spine__title');
@@ -85,11 +87,13 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   spine.appendChild(spineShade);
   body.appendChild(spine);
 
-  if ((item.progress ?? 0) > 0) {
-    const ribbon = span('bb-book__ribbon');
-    // The ribbon grows with progress: a just-started volume shows a short tab.
-    ribbon.style.setProperty('--bb-ribbon', String(Math.min(1, Math.max(0.12, item.progress ?? 0))));
-    body.appendChild(ribbon);
+  if (item.done) element.classList.add('is-done');
+  const progress = Math.min(1, Math.max(0, item.progress ?? 0));
+  if (progress > 0 && !item.done) {
+    // A slip of card standing in the pages: how far it sits from the front board is how far the reading got.
+    const slip = span('bb-book__slip');
+    slip.style.setProperty('--bb-slip', progress.toFixed(3));
+    body.appendChild(slip);
   }
 
   // Both boards are plain cloth, so they cost two spans and no decision about when to show them: the
@@ -133,7 +137,8 @@ export function describe(item: ShelfItem, index: number, count: number): string 
   if (item.source) parts.push(item.source);
   parts.push(`Volume ${index + 1} of ${count}`);
   const progress = item.progress ?? 0;
-  if (progress > 0) parts.push(`${Math.round(progress * 100)} percent read`);
+  if (item.done) parts.push('Marked as read');
+  else if (progress > 0) parts.push(`${Math.round(progress * 100)} percent read`);
   return parts.join('. ');
 }
 

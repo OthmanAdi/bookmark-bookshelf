@@ -116,6 +116,20 @@ describe('mountShelf rendering', () => {
     }
   });
 
+  it('stands a reading slip in a volume in progress, placed by how far the reading got', () => {
+    const items = makeItems(4).map((item, index) => ({ ...item, progress: [0, 0.34, 1, 0.5][index], done: index === 3 }));
+    const { shelf } = mount({ items, variant: 'oak' });
+    const slip = (slot: number) => bySlot(shelf, slot).querySelector<HTMLElement>('.bb-book__slip');
+    expect(slip(0)).toBeNull();
+    expect(slip(1)?.style.getPropertyValue('--bb-slip')).toBe('0.340');
+    expect(slip(2)?.style.getPropertyValue('--bb-slip')).toBe('1.000');
+    // A volume marked as read shows its check instead, and says so to a screen reader.
+    expect(slip(3)).toBeNull();
+    expect(bySlot(shelf, 3).classList.contains('is-done')).toBe(true);
+    expect(bySlot(shelf, 3).querySelector('.bb-book__control')?.getAttribute('aria-label')).toContain('Marked as read');
+    expect(shelf.element.querySelector('.bb-book__ribbon')).toBeNull();
+  });
+
   it('leaves the number off the head of spines unless the look asks for it', () => {
     const { shelf } = mount();
     expect(shelf.element.dataset.mark).toBe('0');

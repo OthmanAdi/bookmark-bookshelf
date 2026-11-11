@@ -312,16 +312,47 @@
   line-height: 1;
 }
 
-/* Reading ribbon: a tab of accent colour standing above the head of a volume in progress. */
-.bb-book__ribbon {
+/*
+ * Reading slip: a card standing in the pages of a volume in progress, its top above the head. Across the
+ * thickness it sits as far from the front board (on the right) as the reading has got. It stands a third
+ * of the way back and half turned, so it shows whether the spine or the cover faces the viewer.
+ */
+.bb-book__slip {
   position: absolute;
-  left: 58%;
+  left: calc((1 - var(--bb-slip, 0)) * (var(--bb-spine-w) - 10px) + 2px);
   bottom: 100%;
-  width: max(5px, calc(var(--bb-spine-w) * 0.12));
-  height: calc(6px + 16px * var(--bb-ribbon, 0.2));
+  width: max(8px, calc(var(--bb-spine-w) * 0.16));
+  height: calc(var(--bb-book-h) * 0.04);
+  border-radius: 1px 1px 0 0;
   background: var(--bb-accent);
-  /* Swallow-tail cut at the free end. */
-  clip-path: polygon(0 0, 50% 3px, 100% 0, 100% 100%, 0 100%);
+  transform-origin: 50% 100%;
+  transform: translateZ(calc(var(--bb-cover-w) * -0.3)) rotateY(45deg);
+  pointer-events: none;
+}
+
+/* A small check at the head of a volume marked as read. */
+.bb-spine__done {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: max(10px, calc(var(--bb-spine-w) * 0.2));
+  visibility: hidden;
+}
+
+.bb-spine__done::before {
+  content: '';
+  width: 0.55em;
+  height: 0.3em;
+  margin-top: -0.15em;
+  border-bottom: max(1.5px, 0.12em) solid currentColor;
+  border-left: max(1.5px, 0.12em) solid currentColor;
+  font-size: max(10px, calc(var(--bb-spine-w) * 0.24));
+  rotate: -45deg;
+}
+
+.bb-book.is-done .bb-spine__done {
+  visibility: visible;
 }
 
 /*
@@ -565,5 +596,10 @@
 
   .bb-book__sheen {
     display: none;
+  }
+
+  .bb-book__slip {
+    forced-color-adjust: none;
+    background: Highlight;
   }
 }
