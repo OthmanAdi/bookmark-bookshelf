@@ -135,6 +135,8 @@
   --bb-focus: #1c5fd4;
   --bb-focus-ring: #1c5fd4;
   --bb-focus-halo: #faf6ec;
+  /* The shadow of a volume in the air takes the brown of the shelf's shade. */
+  --bb-flight-shadow: rgba(20, 10, 2, 0.5);
   --bb-bookend: #6e5427;
   --bb-light-sheen: #fff1d6;
   /* Gold foil: a pale highlight, the body of the gold and a bright crest. Every stop holds 4.5:1 on a dark cloth. */
@@ -329,6 +331,18 @@
   /* Lamplight is warm: a board catching it shows a warm sheen. */
   --bb-light-sheen: #ffe8be;
   --bb-bookend: #2e3138;
+  /*
+   * The page's warning colours, turned for a dark ground: danger 7.75:1 on the page and 7.06:1 on the
+   * sheet, its own ink 7.87:1 on it, 6.38:1 on the wash. The toast is the page inverted (15.0:1), and
+   * the backdrop and the shadow of a volume in the air are deep enough to show on near black.
+   */
+  --bb-danger: #f0907c;
+  --bb-danger-ink: #17140c;
+  --bb-danger-wash: #3a2020;
+  --bb-toast-bg: #ece8df;
+  --bb-toast-ink: #17140c;
+  --bb-backdrop: rgba(0, 0, 0, 0.62);
+  --bb-flight-shadow: rgba(0, 0, 0, 0.75);
 }
 
 .bb-shelf[data-variant='night'] {
@@ -480,6 +494,8 @@
   --bb-cover-mark: 1;
   /* Uncoated card catches less light than cloth. */
   --bb-light-sheen: rgba(255, 252, 245, 0.6);
+  /* A thin paperback in the air casts a lighter shadow than a cased volume. */
+  --bb-flight-shadow: rgba(26, 24, 21, 0.34);
 }
 
 :root[data-variant='pocket'] .bb-cloth--ink,

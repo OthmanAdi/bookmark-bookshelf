@@ -221,7 +221,20 @@ describe('colour roles of each look', () => {
       const computed = getComputedStyle(document.documentElement);
       const read = (name: string): string => computed.getPropertyValue(name).trim();
       const values = Object.fromEntries(
-        ['--bb-focus-ring', '--bb-danger', '--bb-paper', '--bb-paper-raised', '--bb-sheet'].map((name) => [name, read(name)]),
+        [
+          '--bb-focus-ring',
+          '--bb-danger',
+          '--bb-danger-ink',
+          '--bb-danger-wash',
+          '--bb-toast-bg',
+          '--bb-toast-ink',
+          '--bb-accent',
+          '--bb-accent-strong',
+          '--bb-accent-ink',
+          '--bb-paper',
+          '--bb-paper-raised',
+          '--bb-sheet',
+        ].map((name) => [name, read(name)]),
       );
       delete document.documentElement.dataset.variant;
       return values;
@@ -233,6 +246,18 @@ describe('colour roles of each look', () => {
     for (const ground of ['--bb-paper', '--bb-paper-raised', '--bb-sheet']) {
       expect(contrast(role['--bb-focus-ring']!, role[ground]!), `${look} ring on ${ground}`).toBeGreaterThanOrEqual(3);
     }
+  });
+
+  it.each(Object.keys(VARIANTS))('%s: warnings, toasts and filled controls are readable', (look) => {
+    const role = roles(look);
+    const pass = (text: string, ground: string): void => {
+      expect(contrast(role[text]!, role[ground]!), `${look} ${text} on ${ground}`).toBeGreaterThanOrEqual(4.5);
+    };
+    for (const ground of ['--bb-paper', '--bb-paper-raised', '--bb-sheet', '--bb-danger-wash']) pass('--bb-danger', ground);
+    pass('--bb-danger-ink', '--bb-danger');
+    pass('--bb-toast-ink', '--bb-toast-bg');
+    pass('--bb-accent-ink', '--bb-accent');
+    pass('--bb-accent-ink', '--bb-accent-strong');
   });
 
   it.each(Object.keys(VARIANTS))('%s: focus can never be mistaken for an error', (look) => {
