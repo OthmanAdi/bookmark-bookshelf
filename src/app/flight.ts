@@ -148,6 +148,11 @@ export interface Flight {
 
 const round = (value: number): number => Math.round(value * 100) / 100;
 
+/** The width the flying cover is laid out at: the larger of where it starts and where it lands. */
+export function flightLayoutWidth(start: FlightStart, end: FlightEnd): number {
+  return Math.max(start.width, end.width);
+}
+
 export function createFlight(options: FlightOptions): Flight {
   const { start, end } = options;
   const layer = document.createElement('div');
@@ -156,8 +161,13 @@ export function createFlight(options: FlightOptions): Flight {
 
   const book = document.createElement('div');
   book.className = options.clothClass ? `bb-flight__book ${options.clothClass}` : 'bb-flight__book';
-  book.style.width = `${end.width}px`;
-  book.style.height = `${end.height}px`;
+  // Laid out once at the larger of its two sizes: a cover drops its type when it is drawn very small,
+  // and a volume that lands in a small place must still read as itself when it leaves the shelf.
+  const layoutWidth = flightLayoutWidth(start, end);
+  const layoutHeight = end.width > 0 ? (layoutWidth * end.height) / end.width : end.height;
+  const landing = layoutWidth > 0 ? end.width / layoutWidth : 1;
+  book.style.width = `${layoutWidth}px`;
+  book.style.height = `${layoutHeight}px`;
 
   const shadow = document.createElement('span');
   shadow.className = 'bb-flight__shadow';
@@ -180,8 +190,8 @@ export function createFlight(options: FlightOptions): Flight {
   const set = (time: number): void => {
     const pose = flightPose(time, start, end);
     const transform =
-      `translate3d(${round(pose.x - end.width / 2)}px, ${round(pose.y - end.height)}px, 0) ` +
-      `scale(${round(pose.scale * 1000) / 1000}) rotateZ(${round(pose.lean)}deg) ` +
+      `translate3d(${round(pose.x - layoutWidth / 2)}px, ${round(pose.y - layoutHeight)}px, 0) ` +
+      `scale(${round(pose.scale * landing * 1000) / 1000}) rotateZ(${round(pose.lean)}deg) ` +
       `rotateX(${round(pose.tip)}deg) rotateY(${round(pose.yaw)}deg)`;
     if (transform === last) return;
     last = transform;

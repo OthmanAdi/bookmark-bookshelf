@@ -5,7 +5,7 @@ import { createCover, mountShelf, type ShelfHandle, type ShelfItem } from '../sh
 import { outlineOf } from '../shelf/cover-outline';
 import { hashText, imprintOf } from '../shelf/imprint';
 import type { Bookmark, Store } from '../store';
-import { createFlight, type Flight, type FlightEnd, type FlightStart } from './flight';
+import { createFlight, flightLayoutWidth, type Flight, type FlightEnd, type FlightStart } from './flight';
 
 /**
  * Full composition: store + shelf + motion + reader.
@@ -292,7 +292,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     // Perspective draws the presented face a little larger than its layout size: start at what is on screen.
     const start: FlightStart = { ...placement, width: placement.width * placement.scale, height: placement.height * placement.scale };
     const cover = createCover(itemOf(bookmark, 0), marks.get(bookmark.id), { aspect: coverAspect() });
-    const scale = placement.width > 0 ? end.width / placement.width : 1;
+    const scale = placement.width > 0 ? flightLayoutWidth(start, end) / placement.width : 1;
     cover.style.setProperty('--bb-cover-k', String(scale));
     const spineEdge = Math.abs(Math.sin((placement.yaw * Math.PI) / 180)) * shelf.variant.geometry.spineWidth * scale;
     flight = createFlight({

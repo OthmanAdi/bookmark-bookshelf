@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bezier, createFlight, flightPose, type FlightEnd, type FlightStart } from './flight';
+import { bezier, createFlight, flightLayoutWidth, flightPose, type FlightEnd, type FlightStart } from './flight';
 
 const start: FlightStart = { cx: 640, cy: 360, width: 206, height: 340, lean: -4.4, yaw: 6 };
 const end: FlightEnd = { x: 840, y: 104, width: 285, height: 470 };
@@ -127,6 +127,21 @@ describe('createFlight', () => {
     const host = document.createElement('div');
     const flight = createFlight({ cover: document.createElement('span'), start, end, host });
     expect(host.querySelector('.bb-book__sheen')).toBeNull();
+    flight.destroy();
+  });
+
+  it('is laid out at its shelf size when it lands in a smaller place', () => {
+    const thumbnail: FlightEnd = { x: 16, y: 8, width: 40, height: 66 };
+    expect(flightLayoutWidth(start, thumbnail)).toBe(206);
+    expect(flightLayoutWidth(start, end)).toBe(285);
+    const host = document.createElement('div');
+    const flight = createFlight({ cover: document.createElement('span'), start, end: thumbnail, host });
+    const book = host.querySelector<HTMLElement>('.bb-flight__book');
+    expect(book?.style.width).toBe('206px');
+    flight.set(0);
+    expect(book?.style.transform).toContain('scale(1)');
+    flight.set(1);
+    expect(book?.style.transform).toContain(`scale(${Math.round((40 / 206) * 1000) / 1000})`);
     flight.destroy();
   });
 
