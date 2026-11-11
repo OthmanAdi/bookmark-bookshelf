@@ -1,7 +1,7 @@
 import { resolveCloth, resolvePattern, type PatternName } from './variants';
 import type { ShelfItem } from './types';
 import { fitTitle, linesOf, type TitleBox } from './cover-title';
-import { imprintOf } from './imprint';
+import { imprintOf, seriesOf } from './imprint';
 
 /**
  * Procedural cover art. Every cover is drawn from a seed with plain SVG shapes,
@@ -216,39 +216,66 @@ export function createCoverArt(pattern: string | undefined, seed = 1, aspect = 1
 /** A BCP 47 tag as the store keeps it. Anything else is left off rather than passed to the page. */
 const LANG = /^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8}){0,4}$/;
 
-/**
- * The head of the cover in cqw, mirroring cover.css. Its height is taken for the squarest cover a look
- * uses (0.7 wide for 1 high), so a title that fits there fits every look at the same size.
- */
-const HEAD = { top: 10, measure: 79, height: (100 / 0.7) * 0.47 - 10, gap: 3 };
-const AUTHOR = { size: 5.6, leading: 1.2, lines: 2 };
-const TITLE = { max: 13.6, min: 7.5, leading: 1.04 };
-/** The plate in cqw, mirroring cover.css: it hangs from the middle line and stands on the foot line. */
-const PLATE = { width: 79, rule: 5, foot: 14 };
-
 /** Width over height of a cover on the default shelf. */
 export const COVER_ASPECT = 206 / 340;
 
+/**
+ * The four ways a cover is laid out. One site always gets the same one, so its links read as a series.
+ * plate: title at the head, a rule, the drawing under it. label: the title on a paper label pasted on
+ * the cloth, the drawing small below. band: the drawing printed across the head, the title under it.
+ * frame: a double rule round the board, the title centred, the drawing as a small device.
+ */
+export const LAYOUTS = ['plate', 'label', 'band', 'frame'] as const;
+export type CoverLayout = (typeof LAYOUTS)[number];
+
+interface LayoutGrid {
+  /** Line length of the title, in cqw. */
+  measure: number;
+  /** Height the title block may take, in cqw, on a cover `height` cqw high. */
+  head: (height: number) => number;
+  /** Largest and smallest title size, in cqw. */
+  max: number;
+  min: number;
+  /** Width over height of the plate, on a cover `height` cqw high. */
+  plate: (height: number) => number;
+}
+
+/**
+ * The grid of each layout in cqw, mirroring cover.css. The label and the frame set their titles on a
+ * shorter line, so they may go a little smaller; the 9 px floor in the stylesheet still holds.
+ */
+const GRID: Record<CoverLayout, LayoutGrid> = {
+  plate: { measure: 79, head: (h) => h * 0.47 - 10, max: 13.6, min: 7.5, plate: (h) => 79 / Math.max(1, h * 0.5 - 14 - 5) },
+  label: { measure: 65, head: (h) => h * 0.47 - 6 - 11, max: 11, min: 7, plate: () => 1 },
+  band: { measure: 79, head: (h) => h * 0.53 - 8 - 13, max: 13.6, min: 7.5, plate: (h) => 100 / (h * 0.47) },
+  frame: { measure: 67, head: (h) => h * 0.735 - 47.5, max: 12, min: 7, plate: () => 1 },
+};
+
+const TITLE = { leading: 1.04, gap: 3 };
+const AUTHOR = { size: 5.6, leading: 1.2, lines: 2 };
+
 export interface CoverOptions {
   /**
-   * Width over height of the box the cover fills. The plate is composed for it, so give the real value
-   * when the cover is not in the default proportion. Defaults to `COVER_ASPECT`.
+   * Width over height of the box the cover fills. The title and the plate are composed for it, so give
+   * the real value when the cover is not in the default proportion. Defaults to `COVER_ASPECT`.
    */
   aspect?: number;
 }
 
-function plateAspect(coverAspect: number): number {
-  const height = 100 / coverAspect;
-  return PLATE.width / Math.max(1, height / 2 - PLATE.foot - PLATE.rule);
+/** The layout of every cover from one site. A link with no site gets the plain plate. */
+export function layoutOf(source: string | undefined): CoverLayout {
+  return LAYOUTS[seriesOf(source, LAYOUTS.length)] ?? LAYOUTS[0];
 }
 
-function titleBox(item: ShelfItem): TitleBox {
-  let height = HEAD.height;
+/** The room the title of `item` has in `layout` on a cover `aspect` wide for 1 high, in cqw. */
+export function titleBoxOf(item: ShelfItem, layout: CoverLayout, aspect = COVER_ASPECT): TitleBox {
+  const grid = GRID[layout];
+  let height = grid.head(100 / aspect);
   if (item.author) {
-    const lines = Math.min(AUTHOR.lines, linesOf(item.author, AUTHOR.size, HEAD.measure));
-    height -= lines * AUTHOR.size * AUTHOR.leading + HEAD.gap;
+    const lines = Math.min(AUTHOR.lines, linesOf(item.author, AUTHOR.size, grid.measure));
+    height -= lines * AUTHOR.size * AUTHOR.leading + TITLE.gap;
   }
-  return { measure: HEAD.measure, height, ...TITLE };
+  return { measure: grid.measure, height, max: grid.max, min: grid.min, leading: TITLE.leading };
 }
 
 function textElement(tag: string, className: string, text: string): HTMLElement {
@@ -267,8 +294,10 @@ function textElement(tag: string, className: string, text: string): HTMLElement 
  */
 export function createCover(item: ShelfItem, mark?: string, options: CoverOptions = {}): HTMLElement {
   const aspect = options.aspect && Number.isFinite(options.aspect) && options.aspect > 0 ? options.aspect : COVER_ASPECT;
+  const layout = layoutOf(item.source);
   const cover = document.createElement('span');
   cover.className = `bb-cover bb-cloth--${resolveCloth(item.cloth)}`;
+  cover.dataset.layout = layout;
   cover.dataset.pattern = resolvePattern(item.pattern);
   cover.setAttribute('aria-hidden', 'true');
   if (item.lang && LANG.test(item.lang)) cover.lang = item.lang;
@@ -276,7 +305,7 @@ export function createCover(item: ShelfItem, mark?: string, options: CoverOption
   const head = document.createElement('span');
   head.className = 'bb-cover__head';
   const title = textElement('span', 'bb-cover__title', item.title);
-  const fit = fitTitle(item.title, titleBox(item));
+  const fit = fitTitle(item.title, titleBoxOf(item, layout, aspect));
   title.style.setProperty('--bb-cover-title', `${fit.size}cqw`);
   title.style.setProperty('--bb-cover-lines', String(fit.clamp));
   if (fit.broken) title.classList.add('bb-cover__title--break');
@@ -286,7 +315,7 @@ export function createCover(item: ShelfItem, mark?: string, options: CoverOption
 
   const plate = document.createElement('span');
   plate.className = 'bb-cover__plate';
-  plate.appendChild(createCoverArt(item.pattern, item.seed ?? 1, plateAspect(aspect)));
+  plate.appendChild(createCoverArt(item.pattern, item.seed ?? 1, GRID[layout].plate(100 / aspect)));
   cover.appendChild(plate);
 
   const imprint = imprintOf(item.source).name;

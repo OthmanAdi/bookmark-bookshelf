@@ -119,16 +119,129 @@
   letter-spacing: 0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 74%;
 }
 
-/* The accession number. Printed only where a look asks for it with --bb-cover-mark: 1. */
+/*
+ * The accession number. Printed only where a look asks for it with --bb-cover-mark: 1. It stands apart
+ * at the outer corner, so a centred imprint stays centred.
+ */
 .bb-cover__mark {
-  flex: none;
-  margin-left: auto;
+  position: absolute;
+  right: 0;
+  bottom: 0;
   font-family: var(--bb-font-mono);
   font-size: max(9px, 4.2cqw);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.06em;
   opacity: var(--bb-cover-mark, 0);
+}
+
+/* ---------- label: the title on a paper label pasted on the cloth, the drawing small below ---------- */
+
+/*
+ * The label stands on the 47 % line. It keeps one size for ordinary titles and grows upward, cut to fit,
+ * only for a long one, the way a binder cuts a label to its lettering.
+ */
+.bb-cover[data-layout='label'] .bb-cover__head {
+  top: auto;
+  right: 10cqw;
+  left: 13cqw;
+  justify-content: center;
+  align-items: center;
+  min-height: 29%;
+  max-height: calc(47% - 6cqw);
+  padding: 5.5cqw 6cqw;
+  border-radius: calc(1px * var(--bb-cover-k, 1));
+  background: var(--bb-cover-paper, #f1ead9);
+  color: var(--bb-cover-paper-ink, #24211c);
+  text-align: center;
+  box-shadow:
+    0 calc(0.5px * var(--bb-cover-k, 1)) 0 rgba(0, 0, 0, 0.2),
+    0 0 0 calc(0.5px * var(--bb-cover-k, 1)) rgba(0, 0, 0, 0.1);
+}
+
+.bb-cover[data-layout='label'] .bb-cover__head::before {
+  content: '';
+  position: absolute;
+  inset: 2.5cqw;
+  border: calc(0.75px * var(--bb-cover-k, 1)) solid currentColor;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.bb-cover[data-layout='label'] .bb-cover__plate {
+  top: calc(73.5% - 31cqw);
+  right: auto;
+  bottom: auto;
+  left: 27.5cqw;
+  width: 48cqw;
+  height: 48cqw;
+  border-top: 0;
+}
+
+.bb-cover[data-layout='label'] .bb-cover__art,
+.bb-cover[data-layout='band'] .bb-cover__art,
+.bb-cover[data-layout='frame'] .bb-cover__art {
+  inset: 0;
+  height: 100%;
+}
+
+.bb-cover[data-layout='label'] .bb-cover__foot,
+.bb-cover[data-layout='frame'] .bb-cover__foot {
+  justify-content: center;
+}
+
+/* ---------- band: the drawing printed across the head, the title on plain cloth under it ---------- */
+
+.bb-cover[data-layout='band'] .bb-cover__plate {
+  inset: 0 0 53%;
+  border-top: 0;
+  background: var(--cloth-art);
+  color: var(--cloth);
+}
+
+.bb-cover[data-layout='band'] .bb-cover__head {
+  top: calc(47% + 8cqw);
+  bottom: 13cqw;
+}
+
+/* ---------- frame: a double rule round the board, the title centred, the drawing as a device ---------- */
+
+/* The frame is set on the board between the joint and the fore-edge, so it sits further in at the spine. */
+.bb-cover[data-layout='frame']::before {
+  content: '';
+  position: absolute;
+  inset: 6cqw 6cqw 6cqw 11cqw;
+  border: calc(1px * var(--bb-cover-k, 1)) solid var(--cloth-art);
+  outline: calc(0.5px * var(--bb-cover-k, 1)) solid var(--cloth-art);
+  outline-offset: calc(-1.6cqw - 1.5px * var(--bb-cover-k, 1));
+  pointer-events: none;
+}
+
+/* The title hangs from the head of the frame and may run down to just above the device. */
+.bb-cover[data-layout='frame'] .bb-cover__head {
+  top: 16cqw;
+  right: 14cqw;
+  bottom: calc(26.5% + 31.5cqw);
+  left: 19cqw;
+  align-items: center;
+  text-align: center;
+}
+
+.bb-cover[data-layout='frame'] .bb-cover__plate {
+  top: calc(73.5% - 27.5cqw);
+  right: auto;
+  bottom: auto;
+  left: 33.5cqw;
+  width: 38cqw;
+  height: 38cqw;
+  border-top: 0;
+}
+
+.bb-cover[data-layout='frame'] .bb-cover__foot {
+  right: 14cqw;
+  bottom: 11cqw;
+  left: 19cqw;
 }

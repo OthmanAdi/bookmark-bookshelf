@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createCover, createCoverArt } from './cover-art';
+import { COVER_ASPECT, createCover, createCoverArt, LAYOUTS, layoutOf, titleBoxOf } from './cover-art';
+import { fitTitle } from './cover-title';
 import { PATTERNS } from './variants';
 import type { ShelfItem } from './types';
 
@@ -238,6 +239,43 @@ describe('createCover', () => {
     expect(createCover(item({ lang: 'de-AT' })).lang).toBe('de-AT');
     expect(createCover(item({ lang: 'de" onload="x' })).hasAttribute('lang')).toBe(false);
     expect(createCover(item()).hasAttribute('lang')).toBe(false);
+  });
+
+  it('lays out every cover from one site the same way, so a site reads as a series', () => {
+    const one = createCover(item({ source: 'en.wikipedia.org' })).dataset.layout;
+    expect(createCover(item({ source: 'de.wikipedia.org', title: 'Other' })).dataset.layout).toBe(one);
+    expect(createCover(item({ source: 'https://www.wikipedia.org/wiki/X' })).dataset.layout).toBe(one);
+    expect(layoutOf('en.wikipedia.org')).toBe(one);
+  });
+
+  it('uses all four layouts across sites and the plate for a link with no site', () => {
+    const sites = ['example.org', 'example.com', 'example.net', 'wikipedia.org', 'w3.org', 'mozilla.org', 'archive.org', 'stanford.edu'];
+    expect(new Set(sites.map(layoutOf))).toEqual(new Set(LAYOUTS));
+    expect(createCover(item()).dataset.layout).toBe('plate');
+  });
+
+  describe.each(LAYOUTS)('the %s layout', (layout) => {
+    const fits = (title: string, aspect: number) => {
+      const box = titleBoxOf(item({ title, author: 'S. Keshav' }), layout, aspect);
+      const fit = fitTitle(title, box);
+      return { box, fit, whole: fit.lines <= fit.clamp && fit.lines * fit.size * box.leading <= box.height };
+    };
+
+    it.each([COVER_ASPECT, 0.68])('holds a two-line and a four-line title with an author at %s wide for 1 high', (aspect) => {
+      const two = fits('How to Read a Paper', aspect);
+      const four = fits('Keeping a Commonplace Book: Notes on Reading Slowly', aspect);
+      expect(two.fit.lines).toBeLessThanOrEqual(3);
+      expect(two.whole).toBe(true);
+      expect(four.fit.lines).toBeGreaterThanOrEqual(3);
+      expect(four.whole).toBe(true);
+      expect(fits('Barrierefreiheitsstärkungsgesetz: Was ab 2025 für Webseiten gilt', aspect).whole).toBe(true);
+    });
+
+    it('holds a page title of 70 characters with an author on the default shelf', () => {
+      const long = fits('Keeping a Commonplace Book: Notes on Reading Slowly and Remembering It', COVER_ASPECT);
+      expect(long.whole).toBe(true);
+      expect(long.fit.size).toBeGreaterThanOrEqual(long.box.min);
+    });
   });
 
   it('records the resolved pattern and cloth', () => {
