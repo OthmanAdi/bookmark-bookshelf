@@ -2,15 +2,44 @@
 <html lang="en" class="bb-app-root">
   <head>
     <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'sha256-nDl/8/oiAmXVGYTzQhw9YkUyzxcC4i2vyxXcUe+cbU8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content="Your saved links as volumes on a shelf, with a reader for the text you choose to keep." />
     <meta name="referrer" content="no-referrer" />
     <meta name="theme-color" content="#efebe2" />
+    <script>
+      // The stored look (or Night when the system is dark) is set before anything paints, so the page never changes colour on load.
+      (function () {
+        var looks = ['paper', 'oak', 'night', 'pocket'];
+        var look = 'paper';
+        try {
+          var raw = localStorage.getItem('bookmark-bookshelf:library') || '';
+          var at = raw.lastIndexOf('"variant"');
+          var found = at < 0 ? null : /^"variant"\s*:\s*"([a-z-]+)"/.exec(raw.slice(at, at + 64));
+          if (found && looks.indexOf(found[1]) >= 0) look = found[1];
+          else if (!found && window.matchMedia('(prefers-color-scheme: dark)').matches) look = 'night';
+        } catch (blocked) {
+          look = 'paper';
+        }
+        document.documentElement.setAttribute('data-variant', look);
+      })();
+    </script>
+    <meta name="mobile-web-app-capable" content="yes" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="preload" href="./node_modules/@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <title>All links | Bookmark Bookshelf</title>
   </head>
   <body class="bb-app">
     <a class="bb-skip" href="#shelf">Skip to the shelf</a>
+    <noscript>
+      <p class="bb-noscript">Bookmark Bookshelf needs JavaScript to show your shelf. Nothing you saved is lost; it is kept in this browser.</p>
+    </noscript>
 
     <div id="chrome" class="bb-app__chrome">
       <header class="bb-app__bar">

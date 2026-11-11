@@ -102,6 +102,12 @@
   min-height: 100dvh;
 }
 
+.bb-noscript {
+  padding: var(--bb-s-4) var(--bb-gutter, clamp(1.25rem, 2.5vw, 2.5rem));
+  border-bottom: var(--bb-hairline) solid var(--bb-rule);
+  background: var(--bb-paper-raised);
+}
+
 /* ---------- top bar ---------- */
 
 /* One row: the wordmark at the left, the tools at the right, the solid Add a link last. */

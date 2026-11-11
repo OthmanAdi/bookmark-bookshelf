@@ -3,7 +3,7 @@ import './app.css';
 import './flows.css';
 import { isExampleId, sampleLibrary } from '../data/sample-library';
 import { listVariants } from '../shelf';
-import { createStore, type Bookmark, type SortMode } from '../store';
+import { createStore, DEFAULT_STORAGE_KEY, type Bookmark, type SortMode } from '../store';
 import { minutesOf } from '../store/reading-time';
 import { SORT_MODES } from '../store/sort';
 import type { StatsVolume } from '../store/stats';
@@ -27,7 +27,32 @@ import { renderChoices, renderViewMenu, type ViewMode } from './shell-view-menu'
  * The app shell: page chrome around the composed bookshelf.
  * State lives in the store; this file turns clicks into store calls and redraws.
  */
+/** True when this browser has no library yet, so the look painted before load was chosen for a first visit. */
+function firstVisit(): boolean {
+  try {
+    return window.localStorage.getItem(DEFAULT_STORAGE_KEY) === null;
+  } catch {
+    return false;
+  }
+}
+
+const fresh = firstVisit();
 const store = createStore({ seed: () => sampleLibrary() });
+
+// The page was painted in a look before this script ran (Night when the system is dark). On a first
+// visit the new library takes that look, so nothing changes colour once the shelf appears.
+const painted = document.documentElement.dataset.variant;
+if (fresh && painted && listVariants().some((look) => look.name === painted) && painted !== store.session().variant) {
+  store.setSession({ variant: painted });
+}
+
+const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+
+/** The browser's own bar takes the ground colour of the look. */
+function syncThemeColor(): void {
+  const ground = getComputedStyle(document.documentElement).getPropertyValue('--bb-paper').trim();
+  if (themeColor && ground) themeColor.content = ground;
+}
 
 const chrome = must<HTMLElement>('#chrome');
 const shelfHost = must<HTMLElement>('#shelf');
@@ -483,11 +508,13 @@ function changeLook(name: string): void {
   if (name === bookshelf.shelf.variant.name) return;
   if (bookshelf.motion.state.reduced || store.session().view === 'list') {
     bookshelf.setVariant(name);
+    syncThemeColor();
     return;
   }
   shelfHost.classList.add('is-changing');
   window.setTimeout(() => {
     bookshelf.setVariant(name);
+    syncThemeColor();
     shelfHost.classList.remove('is-changing');
   }, LOOK_FADE_MS);
 }
@@ -623,6 +650,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 ready = true;
+syncThemeColor();
 readerHistory = createReaderHistory({
   isOpen: () => bookshelf.isOpen(),
   open: (id) => void bookshelf.open(id),
