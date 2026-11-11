@@ -58,6 +58,8 @@ const BOOKEND_SHARE = 0.1;
 const BOOKEND_MIN = 4;
 /** How tall a bookend stands, as a share of the look's volume height. */
 const BOOKEND_TALL = 0.62;
+/** The lamp's place in the scene is written again only once it has moved this many px. */
+const LAMP_STEP = 0.5;
 /** Space in px a standing row keeps between each bookend and the edge of the scene. */
 const BOOKEND_AIR = 4;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
@@ -105,6 +107,12 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let openSlot: number | null = null;
   /** Pose of the centred volume as last drawn. */
   let presented: SlotPose | null = null;
+  /**
+   * Where a lamp stands along the scene, in px from its centre: over the presented volume. A travelling
+   * row brings that volume to the centre; in a row that stands still the lamp goes to the volume.
+   */
+  let lampX = 0;
+  let lampWritten = 0;
   /** Each item's volume size at the current scale; null when every volume has the look's size. */
   let sizes: VolumeSize[] | null = null;
   const sizeOf = (slot: number): VolumeSize => sizeAt(slot) ?? geometry;
@@ -385,7 +393,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     }
     element.hidden = false;
     element.style.transform = `translate3d(${x}px, 0, 0)`;
-    const shades = faceShades(light, 0, light.lamp ? x / geometry.coverWidth : 0);
+    const shades = faceShades(light, 0, light.lamp ? (x - lampX) / geometry.coverWidth : 0);
     writeShade(bookend, 0, bookend.edgeShade, shades.spine);
     writeShade(bookend, 1, bookend.frontShade, shades.front);
     writeShade(bookend, 2, bookend.backShade, shades.back);
@@ -444,9 +452,14 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     let end: number | null = null;
     // A bookend presses against the end volume; a hair of space keeps the two faces from flickering.
     const bookendGap = bookendWidth() / 2 + 1;
-    const poses = fixed
-      ? computeStandingRow(position, geometry, count, sized).poses
-      : computeRow(position, geometry, range.from, range.to, sized);
+    const standing = fixed ? computeStandingRow(position, geometry, count, sized) : null;
+    const poses = standing ? standing.poses : computeRow(position, geometry, range.from, range.to, sized);
+    lampX = standing ? standing.origin : 0;
+    if (light.lamp && Math.abs(lampX - lampWritten) > LAMP_STEP) {
+      // The look can lay its pool of light on the floor where the lamp stands.
+      lampWritten = lampX;
+      root.style.setProperty('--bb-lamp-x', `${lampX.toFixed(1)}px`);
+    }
     // A bookend is shorter than a volume: it meets a volume leaning toward it below the head.
     const bookendTall = geometry.bookHeight * BOOKEND_TALL;
     for (const slotPose of poses) {
@@ -472,9 +485,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
             `rotateZ(${slotPose.lean}deg) translateX(${-slotPose.corner}px) rotateY(${-slotPose.angle}deg)`;
       style.zIndex = slotPose.weight > 0 ? '2' : '';
 
-      // Distance of the volume's middle from the centre of the row, in cover widths, for a lamp.
+      // Distance of the volume's middle from the lamp, in cover widths.
       const along = light.lamp
-        ? (slotPose.x + away + (geometry.coverWidth * Math.sin(slotPose.angle * DEG)) / 2) / geometry.coverWidth
+        ? (slotPose.x - lampX + away + (geometry.coverWidth * Math.sin(slotPose.angle * DEG)) / 2) / geometry.coverWidth
         : 0;
       const shades = faceShades(light, slotPose.angle, along);
       writeShade(node, 0, node.spineShade, shades.spine);
@@ -675,7 +688,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       const half = size.spineWidth / 2;
       // Depth of the face's centre: the cover hinges on the spine's edge and turns about the spine's middle.
       const depth = presented.z + half * Math.sin(turn) - (size.coverWidth / 2) * Math.cos(turn);
-      const along = light.lamp ? (presented.x + (size.coverWidth * Math.sin(turn)) / 2) / geometry.coverWidth : 0;
+      const along = light.lamp ? (presented.x - lampX + (size.coverWidth * Math.sin(turn)) / 2) / geometry.coverWidth : 0;
       return {
         cx: box.left + box.width / 2,
         cy: box.top + box.height / 2,

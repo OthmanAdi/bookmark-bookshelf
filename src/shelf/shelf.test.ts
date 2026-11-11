@@ -122,6 +122,22 @@ describe('mountShelf rendering', () => {
     expect(xOf(start) + half).toBeLessThan(atTop);
   });
 
+  it('stands a lamp over the presented volume of a standing row and says where', () => {
+    const { shelf } = mount({ variant: 'night' });
+    const front = (slot: number): number =>
+      Number(bySlot(shelf, slot).querySelector<HTMLElement>('.bb-book__board--front .bb-book__shade')!.style.opacity);
+    const lamp = (): number => parseFloat(shelf.element.style.getPropertyValue('--bb-lamp-x'));
+    const first = front(0);
+    expect(lamp()).toBeLessThan(-20);
+    shelf.setPose({ position: 4, open: 0 });
+    expect(lamp()).toBeGreaterThan(20);
+    // Whichever volume is presented stands under the lamp, as it does in a row that travels.
+    expect(front(4)).toBeCloseTo(first, 2);
+    const travelling = mountShelf(document.body.appendChild(document.createElement('div')), { items: makeItems(40), variant: 'night' });
+    expect(travelling.element.style.getPropertyValue('--bb-lamp-x')).toBe('');
+    expect(Number(travelling.element.querySelector<HTMLElement>('.bb-book.is-centre .bb-book__board--front .bb-book__shade')!.style.opacity)).toBeCloseTo(first, 2);
+  });
+
   it('presents the end volume of a standing row for a position past that end', () => {
     const { shelf } = mount();
     shelf.setPose({ position: 9.7, open: 0 });

@@ -259,6 +259,11 @@ export interface StandingRow {
   /** Outer edges of the first and of the last volume. They lie the same distance either side of the centre. */
   left: number;
   right: number;
+  /**
+   * Where the presented volume stands, as the centre of a travelling row would be: the point `computeRow`
+   * measures from. It moves evenly along the row with the position.
+   */
+  origin: number;
 }
 
 /**
@@ -267,14 +272,14 @@ export interface StandingRow {
  * and the others only give or take the room that takes.
  */
 export function computeStandingRow(position: number, geometry: Geometry, count: number, sizeOf?: SizeOf): StandingRow {
-  if (count <= 0) return { poses: [], left: 0, right: 0 };
+  if (count <= 0) return { poses: [], left: 0, right: 0, origin: 0 };
   const last = count - 1;
   const poses = computeRow(Math.min(last, Math.max(0, position)), geometry, 0, last, sizeOf);
   const left = extentOf(poses[0]!, sizeOf?.(0) ?? geometry)[0];
   const right = extentOf(poses[last]!, sizeOf?.(last) ?? geometry)[1];
   const shift = -(left + right) / 2;
   for (const pose of poses) pose.x += shift;
-  return { poses, left: left + shift, right: right + shift };
+  return { poses, left: left + shift, right: right + shift, origin: shift };
 }
 
 /** A row whose volumes at rest fill at least this share of the scene repeats; a shorter one stands still. */

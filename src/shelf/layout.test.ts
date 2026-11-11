@@ -332,7 +332,21 @@ describe('a row that stands still', () => {
     const row = computeStandingRow(2.3, paper, 6, mixed);
     expect(row.left).toBeCloseTo(-row.right, 9);
     expect(row.poses.map((pose) => pose.slot)).toEqual([0, 1, 2, 3, 4, 5]);
-    expect(computeStandingRow(0, paper, 0)).toEqual({ poses: [], left: 0, right: 0 });
+    expect(computeStandingRow(0, paper, 0)).toEqual({ poses: [], left: 0, right: 0, origin: 0 });
+  });
+
+  it('says where the presented volume stands, moving evenly along the row with the focus', () => {
+    let previous = Number.NEGATIVE_INFINITY;
+    for (let step = 0; step <= 100; step++) {
+      const position = step / 20;
+      const { origin } = computeStandingRow(position, paper, 6, mixed);
+      expect(origin).toBeGreaterThan(previous);
+      previous = origin;
+      if (Number.isInteger(position)) {
+        const [left, right] = drawn(position, paper, 6, mixed)[position]!;
+        expect((left + right) / 2).toBeCloseTo(origin, 0);
+      }
+    }
   });
 
   it('measures how far a leaning volume reaches below a given height', () => {
