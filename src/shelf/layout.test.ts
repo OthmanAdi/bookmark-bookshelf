@@ -12,10 +12,12 @@ import {
   grabbedX,
   LOOP_FILL,
   pitchAt,
+  presentedReach,
   pullOf,
   READABLE_SPINE_PX,
   restLength,
   restPitch,
+  rowLoops,
   rowStands,
   samePose,
   scaleGeometry,
@@ -617,6 +619,78 @@ describe('a volume travelling to a new place', () => {
     expect(easeTravel(-1)).toBe(0);
     expect(easeTravel(3)).toBe(1);
     for (let step = 1; step <= 50; step++) expect(easeTravel(step / 50)).toBeGreaterThan(easeTravel((step - 1) / 50));
+  });
+});
+
+describe('a row that goes round', () => {
+  const mixedFor =
+    (geometry: Geometry): SizeOf =>
+    (slot) =>
+      volumeSize(geometry, [0, 0.9, 0.3, 1, 0.1][((slot % 5) + 5) % 5], [1, 0, 0.5][((slot % 3) + 3) % 3]);
+
+  it('does so only where no volume could be seen twice', () => {
+    // On a phone a shelf of four or five slim volumes would show the same one at both edges: it stands instead.
+    const slim: SizeOf = () => volumeSize(paper, 0.2, 0.5);
+    for (const count of [1, 3, 4, 5]) expect(rowLoops(paper, count, 412, slim)).toBe(false);
+    for (const count of [1, 3, 4]) expect(rowLoops(paper, count, 412)).toBe(false);
+    expect(rowLoops(paper, 15, 412, slim)).toBe(true);
+    expect(rowLoops(paper, 15, 412)).toBe(true);
+    // On a wide screen the row has to be longer than the scene by more than a volume.
+    expect(rowLoops(paper, 17, 1280)).toBe(false);
+    expect(rowLoops(paper, 24, 1280)).toBe(true);
+    expect(rowLoops(paper, 0, 1280)).toBe(false);
+  });
+
+  it.each(Object.entries(VARIANTS))('never has the same resting volume in view at both edges (%s)', (_name, variant) => {
+    for (const width of [320, 412, 768, 1280, 1920]) {
+      for (const factor of [0.5, 1, 1.5]) {
+        const geometry = fitGeometry(variant.geometry, factor);
+        for (const mixed of [undefined, mixedFor(geometry)]) {
+          for (let count = 4; count <= 60; count++) {
+            // The sizes go round with the row: the volume after the last is the first again.
+            const sizeOf = mixed ? (slot: number) => mixed(((slot % count) + count) % count) : undefined;
+            if (!rowLoops(geometry, count, width, sizeOf)) continue;
+            expect(restLength(geometry, count, sizeOf)).toBeGreaterThanOrEqual(LOOP_FILL * width);
+            // Two copies of a volume stand one whole round apart: further than the scene and the volume together.
+            const middle = Math.floor(count / 2);
+            for (const position of [middle, middle + 0.5]) {
+              const row = computeRow(position, geometry, 0, count, sizeOf);
+              const round = row[count]!.x - row[0]!.x;
+              const widest = Math.max(...Array.from({ length: count }, (_, slot) => (sizeOf?.(slot) ?? geometry).spineWidth));
+              expect(round).toBeGreaterThanOrEqual(width + widest - 1);
+            }
+          }
+        }
+      }
+    }
+  });
+});
+
+describe('a standing row wider than its scene', () => {
+  it('is moved just far enough to keep the presented volume in view', () => {
+    const count = 6;
+    const width = 412;
+    const within = width / 2 - presentedReach(paper, count);
+    expect(rowStands(paper, count, width)).toBe(false);
+    let previous = Number.NEGATIVE_INFINITY;
+    for (let step = 0; step <= (count - 1) * 20; step++) {
+      const row = computeStandingRow(step / 20, paper, count, undefined, within);
+      expect(Math.abs(row.origin)).toBeLessThanOrEqual(within + 1e-9);
+      // It never jumps: a small change of focus moves it a little or not at all.
+      expect(Math.abs(row.origin - previous) < 12 || step === 0).toBe(true);
+      previous = row.origin;
+    }
+    const first = computeStandingRow(0, paper, count, undefined, within);
+    const last = computeStandingRow(count - 1, paper, count, undefined, within);
+    expect(first.origin).toBeCloseTo(-within, 6);
+    expect(last.origin).toBeCloseTo(within, 6);
+  });
+
+  it('leaves a row that fits its scene in the middle', () => {
+    const within = 1280 / 2 - presentedReach(paper, 6);
+    for (const position of [0, 2.5, 5]) {
+      expect(computeStandingRow(position, paper, 6, undefined, within)).toEqual(computeStandingRow(position, paper, 6));
+    }
   });
 });
 

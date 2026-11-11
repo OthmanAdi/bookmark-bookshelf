@@ -271,15 +271,62 @@ export interface StandingRow {
  * presented volume turns where it stands: moving the position along it changes which volume is turned,
  * and the others only give or take the room that takes.
  */
-export function computeStandingRow(position: number, geometry: Geometry, count: number, sizeOf?: SizeOf): StandingRow {
+export function computeStandingRow(
+  position: number,
+  geometry: Geometry,
+  count: number,
+  sizeOf?: SizeOf,
+  within = Number.POSITIVE_INFINITY,
+): StandingRow {
   if (count <= 0) return { poses: [], left: 0, right: 0, origin: 0 };
   const last = count - 1;
   const poses = computeRow(Math.min(last, Math.max(0, position)), geometry, 0, last, sizeOf);
   const left = extentOf(poses[0]!, sizeOf?.(0) ?? geometry)[0];
   const right = extentOf(poses[last]!, sizeOf?.(last) ?? geometry)[1];
-  const shift = -(left + right) / 2;
+  const centred = -(left + right) / 2;
+  // A row too wide for its scene cannot stand in the middle whichever volume is presented: it is moved
+  // just far enough to keep the presented one no more than `within` from the centre.
+  const reach = Math.max(0, within);
+  const shift = Math.min(reach, Math.max(-reach, centred));
   for (const pose of poses) pose.x += shift;
   return { poses, left: left + shift, right: right + shift, origin: shift };
+}
+
+/** Half the room the widest presented volume of a row takes, lean included, in px. */
+export function presentedReach(geometry: Geometry, count: number, sizeOf?: SizeOf): number {
+  let widest = 0;
+  for (let slot = 0; slot < Math.max(1, count); slot++) {
+    const size = sizeOf?.(slot);
+    widest = Math.max(widest, turnedWidth(geometry, geometry.focusAngle, size) + leanSpread(geometry, 1, size));
+    if (!sizeOf) break;
+  }
+  return widest / 2;
+}
+
+/**
+ * Whether a row may go round in a scene `width` px wide. It may when its volumes at rest fill at least
+ * `LOOP_FILL` of the scene and no volume could then be seen twice: one whole round of the row, with
+ * whichever volume presented, is longer than the scene by the widest volume and by the board that a volume
+ * standing off to one side shows running back from its spine.
+ */
+export function rowLoops(geometry: Geometry, count: number, width: number, sizeOf?: SizeOf): boolean {
+  if (count <= 0) return false;
+  const rest = restLength(geometry, count, sizeOf);
+  if (rest < LOOP_FILL * width) return false;
+  const tuck = geometry.focusLean === 0 ? 0 : geometry.gap + geometry.focusGap;
+  let gain = Number.POSITIVE_INFINITY;
+  let widest = 0;
+  let deepest = 0;
+  for (let slot = 0; slot < count; slot++) {
+    const size = sizeOf?.(slot);
+    // What the row gains in length when this volume is the presented one instead of standing at rest.
+    gain = Math.min(gain, slotAdvance(geometry, 1, 1, size) - tuck - slotAdvance(geometry, 0, 0, size));
+    widest = Math.max(widest, size?.spineWidth ?? geometry.spineWidth);
+    deepest = Math.max(deepest, size?.coverWidth ?? geometry.coverWidth);
+    if (!sizeOf) break;
+  }
+  const board = (deepest * (width / 2)) / Math.max(1, geometry.perspective);
+  return rest + gain >= width + widest + board;
 }
 
 /** A row whose volumes at rest fill at least this share of the scene repeats; a shorter one stands still. */

@@ -21,6 +21,7 @@ export {
   pitchAt,
   restLength,
   restPitch,
+  rowLoops,
   rowStands,
   scaleGeometry,
   slotAdvance,
