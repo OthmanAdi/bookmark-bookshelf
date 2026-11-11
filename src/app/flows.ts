@@ -1,6 +1,7 @@
 import type { Bookshelf } from './bookshelf';
 import { toast } from './dom';
 import { createEditor, type LinkPreset } from './editor';
+import { clearAddress, readAddress } from './flow-address';
 import { removeExampleLinks } from './flow-examples';
 import { describeShelfFlow, removeShelfFlow } from './flow-shelf';
 import type { Store } from '../store';
@@ -41,10 +42,37 @@ export function createFlows(context: FlowContext): Flows {
     if (created) {
       // Show the new link on a shelf that contains it.
       const active = store.session().shelfId;
-      if (active !== null && active !== bookmark.shelfId) bookshelf.setShelf(bookmark.shelfId);
+      if (active !== null && active !== bookmark.shelfId) {
+        bookshelf.setShelf(bookmark.shelfId);
+        context.refresh();
+      }
     }
     bookshelf.show(bookmark.id);
   });
+
+  function handleAddress(): void {
+    const intent = readAddress(window.location);
+    if (!intent) return;
+    if (intent.kind === 'add') {
+      clearAddress(window.location, window.history);
+      editor.add({ url: intent.request.url, title: intent.request.title, text: intent.request.text });
+      return;
+    }
+    if (intent.kind === 'link') {
+      clearAddress(window.location, window.history);
+      const link = store.get(intent.id);
+      if (!link) {
+        toast('That link is not in this library.');
+        return;
+      }
+      if (store.session().shelfId !== null && store.session().shelfId !== link.shelfId) {
+        bookshelf.setShelf(link.shelfId);
+        context.refresh();
+      }
+      bookshelf.show(link.id, { immediate: true });
+      void bookshelf.open(link.id);
+    }
+  }
 
   return {
     addLink: (preset) => editor.add(preset),
@@ -61,6 +89,6 @@ export function createFlows(context: FlowContext): Flows {
       const noun = result.links === 1 ? 'link' : 'links';
       toast(`Removed ${result.links} example ${noun}.`, { label: 'Undo', run: result.undo });
     },
-    handleAddress: () => undefined,
+    handleAddress,
   };
 }
