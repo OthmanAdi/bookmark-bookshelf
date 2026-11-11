@@ -47,9 +47,9 @@
           ><span class="bb-mark" aria-hidden="true"></span>Bookmark Bookshelf</a
         >
         <nav class="bb-home__links" aria-label="Site">
-          <a href="#parts">The parts</a>
-          <a href="#agent">For coding agents</a>
-          <a href="https://github.com/OthmanAdi/bookmark-bookshelf">Source on GitHub</a>
+          <a href="#reader">How reading works</a>
+          <a href="#parts">For developers</a>
+          <a href="https://github.com/OthmanAdi/bookmark-bookshelf">Source</a>
         </nav>
       </header>
 
@@ -61,19 +61,34 @@
             a shelf: drag the row, pull one out, and read the copy you saved with it. Your library stays in your
             browser and nothing leaves it.
           </p>
-          <p class="bb-hero__actions">
-            <a class="bb-button bb-button--solid bb-hero__cta" href="./app.html">Open your shelf</a>
-            <a class="bb-hero__more" href="#reader">How reading works</a>
-          </p>
         </section>
 
-        <section id="preview" class="bb-preview" aria-labelledby="preview-title">
-          <div class="bb-preview__head">
-            <h2 id="preview-title" class="bb-preview__title">Try it here</h2>
-            <p class="bb-preview__note">A sample shelf. It forgets everything when you leave this page.</p>
-            <div id="looks" class="bb-looks" role="group" aria-label="Look"></div>
+        <section id="preview" class="bb-preview" aria-label="Sample shelf">
+          <div id="shelf" class="bb-preview__shelf"></div>
+          <div class="bb-preview__row">
+            <button id="prev" type="button" class="bb-button bb-preview__arrow bb-preview__arrow--prev" aria-label="Previous link" hidden>
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg>
+            </button>
+            <div class="bb-preview__caption" aria-hidden="true">
+              <p id="caption-title" class="bb-preview__title"></p>
+              <p id="caption-meta" class="bb-preview__meta"></p>
+            </div>
+            <button id="next" type="button" class="bb-button bb-preview__arrow bb-preview__arrow--next" aria-label="Next link" hidden>
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="m6 3 5 5-5 5" /></svg>
+            </button>
+            <p class="bb-preview__actions">
+              <button id="read" type="button" class="bb-button" hidden>Read</button>
+              <a class="bb-button bb-button--solid" href="./app.html">Open your shelf</a>
+            </p>
           </div>
-          <div id="shelf"></div>
+          <noscript>
+            <p class="bb-preview__noscript">The sample shelf needs JavaScript. The text on this page works without it.</p>
+          </noscript>
+        </section>
+
+        <section class="bb-looks-band" aria-label="Looks">
+          <p class="bb-looks-band__note">A sample shelf. It forgets everything when you leave this page.</p>
+          <div id="looks" class="bb-looks" role="group" aria-label="Look"></div>
         </section>
 
         <section id="reader" class="bb-passage" aria-labelledby="reader-title">
