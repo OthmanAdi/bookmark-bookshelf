@@ -59,7 +59,7 @@ test.describe('a link the person added keeps its place', () => {
   test('a link with no note says when it was saved and how long its text takes', async ({ page }) => {
     await openApp(page);
     await addLink(page, { url: 'https://example.org/short-read', title: 'A short read', readingText: makeParagraphs(30) });
-    // 30 paragraphs of 17 words are 510 words: three minutes at 220 words a minute.
+    // Thirty paragraphs of sixteen words are 480 words: three minutes at 220 words a minute.
     await expect(captionLine(page)).toHaveText(/^Saved \d{1,2} [A-Z][a-z]{2}, 3 min$/);
   });
 });
