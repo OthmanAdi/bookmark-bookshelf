@@ -1,4 +1,4 @@
-import type { Bookmark, LibraryV2, Result } from './types';
+import type { Bookmark, LibraryV2, Result, SkippedLink } from './types';
 import { LIBRARY_FORMAT, LIBRARY_VERSION } from './types';
 import { DEFAULT_SHELF_NAME, makeShelf } from './library';
 import { defaultIdFactory } from './ids';
@@ -43,12 +43,25 @@ function assemble(
   return library;
 }
 
-function readBookmarks(items: unknown[], context: BookmarkContext): { bookmarks: Bookmark[]; idMap: IdMap } {
+/** A migrated library and the entries that could not be used, in document order. */
+export interface MigrationReport {
+  library: LibraryV2;
+  skipped: SkippedLink[];
+}
+
+function readBookmarks(
+  items: unknown[],
+  context: BookmarkContext,
+  skipped: SkippedLink[],
+): { bookmarks: Bookmark[]; idMap: IdMap } {
   const bookmarks: Bookmark[] = [];
   const idMap = new Map<string, string>();
   for (const item of items) {
     const read = readBookmark(item, context);
-    if (!read) continue;
+    if ('skipped' in read) {
+      skipped.push(read.skipped);
+      continue;
+    }
     bookmarks.push(read.bookmark);
     if (read.sourceId !== undefined && !idMap.has(read.sourceId)) idMap.set(read.sourceId, read.bookmark.id);
   }
@@ -56,7 +69,7 @@ function readBookmarks(items: unknown[], context: BookmarkContext): { bookmarks:
 }
 
 /** Versions 1 and 2 share one layout; version 2 adds the done marks and private notes. */
-function migrateKnown(raw: Record<string, unknown>, version: 1 | 2, options: Resolved): Result<LibraryV2> {
+function migrateKnown(raw: Record<string, unknown>, version: 1 | 2, options: Resolved): Result<MigrationReport> {
   if (!Array.isArray(raw.shelves) || !Array.isArray(raw.bookmarks)) {
     return fail('invalid-format', 'The library has no shelves or bookmarks list.');
   }
@@ -76,19 +89,19 @@ function migrateKnown(raw: Record<string, unknown>, version: 1 | 2, options: Res
     newId: options.idFactory,
     usedIds: new Set(),
   };
-  const { bookmarks, idMap } = readBookmarks(raw.bookmarks, context);
-  return ok(
-    assemble(shelves, bookmarks, {
-      progress: readProgress(raw.progress, idMap, fallbackTime),
-      done: version === 2 ? readDone(raw.done, idMap, fallbackTime) : {},
-      notes: version === 2 ? readNotes(raw.notes, idMap) : {},
-      session: readSession(raw.session, shelfIds, idMap),
-    }),
-  );
+  const skipped: SkippedLink[] = [];
+  const { bookmarks, idMap } = readBookmarks(raw.bookmarks, context, skipped);
+  const library = assemble(shelves, bookmarks, {
+    progress: readProgress(raw.progress, idMap, fallbackTime),
+    done: version === 2 ? readDone(raw.done, idMap, fallbackTime) : {},
+    notes: version === 2 ? readNotes(raw.notes, idMap) : {},
+    session: readSession(raw.session, shelfIds, idMap),
+  });
+  return ok({ library, skipped });
 }
 
 /** Version 0 was a plain array of `{url, title?, note?, tags?}`. */
-function migrateV0(items: unknown[], options: Resolved): LibraryV2 {
+function migrateV0(items: unknown[], options: Resolved): MigrationReport {
   const fallbackTime = options.now().toISOString();
   const shelf = makeShelf(options.idFactory(), DEFAULT_SHELF_NAME, 0);
   const context: BookmarkContext = {
@@ -99,18 +112,21 @@ function migrateV0(items: unknown[], options: Resolved): LibraryV2 {
     usedIds: new Set(),
   };
   const bookmarks: Bookmark[] = [];
+  const skipped: SkippedLink[] = [];
   items.forEach((item, index) => {
     const fields = typeof item === 'string' ? { url: item } : item;
-    if (!isObject(fields)) return;
-    const legacy = { ...fields, id: options.idFactory(), shelfId: shelf.id, order: index, addedAt: fallbackTime };
+    const legacy = isObject(fields)
+      ? { ...fields, id: options.idFactory(), shelfId: shelf.id, order: index, addedAt: fallbackTime }
+      : fields;
     const read = readBookmark(legacy, context);
-    if (read) bookmarks.push(read.bookmark);
+    if ('skipped' in read) skipped.push(read.skipped);
+    else bookmarks.push(read.bookmark);
   });
   const session = readSession(undefined, context.shelfIds, new Map());
-  return assemble([shelf], bookmarks, { progress: {}, done: {}, notes: {}, session });
+  return { library: assemble([shelf], bookmarks, { progress: {}, done: {}, notes: {}, session }), skipped };
 }
 
-function migrate(raw: unknown, resolved: Resolved): Result<LibraryV2> {
+function migrate(raw: unknown, resolved: Resolved): Result<MigrationReport> {
   let value = raw;
   if (typeof raw === 'string') {
     const parsed = parseJson(raw);
@@ -130,11 +146,11 @@ function migrate(raw: unknown, resolved: Resolved): Result<LibraryV2> {
 
 /**
  * Accepts a version 2 or version 1 document, a version 0 array, or JSON text of any of them, and returns a
- * clean version 2 library. Unknown fields are dropped, unusable entries are skipped, values out of range are
- * cut back and ids that cannot be kept are replaced. It never throws: a document that cannot be read at all
- * is an `invalid-format` result.
+ * clean version 2 library together with the entries that were skipped and why. Unknown fields are dropped,
+ * unusable entries are skipped, values out of range are cut back and ids that cannot be kept are replaced.
+ * It never throws: a document that cannot be read at all is an `invalid-format` result.
  */
-export function migrateLibrary(raw: unknown, options: MigrateOptions = {}): Result<LibraryV2> {
+export function migrateLibraryWithReport(raw: unknown, options: MigrateOptions = {}): Result<MigrationReport> {
   const resolved: Resolved = {
     now: options.now ?? (() => new Date()),
     idFactory: options.idFactory ?? defaultIdFactory,
@@ -144,4 +160,10 @@ export function migrateLibrary(raw: unknown, options: MigrateOptions = {}): Resu
   } catch {
     return fail('invalid-format', 'This library could not be read.');
   }
+}
+
+/** `migrateLibraryWithReport` for callers that do not need to know what was skipped. */
+export function migrateLibrary(raw: unknown, options: MigrateOptions = {}): Result<LibraryV2> {
+  const report = migrateLibraryWithReport(raw, options);
+  return report.ok ? ok(report.value.library) : report;
 }

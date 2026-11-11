@@ -239,10 +239,23 @@ export interface StoreOptions {
   progressDelay?: number;
 }
 
+/** A link an import could not take, with the reason in plain words. */
+export interface SkippedLink {
+  title: string;
+  url: string;
+  reason: string;
+}
+
 export interface ImportSummary {
+  /** Links that are new to the library. */
   added: number;
-  updated: number;
+  /** Links whose address was already saved. They are left exactly as they were. */
+  unchanged: number;
   shelvesAdded: number;
+  /** Entries that could not be read. */
+  skipped: SkippedLink[];
+  /** An import never changes a link that is already saved, so this is always 0. */
+  updated: number;
 }
 
 export interface Store {

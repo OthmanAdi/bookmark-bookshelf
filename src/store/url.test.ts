@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultCover, normalizeUrl } from './index';
+import { urlKey } from './url';
 
 describe('normalizeUrl', () => {
   it.each([
@@ -53,5 +54,29 @@ describe('defaultCover', () => {
   it('varies with the text', () => {
     const seeds = new Set(['a.com', 'b.com', 'c.com', 'd.com'].map((text) => defaultCover(text).seed));
     expect(seeds.size).toBe(4);
+  });
+});
+
+describe('urlKey', () => {
+  const same = (a: string, b: string): boolean => urlKey(a) === urlKey(b);
+
+  it('ignores case of the host, www, the fragment and one trailing slash', () => {
+    expect(same('https://Example.org/page', 'https://www.example.org/page/#intro')).toBe(true);
+    expect(same('https://example.org/', 'https://example.org')).toBe(true);
+  });
+
+  it('ignores tracking parameters and the order of the rest', () => {
+    expect(same('https://example.org/p?b=2&a=1', 'https://example.org/p?utm_source=x&a=1&b=2&fbclid=z')).toBe(true);
+  });
+
+  it('keeps pages apart when path, query values, port or case of the path differ', () => {
+    expect(same('https://example.org/a', 'https://example.org/b')).toBe(false);
+    expect(same('https://example.org/p?a=1', 'https://example.org/p?a=2')).toBe(false);
+    expect(same('https://example.org/p', 'https://example.org:8080/p')).toBe(false);
+    expect(same('https://example.org/Page', 'https://example.org/page')).toBe(false);
+  });
+
+  it('does not throw on text that is not an address', () => {
+    expect(urlKey('  not a url ')).toBe('not a url');
   });
 });

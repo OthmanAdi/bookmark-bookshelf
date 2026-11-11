@@ -1,16 +1,17 @@
-import type { Bookmark, ImportSummary, LibraryV2 } from './types';
+import type { Bookmark, LibraryV2 } from './types';
 import type { OpContext } from './bookmark-ops';
-import { ownValue } from './ids';
 import { shelfBookmarks, sortLibrary } from './ordering';
 import { clone } from './result';
+import { urlKey } from './url';
 
 function takeId(wanted: string, used: Set<string>, ctx: OpContext): string {
-  const id = used.has(wanted) ? ctx.newId() : wanted;
+  let id = used.has(wanted) ? ctx.newId() : wanted;
+  while (used.has(id)) id = ctx.newId();
   used.add(id);
   return id;
 }
 
-/** Existing shelves are matched by name, new ones are added at the end. Returns incoming shelf id to local id. */
+/** Existing shelves are matched by name and left as they are; new ones are added at the end. Returns incoming shelf id to local id. */
 function mergeShelves(lib: LibraryV2, incoming: LibraryV2, ctx: OpContext): { ids: Map<string, string>; added: number } {
   const used = new Set(lib.shelves.map((shelf) => shelf.id));
   const ids = new Map<string, string>();
@@ -22,37 +23,34 @@ function mergeShelves(lib: LibraryV2, incoming: LibraryV2, ctx: OpContext): { id
       continue;
     }
     const id = takeId(shelf.id, used, ctx);
-    lib.shelves.push({ id, name: shelf.name, order: lib.shelves.length });
+    lib.shelves.push({ ...clone(shelf), id, order: lib.shelves.length });
     ids.set(shelf.id, id);
     added += 1;
   }
   return { ids, added };
 }
 
-/** Incoming values win, but an incoming gap never erases what the person already has. */
-function updateExisting(existing: Bookmark, incoming: Bookmark, now: string): void {
-  const before = JSON.stringify(existing);
-  existing.title = incoming.title;
-  if (incoming.note !== undefined) existing.note = incoming.note;
-  if (incoming.tags.length > 0) existing.tags = [...incoming.tags];
-  if (incoming.reading) existing.reading = clone(incoming.reading);
-  if (JSON.stringify(existing) !== before) existing.updatedAt = now;
-}
-
 /**
- * Adds shelves by name and volumes by URL. A volume whose URL is already present keeps its id,
- * shelf, cover and progress. `updated` counts every URL that matched an existing volume.
+ * Adds the shelves and links the library does not have. A link whose address is already saved is left exactly
+ * as it is, and so is every shelf with a name that is already taken. Reading position, done marks, notes and
+ * the session of the incoming library are not taken.
+ *
+ * Only links that were saved before the import count as already there, so a file that lists one address twice
+ * brings both in.
  */
-export function mergeLibrary(lib: LibraryV2, incoming: LibraryV2, ctx: OpContext): ImportSummary {
+export function mergeLibrary(
+  lib: LibraryV2,
+  incoming: LibraryV2,
+  ctx: OpContext,
+): { added: number; unchanged: number; shelvesAdded: number } {
+  const known = new Set(lib.bookmarks.map((bookmark) => urlKey(bookmark.url)));
   const { ids: shelfIds, added: shelvesAdded } = mergeShelves(lib, incoming, ctx);
   const usedIds = new Set(lib.bookmarks.map((bookmark) => bookmark.id));
   let added = 0;
-  let updated = 0;
+  let unchanged = 0;
   for (const source of incoming.bookmarks) {
-    const existing = lib.bookmarks.find((bookmark) => bookmark.url === source.url);
-    if (existing) {
-      updateExisting(existing, source, ctx.now());
-      updated += 1;
+    if (known.has(urlKey(source.url))) {
+      unchanged += 1;
       continue;
     }
     const shelfId = shelfIds.get(source.shelfId) ?? lib.shelves[0]?.id ?? source.shelfId;
@@ -63,10 +61,8 @@ export function mergeLibrary(lib: LibraryV2, incoming: LibraryV2, ctx: OpContext
       order: shelfBookmarks(lib, shelfId).length,
     };
     lib.bookmarks.push(copy);
-    const progress = ownValue(incoming.progress, source.id);
-    if (progress) lib.progress[copy.id] = clone(progress);
     added += 1;
   }
   sortLibrary(lib);
-  return { added, updated, shelvesAdded };
+  return { added, unchanged, shelvesAdded };
 }

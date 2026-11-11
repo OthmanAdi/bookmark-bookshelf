@@ -24,7 +24,7 @@ import {
 } from './bookmark-ops';
 import { defaultIdFactory, ownValue } from './ids';
 import { mergeLibrary } from './merge';
-import { migrateLibrary } from './migrate';
+import { migrateLibraryWithReport } from './migrate';
 import { orderedBookmarks } from './ordering';
 import { setDoneIn, setNoteIn } from './personal-ops';
 import { loadLibrary, saveLibrary } from './persistence';
@@ -189,14 +189,15 @@ export function createStore(options: StoreOptions = {}): Store {
 
     exportLibrary: () => `${JSON.stringify(clone(lib), null, 2)}\n`,
     importLibrary: (input, mode) => {
-      const parsed = migrateLibrary(input, { now: clock, idFactory: ctx.newId });
+      const parsed = migrateLibraryWithReport(input, { now: clock, idFactory: ctx.newId });
       if (!parsed.ok) return parsed;
+      const { library: incoming, skipped } = parsed.value;
       return mutate(['replace'], () => {
         if (mode === 'replace') {
-          lib = parsed.value;
-          return ok({ added: lib.bookmarks.length, updated: 0, shelvesAdded: lib.shelves.length });
+          lib = incoming;
+          return ok({ added: lib.bookmarks.length, unchanged: 0, shelvesAdded: lib.shelves.length, skipped, updated: 0 });
         }
-        return ok(mergeLibrary(lib, parsed.value, ctx));
+        return ok({ ...mergeLibrary(lib, incoming, ctx), skipped, updated: 0 });
       });
     },
 

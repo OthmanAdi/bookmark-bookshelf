@@ -1,5 +1,6 @@
 import type { Result } from './types';
 import { fail, ok } from './result';
+import { stripTracking } from './url-hygiene';
 
 const SCHEME = /^([a-z][a-z0-9+.-]*):(.*)$/is;
 const PORT_AFTER_HOST = /^\d+(?:[/?#]|$)/;
@@ -29,4 +30,23 @@ export function normalizeUrl(input: string): Result<string> {
   }
   if (parsed.hostname === '') return fail('invalid-url', 'The address has no host name.', 'url');
   return ok(parsed.href);
+}
+
+/**
+ * A key that is the same for every spelling of one page: host without `www.`, no fragment, one trailing slash
+ * dropped, tracking parameters removed and the remaining query sorted. Used to find a link that is already saved;
+ * it is never stored.
+ */
+export function urlKey(href: string): string {
+  let url: URL;
+  try {
+    url = stripTracking(new URL(href));
+  } catch {
+    return typeof href === 'string' ? href.trim() : '';
+  }
+  const host = url.hostname.replace(/^www\./i, '');
+  const port = url.port === '' ? '' : `:${url.port}`;
+  const path = url.pathname.length > 1 && url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
+  const query = url.search === '' ? [] : url.search.slice(1).split('&').filter((part) => part !== '').sort();
+  return `${host}${port}${path}${query.length > 0 ? `?${query.join('&')}` : ''}`;
 }
