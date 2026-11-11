@@ -54,10 +54,10 @@
         <a class="bb-brand" href="./index.html" aria-current="page"
           ><span class="bb-mark" aria-hidden="true"></span>Bookmark Bookshelf</a
         >
-        <nav class="bb-home__links" aria-label="Site">
+        <nav class="bb-home__links" aria-label="On this page">
           <a href="#reader">How reading works</a>
-          <a href="#parts">For developers</a>
-          <a href="https://github.com/OthmanAdi/bookmark-bookshelf">Source</a>
+          <a href="#class">For a class</a>
+          <a href="#developers">For developers</a>
         </nav>
       </header>
 
@@ -99,60 +99,105 @@
           <div id="looks" class="bb-looks" role="group" aria-label="Look"></div>
         </section>
 
-        <section id="reader" class="bb-passage" aria-labelledby="reader-title">
-          <h2 id="reader-title" class="bb-passage__title">Read what you saved</h2>
-          <div class="bb-passage__body">
-            <p>
-              When you save a link, paste the text you want to read with it. The reader shows that text as a clean
-              page and remembers where you stopped.
-            </p>
-            <ul class="bb-facts">
-              <li>A link saved with text opens as a page and resumes at the paragraph where you left it.</li>
-              <li>A link saved on its own offers a field to paste the text later and a button to open the original.</li>
-              <li>Your library stays in this browser. The app shows the text you gave it and does not load pages from your links.</li>
-            </ul>
-          </div>
-        </section>
-
-        <section id="parts" class="bb-passage" aria-labelledby="parts-title">
-          <h2 id="parts-title" class="bb-passage__title">Four parts, each usable alone</h2>
-          <div class="bb-passage__body">
-            <dl class="bb-parts">
-              <div>
-                <dt>Shelf</dt>
-                <dd>Draws volumes for a pose and reports what was picked. No clock, no gestures, no storage.</dd>
-              </div>
-              <div>
-                <dt>Motion</dt>
-                <dd>Springs, drag, flick and snap on Pointer Events. It has no idea it is moving books.</dd>
-              </div>
-              <div>
-                <dt>Store</dt>
-                <dd>A versioned library in local storage with validation, migration, import and export.</dd>
-              </div>
-              <div>
-                <dt>Reader</dt>
-                <dd>Renders a saved copy as text nodes only, tracks the position and hands it back.</dd>
-              </div>
-            </dl>
-            <p class="bb-passage__links">
-              Smaller combinations that run on their own:
-              <a href="./examples/shelf-only.html">shelf and motion</a>,
-              <a href="./examples/reader-only.html">reader</a>,
-              <a href="./examples/store-only.html">store</a>.
+        <section id="reader" class="bb-passage bb-reading" aria-labelledby="reader-title">
+          <div class="bb-reading__text">
+            <h2 id="reader-title" class="bb-passage__title">How reading works</h2>
+            <p class="bb-passage__lead">
+              When you add a link, paste the text you want to read with it. Pull the book off the shelf and that text
+              opens as a clean page, at the paragraph where you stopped last time.
             </p>
           </div>
+          <ul class="bb-facts" role="list">
+            <li>A link with text keeps your place, even after you close the browser.</li>
+            <li>A link without text opens with a field for the text and a button to the original page.</li>
+            <li>At the end of a text you can mark the link as read, and keep a private note beside it.</li>
+            <li>The app never loads the page behind a link. It shows only the text you gave it.</li>
+          </ul>
+          <figure class="bb-reading__figure" hidden>
+            <img
+              src="./reading-page.png"
+              width="1280"
+              height="800"
+              loading="lazy"
+              decoding="async"
+              alt="A saved link open as a reading page: the title and a note above one column of text, with the book’s cover beside it."
+            />
+            <figcaption>A link opened from the shelf, at the place where its reader stopped.</figcaption>
+          </figure>
         </section>
 
-        <section id="agent" class="bb-passage" aria-labelledby="agent-title">
-          <h2 id="agent-title" class="bb-passage__title">Built to be rebuilt</h2>
-          <div class="bb-passage__body">
-            <p>
-              The repository carries a reusable skill for coding agents. Point an agent at it and ask for the whole shelf or for
-              one part: it gets the contracts, the constraints that keep the 3D row accessible, and the checks that
-              prove the result.
+        <section id="class" class="bb-passage bb-class" aria-labelledby="class-title">
+          <h2 id="class-title" class="bb-passage__title">For a class</h2>
+          <p class="bb-passage__lead">
+            A teacher can put the reading for one assignment on a shelf and send it to the whole class. The shelf
+            travels inside a file or a link, so no server ever holds it.
+          </p>
+          <ol class="bb-steps" role="list">
+            <li>
+              <h3 class="bb-steps__title">Collect the reading</h3>
+              <p>Put the links for one assignment on a shelf, mark the optional ones and give the shelf a due date.</p>
+            </li>
+            <li>
+              <h3 class="bb-steps__title">Share the shelf</h3>
+              <p>Send it as a file or as a link. Without the texts, a shelf of links usually fits in a chat message.</p>
+            </li>
+            <li>
+              <h3 class="bb-steps__title">Students add it</h3>
+              <p>Opening the link shows what is on the shelf first. It arrives as a new shelf and changes nothing else.</p>
+            </li>
+            <li>
+              <h3 class="bb-steps__title">Hand in</h3>
+              <p>
+                A plain-text summary lists what the student marked as read, ready to paste where the class hands in
+                work. The app does not check it: it is what the student reports.
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <section id="developers" class="bb-passage bb-dev" aria-labelledby="developers-title">
+          <div class="bb-dev__intro">
+            <h2 id="developers-title" class="bb-passage__title">For developers</h2>
+            <p class="bb-passage__lead">
+              The app is four parts that never import each other. Each works on its own in plain TypeScript with no
+              runtime dependencies.
             </p>
-            <p><code class="bb-path">.agents/skills/bookmark-bookshelf/SKILL.md</code></p>
+          </div>
+          <dl class="bb-parts">
+            <div>
+              <dt>Shelf</dt>
+              <dd>Draws the books for a given position and reports which one was chosen. Timing, gestures and storage live in the other parts.</dd>
+            </div>
+            <div>
+              <dt>Motion</dt>
+              <dd>Springs, drag, flick and snap on Pointer Events. It works for any row of items.</dd>
+            </div>
+            <div>
+              <dt>Store</dt>
+              <dd>A versioned library in local storage, with validation, migration, import and export.</dd>
+            </div>
+            <div>
+              <dt>Reader</dt>
+              <dd>Shows saved text as a page built from text nodes only, and reports the reading position.</dd>
+            </div>
+          </dl>
+          <div class="bb-dev__more">
+            <p>
+              Smaller combinations run on their own:
+              <a href="./examples/shelf-only.html">the shelf with motion</a>,
+              <a href="./examples/reader-only.html">the reader</a> and
+              <a href="./examples/store-only.html">the store</a>.
+            </p>
+            <p>
+              The repository also carries an agent skill, so a coding agent can rebuild the whole shelf or one part
+              with its contracts and checks. Add it with this command, then ask your agent for
+              <code class="bb-code">/bookshelf</code>:
+            </p>
+            <pre class="bb-command"><code>npx skills add OthmanAdi/bookmark-bookshelf --skill bookshelf</code></pre>
+            <p>
+              The skill lives in <code class="bb-code">.agents/skills/bookshelf/SKILL.md</code>.
+              <a href="https://github.com/OthmanAdi/bookmark-bookshelf">Source on GitHub</a>
+            </p>
           </div>
         </section>
       </main>

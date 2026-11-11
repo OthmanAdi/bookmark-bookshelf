@@ -234,11 +234,12 @@ body.bb-home {
 
 /* ---------- passages ---------- */
 
+/*
+ * Three passages, three forms: reading is a text column beside its facts (and a capture of the
+ * page when one is shown), a class is a numbered sequence, developers get a grid of the four parts.
+ */
 .bb-passage {
-  display: grid;
-  grid-template-columns: minmax(0, 22rem) minmax(0, var(--home-measure));
-  gap: var(--bb-s-4) clamp(2rem, 6vw, 6rem);
-  padding: clamp(2.75rem, 6vw, 5rem) var(--home-gutter);
+  padding: var(--bb-s-8) var(--home-gutter);
   border-top: var(--bb-hairline) solid var(--bb-rule);
 }
 
@@ -249,61 +250,177 @@ body.bb-home {
   line-height: var(--bb-leading-tight);
 }
 
-.bb-passage__body {
+.bb-passage__lead {
+  max-width: var(--home-measure);
+  margin-top: var(--bb-s-4);
+  font-size: var(--bb-text-read);
+  line-height: var(--bb-leading-read);
+}
+
+/* reading */
+
+.bb-reading {
   display: grid;
-  gap: var(--bb-s-5);
-  font-size: 1.1875rem;
-  line-height: 1.58;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--bb-s-6) var(--bb-s-8);
 }
 
 .bb-facts {
   display: grid;
-  gap: var(--bb-s-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  max-width: var(--home-measure);
+  font-size: var(--bb-text-read);
+  line-height: var(--bb-leading-read);
 }
 
 .bb-facts li {
-  padding-top: var(--bb-s-3);
+  padding: var(--bb-s-3) 0;
   border-top: var(--bb-hairline) solid var(--bb-rule);
+}
+
+.bb-reading__figure {
+  display: grid;
+  gap: var(--bb-s-3);
+}
+
+.bb-reading__figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: var(--bb-hairline) solid var(--bb-rule);
+  border-radius: var(--bb-r-2);
+}
+
+.bb-reading__figure figcaption {
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  line-height: var(--bb-line-small);
+}
+
+@media (min-width: 64rem) {
+  .bb-reading {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: start;
+  }
+
+  .bb-reading__figure {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  /* Without a capture the facts take the second column, level with the lead. */
+  .bb-reading:not(:has(.bb-reading__figure:not([hidden]))) .bb-facts {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+  }
+}
+
+/* a class */
+
+.bb-class {
+  padding-block: var(--bb-s-9) var(--bb-s-8);
+  counter-reset: bb-step;
+}
+
+.bb-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--bb-s-5) var(--bb-s-6);
+  margin-top: var(--bb-s-7);
+}
+
+.bb-steps li {
+  counter-increment: bb-step;
+  display: grid;
+  align-content: start;
+  gap: var(--bb-s-2);
+  padding-top: var(--bb-s-4);
+  border-top: 2px solid var(--bb-ink);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-body);
+  line-height: var(--bb-line-body);
+}
+
+.bb-steps li::before {
+  content: counter(bb-step);
+  color: var(--bb-accent);
+  font-size: var(--bb-text-title);
+  font-weight: var(--bb-weight-display);
+  font-variant-numeric: lining-nums;
+  line-height: var(--bb-line-title);
+}
+
+.bb-steps__title {
+  color: var(--bb-ink);
+  font-size: var(--bb-text-lead);
+  line-height: var(--bb-line-lead);
+}
+
+/* developers */
+
+.bb-dev {
+  display: grid;
+  gap: var(--bb-s-7);
+  padding-block: var(--bb-s-7) var(--bb-s-8);
 }
 
 .bb-parts {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: var(--bb-s-5) 0;
   margin: 0;
 }
 
 .bb-parts > div {
   display: grid;
-  grid-template-columns: 6.5rem minmax(0, 1fr);
-  gap: var(--bb-s-4);
-  padding: var(--bb-s-3) 0;
-  border-top: var(--bb-hairline) solid var(--bb-rule);
+  align-content: start;
+  gap: var(--bb-s-2);
+  padding: 0 var(--bb-s-5);
+  border-left: var(--bb-hairline) solid var(--bb-rule-strong);
 }
 
 .bb-parts dt {
-  font-weight: 600;
+  font-size: var(--bb-text-lead);
+  font-weight: var(--bb-weight-title);
+  line-height: var(--bb-line-lead);
 }
 
 .bb-parts dd {
   margin: 0;
   color: var(--bb-ink-soft);
+  font-size: var(--bb-text-body);
+  line-height: var(--bb-line-body);
 }
 
-.bb-passage__links {
-  color: var(--bb-ink-soft);
+.bb-dev__more {
+  display: grid;
+  gap: var(--bb-s-4);
+  max-width: var(--home-measure);
+  font-size: var(--bb-text-read);
+  line-height: var(--bb-leading-read);
 }
 
-.bb-path {
-  display: inline-block;
+.bb-command {
   max-width: 100%;
-  padding: var(--bb-s-2) var(--bb-s-3);
+  margin: 0;
+  padding: var(--bb-s-3) var(--bb-s-4);
+  overflow-x: auto;
   border: var(--bb-hairline) solid var(--bb-rule);
   border-radius: var(--bb-r-1);
   background: var(--bb-paper-raised);
   font-family: var(--bb-font-mono);
-  font-size: 0.9375rem;
+  font-size: var(--bb-text-small);
+  line-height: var(--bb-line-small);
+  white-space: pre;
+}
+
+.bb-code {
+  padding: 0.1em 0.35em;
+  border: var(--bb-hairline) solid var(--bb-rule);
+  border-radius: var(--bb-r-1);
+  background: var(--bb-paper-raised);
+  font-family: var(--bb-font-mono);
+  font-size: 0.85em;
   overflow-wrap: anywhere;
 }
 
@@ -335,19 +452,8 @@ body.bb-home {
 }
 
 @media (max-width: 52rem) {
-  .bb-passage {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .bb-home__foot {
     grid-template-columns: minmax(0, 1fr);
     justify-items: start;
-  }
-}
-
-@media (max-width: 30rem) {
-  .bb-parts > div {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--bb-s-1);
   }
 }
