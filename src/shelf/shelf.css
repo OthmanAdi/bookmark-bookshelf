@@ -121,13 +121,52 @@
   inset: 0;
   display: block;
   transform-style: preserve-3d;
-  transition: transform var(--bb-dur-2) var(--bb-ease-out);
+  transform-origin: 50% 100%;
+  transition: transform var(--bb-dur-2) var(--bb-ease-spring);
 }
 
-@media (hover: hover) {
-  .bb-shelf[data-open='0'] .bb-book:not(.is-centre):hover .bb-book__body {
-    transform: translate3d(0, -9px, 8px);
+/*
+ * Reactions. The body moves, never the volume's place or its shadow, so the floor shows the lift.
+ * A resting spine reaches toward a mouse: it rises and tips its head forward, only while the row is
+ * still. The presented volume lifts a little under the pointer or keyboard focus, and a press pushes
+ * its cover back, the start of opening.
+ */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .bb-shelf[data-open='0']:not([data-settled='0']) .bb-book:not(.is-centre):hover .bb-book__body {
+    transform: translateY(-10px) rotateX(-2deg);
   }
+
+  .bb-shelf[data-open='0']:not([data-settled='0']) .bb-book:not(.is-centre):active .bb-book__body {
+    transform: translateY(-6px) scale(0.985);
+    transition-duration: var(--bb-dur-1);
+  }
+
+  .bb-shelf[data-open='0'] .bb-book.is-turned:hover .bb-book__body {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bb-shelf[data-open='0'] .bb-book.is-turned:has(.bb-book__control:focus-visible) .bb-book__body {
+    transform: translateY(-6px);
+  }
+
+  /* The front board faces along the volume's own x axis, so pushing the cover away is a move along -x. */
+  .bb-shelf[data-open='0'] .bb-book.is-turned:active .bb-book__body {
+    transform: translateY(-3px) translateX(-3px);
+    transition-duration: var(--bb-dur-1);
+  }
+}
+
+.bb-book::after {
+  opacity: 0.78;
+  transition: opacity var(--bb-dur-2) var(--bb-ease-out);
+}
+
+.bb-shelf[data-open='0'] .bb-book.is-turned:hover::after,
+.bb-shelf[data-open='0'] .bb-book.is-turned:has(.bb-book__control:focus-visible)::after,
+.bb-shelf[data-open='0']:not([data-settled='0']) .bb-book:not(.is-centre):hover::after {
+  opacity: 1;
 }
 
 /* The one operable control per volume. Present for keyboard and screen readers, invisible, never a pointer target. */
@@ -412,44 +451,6 @@
   pointer-events: none;
 }
 
-.bb-book__seal {
-  position: absolute;
-  left: 50%;
-  top: 56%;
-  display: grid;
-  place-items: center;
-  width: 32%;
-  aspect-ratio: 1;
-  translate: -50% -50%;
-  border-radius: 50%;
-  background: var(--bb-accent);
-  color: var(--bb-accent-ink);
-  font-family: var(--bb-font-mono);
-  font-size: max(9px, calc(var(--bb-cover-w) * 0.052));
-  font-weight: 500;
-  letter-spacing: var(--bb-track-label);
-  text-transform: uppercase;
-  opacity: 0;
-  scale: 0.82;
-  pointer-events: none;
-  transition-property: opacity, scale;
-  transition-duration: var(--bb-dur-2);
-  transition-timing-function: var(--bb-ease-out);
-}
-
-.bb-shelf[data-open='0'] .bb-book.is-turned:hover .bb-book__seal,
-.bb-shelf[data-open='0'] .bb-book.is-turned:has(.bb-book__control:focus-visible) .bb-book__seal {
-  opacity: 1;
-  scale: 1;
-}
-
-@media (hover: none) {
-  .bb-shelf[data-open='0'] .bb-book.is-turned .bb-book__seal {
-    opacity: 1;
-    scale: 1;
-  }
-}
-
 .bb-book.is-turned {
   cursor: pointer;
 }
@@ -567,13 +568,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .bb-book__body,
-  .bb-book__seal,
+  .bb-book::after,
   .bb-shelf__arrow {
     transition: none;
-  }
-
-  .bb-shelf[data-open='0'] .bb-book:not(.is-centre):hover .bb-book__body {
-    transform: none;
   }
 
   /* With motion the row stays painted under the page so closing finds it in place; here the page simply covers it. */
@@ -588,10 +585,6 @@
   .bb-cover {
     border: 1px solid CanvasText;
     forced-color-adjust: none;
-  }
-
-  .bb-book__seal {
-    border: 1px solid CanvasText;
   }
 
   .bb-book__sheen {

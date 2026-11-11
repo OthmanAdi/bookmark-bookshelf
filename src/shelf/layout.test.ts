@@ -70,10 +70,12 @@ describe('computeRow', () => {
     ['night', night],
   ])('centres the turned volume on 0 at an integer position (%s)', (_name, geometry) => {
     const centre = poseAt(3, geometry, 3);
-    const lean = Math.sign(centre.lean) * leanSpread(geometry, centre.weight);
     expect(centre.weight).toBe(1);
     expect(centre.angle).toBe(geometry.focusAngle);
-    expect(centre.x + turnedWidth(geometry, centre.angle) / 2 + lean / 2).toBeCloseTo(0, 9);
+    const drawn = corners(centre, geometry);
+    const xs = [drawn.leftFoot.x, drawn.rightFoot.x, drawn.leftHead.x, drawn.rightHead.x];
+    // Within a pixel: a leaning volume is a hair narrower at its foot than the room it is given.
+    expect((Math.min(...xs) + Math.max(...xs)) / 2).toBeCloseTo(0, 0);
   });
 
   it('leaves volumes away from the centre unturned, unleaned and unlifted', () => {
@@ -265,8 +267,9 @@ describe('computeRow with mixed sizes', () => {
   it('centres the presented volume on 0 with its own size', () => {
     const size = mixed(3);
     const centre = computeRow(3, paper, 3, 3, mixed)[0]!;
-    const spread = leanSpread(paper, 1, size);
-    expect(centre.x + turnedWidth(paper, centre.angle, size) / 2 - spread / 2).toBeCloseTo(0, 9);
+    const drawn = corners(centre, { ...paper, ...size });
+    const xs = [drawn.leftFoot.x, drawn.rightFoot.x, drawn.leftHead.x, drawn.rightHead.x];
+    expect((Math.min(...xs) + Math.max(...xs)) / 2).toBeCloseTo(0, 0);
   });
 
   it('keeps volumes in order and each far strip rigid, moving at the local pitch on average', () => {

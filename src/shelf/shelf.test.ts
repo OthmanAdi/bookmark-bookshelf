@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_LIGHT, faceShades } from './light';
 import { mountShelf } from './shelf';
 import type { ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions } from './types';
 
@@ -143,6 +144,12 @@ describe('mountShelf rendering', () => {
     }
   });
 
+  it('puts no sticker on the presented cover', () => {
+    const { shelf } = mount();
+    expect(shelf.element.querySelector('.bb-book__seal')).toBeNull();
+    expect(shelf.element.textContent).not.toContain('Open');
+  });
+
   it('prints covers for the volumes near the centre only', () => {
     const { shelf } = mount({ items: makeItems(40) });
     expect(bySlot(shelf, 0).querySelector('.bb-book__cover .bb-cover')).not.toBeNull();
@@ -163,7 +170,9 @@ describe('mountShelf rendering', () => {
     const { shelf } = mount({ items: makeItems(40) });
     const film = (slot: number, face: string): HTMLElement =>
       bySlot(shelf, slot).querySelector<HTMLElement>(`${face} .bb-book__shade`)!;
-    expect(Number(film(0, '.bb-book__board--front').style.opacity)).toBeCloseTo(0, 2);
+    const turned = faceShades(DEFAULT_LIGHT, shelf.variant.geometry.focusAngle);
+    expect(Number(film(0, '.bb-book__board--front').style.opacity)).toBeCloseTo(turned.front, 2);
+    expect(Number(film(0, '.bb-book__spine').style.opacity)).toBeCloseTo(turned.spine, 2);
     expect(Number(film(4, '.bb-book__board--front').style.opacity)).toBeCloseTo(0.56, 2);
     expect(Number(film(4, '.bb-book__spine').style.opacity)).toBeCloseTo(0, 2);
     film(4, '.bb-book__spine').style.opacity = '0.5';
@@ -174,7 +183,8 @@ describe('mountShelf rendering', () => {
 
   it('writes the turn on turning volumes and clears it once they rest', () => {
     const { shelf } = mount({ items: makeItems(40) });
-    expect(bySlot(shelf, 0).style.getPropertyValue('--bb-turn')).toBe('1');
+    const turn = Math.sin((shelf.variant.geometry.focusAngle * Math.PI) / 180);
+    expect(Number(bySlot(shelf, 0).style.getPropertyValue('--bb-turn'))).toBeCloseTo(turn, 9);
     expect(bySlot(shelf, 3).style.getPropertyValue('--bb-turn')).toBe('');
     shelf.setPose({ position: 1, open: 0 });
     expect(bySlot(shelf, 0).style.getPropertyValue('--bb-turn')).toBe('0');
