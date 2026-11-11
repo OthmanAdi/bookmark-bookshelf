@@ -87,6 +87,12 @@ export interface ReaderHandle {
    * window backwards. `from` is accepted for older callers and ignored.
    */
   setReveal(progress: number, from?: Box | null): void;
+  /**
+   * Where the cover lands, in viewport coordinates and always on screen: the cover's own place when it is
+   * in view, otherwise a thumbnail in the bar. Measured when called, so call it after the position is
+   * restored. Null without a cover or before the reader has a layout.
+   */
+  flightTarget(): Box | null;
   /** Shows or hides the reader's own cover, for a hand-off with a flying book. */
   setCoverVisible(visible: boolean): void;
   /** Moves focus to the close button. */

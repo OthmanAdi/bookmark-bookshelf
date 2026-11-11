@@ -1,4 +1,5 @@
 import './reader.css';
+import './reader-text.css';
 import { buildArticleParts, fillBody } from './article';
 import type { ArticleHandlers } from './article';
 import { hostnameOf, resolveLabels } from './meta';
@@ -8,6 +9,8 @@ import { buildShell } from './shell';
 import type { Box, ReaderDoc, ReaderHandle, ReaderOptions, ReaderProgress } from './types';
 
 let instanceCounter = 0;
+
+const box = ({ x, y, width, height }: DOMRect): Box => ({ x, y, width, height });
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -33,6 +36,8 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     topInset: () => bar.offsetHeight,
     onChange: (position, silent) => {
       showProgress(position);
+      // Once the person moves, the bar thumbnail goes back to following the cover beside the text.
+      if (!silent) shell.thumb.removeAttribute('data-landing');
       if (!silent) options.onProgress?.(position);
     },
   });
@@ -140,14 +145,31 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
   return {
     element: root,
     scroller: sheet,
+    flightTarget() {
+      if (!cover) return null;
+      const slot = box(shell.coverSlot.getBoundingClientRect());
+      const barBottom = bar.getBoundingClientRect().bottom;
+      const height = root.clientHeight || dom.defaultView?.innerHeight || 0;
+      const onScreen = slot.width > 0 && slot.height > 0 && slot.y >= barBottom - 1 && slot.y + slot.height <= height + 1;
+      if (onScreen) {
+        shell.thumb.removeAttribute('data-landing');
+        return slot;
+      }
+      // Beside the text the cover has scrolled away (or is not laid out): land in the bar.
+      shell.thumb.setAttribute('data-landing', '');
+      const thumb = box(shell.thumb.getBoundingClientRect());
+      if (thumb.width > 0 && thumb.height > 0) return thumb;
+      shell.thumb.removeAttribute('data-landing');
+      return slot.width > 0 && slot.height > 0 ? slot : null;
+    },
     coverSlotRect() {
       if (!cover) return null;
-      const { x, y, width, height } = shell.coverSlot.getBoundingClientRect();
-      return { x, y, width, height };
+      return box(shell.coverSlot.getBoundingClientRect());
     },
     setReveal: applyReveal,
     setCoverVisible(visible) {
       if (cover) cover.style.visibility = visible ? '' : 'hidden';
+      shell.thumb.toggleAttribute('data-cover-hidden', !visible);
       shell.coverSlot.toggleAttribute('data-cover-hidden', !visible);
     },
     focus() {

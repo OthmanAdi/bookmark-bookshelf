@@ -122,6 +122,57 @@ describe('structure', () => {
   });
 });
 
+describe('flight target', () => {
+  const rect = (x: number, y: number, width: number, height: number) => () =>
+    ({ x, y, width, height, top: y, left: x, right: x + width, bottom: y + height, toJSON: () => ({}) }) as DOMRect;
+
+  function laidOut(reader: ReaderHandle, slot: DOMRect | (() => DOMRect), bar = rect(0, 0, 390, 56)) {
+    Object.defineProperty(reader.element, 'clientHeight', { value: 844, configurable: true });
+    query('.bb-reader__cover-slot').getBoundingClientRect = typeof slot === 'function' ? slot : () => slot;
+    query('.bb-reader__bar').getBoundingClientRect = bar;
+    query('.bb-reader__thumb').getBoundingClientRect = rect(60, 8, 27, 40);
+  }
+
+  it('is null without a cover or a layout', () => {
+    expect(mount().flightTarget()).toBeNull();
+    handle?.destroy();
+    expect(mount({ cover: document.createElement('div') }).flightTarget()).toBeNull();
+  });
+
+  it('is the cover place while that is on screen', () => {
+    const reader = mount({ cover: document.createElement('div') });
+    laidOut(reader, rect(16, 120, 80, 130));
+    expect(reader.flightTarget()).toEqual({ x: 16, y: 120, width: 80, height: 130 });
+    expect(query('.bb-reader__thumb').hasAttribute('data-landing')).toBe(false);
+  });
+
+  it('is the bar thumbnail once the cover place has scrolled away', () => {
+    const reader = mount({ cover: document.createElement('div') });
+    laidOut(reader, rect(16, -900, 80, 130));
+    expect(reader.flightTarget()).toEqual({ x: 60, y: 8, width: 27, height: 40 });
+    expect(query('.bb-reader__thumb').hasAttribute('data-landing')).toBe(true);
+  });
+
+  it('keeps the thumbnail out of assistive technology and holds its own copy of the cover', () => {
+    const cover = document.createElement('div');
+    cover.id = 'cover-a';
+    mount({ cover });
+    const thumb = query('.bb-reader__thumb');
+    expect(thumb.getAttribute('aria-hidden')).toBe('true');
+    expect(thumb.contains(cover)).toBe(false);
+    expect(thumb.querySelector('[id]')).toBeNull();
+    expect(thumb.querySelector('[inert]')).not.toBeNull();
+  });
+
+  it('hides the thumbnail copy together with the cover', () => {
+    const reader = mount({ cover: document.createElement('div') });
+    reader.setCoverVisible(false);
+    expect(query('.bb-reader__thumb').hasAttribute('data-cover-hidden')).toBe(true);
+    reader.setCoverVisible(true);
+    expect(query('.bb-reader__thumb').hasAttribute('data-cover-hidden')).toBe(false);
+  });
+});
+
 describe('keyboard and close', () => {
   it('calls onClose for Escape and for the close button', () => {
     const onClose = vi.fn();

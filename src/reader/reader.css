@@ -1,6 +1,9 @@
 /* Reader dialog. Colour, type and spacing come from the shared tokens. */
 .bb-reader {
   --bb-reader-bar: 3.5rem;
+  /* Width of the cover beside the text on a narrow screen, and how much of it the bar thumbnail shows. */
+  --bb-reader-cover-w: 5.5rem;
+  --bb-reader-thumb-scale: 0.3;
   position: fixed;
   inset: 0;
   z-index: var(--bb-z-reader);
@@ -81,6 +84,39 @@
   background: var(--bb-accent);
   transform: scaleX(0);
   transform-origin: 0 50%;
+}
+
+/* The thumbnail is the cover beside the text, scaled down, where the cover lands once that one has scrolled away. */
+.bb-reader__thumb {
+  display: none;
+  flex: none;
+  position: relative;
+  overflow: hidden;
+  width: calc(var(--bb-reader-cover-w) * var(--bb-reader-thumb-scale));
+  aspect-ratio: var(--bb-reader-cover-aspect, var(--bb-reader-cover-aspect-given, 0.62));
+  border-radius: var(--bb-r-1);
+}
+
+.bb-reader__thumb[data-landing] {
+  display: block;
+}
+
+.bb-reader__thumb-face {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: var(--bb-reader-cover-w);
+  aspect-ratio: var(--bb-reader-cover-aspect, var(--bb-reader-cover-aspect-given, 0.62));
+  transform: scale(var(--bb-reader-thumb-scale));
+  transform-origin: 0 0;
+}
+
+.bb-reader__thumb-face > * {
+  width: 100%;
+  height: 100%;
+}
+
+.bb-reader__thumb[data-cover-hidden] {
+  visibility: hidden;
 }
 
 /* The header and the text arrive after the sheet is nearly opaque: a short rise, one after another. */
@@ -171,188 +207,6 @@
   .bb-reader__cover-slot {
     max-height: calc(100dvh - var(--bb-reader-cover-top, 5.5rem) - 1rem);
   }
-}
-
-/* Document header */
-.bb-reader__doc {
-  min-width: 0;
-  max-width: 62ch;
-}
-
-.bb-reader__kicker {
-  color: var(--bb-ink-faint);
-}
-
-.bb-reader__title {
-  margin-top: var(--bb-s-3);
-  font-size: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem);
-  line-height: 1.1;
-  overflow-wrap: anywhere;
-}
-
-.bb-reader__byline {
-  margin-top: var(--bb-s-3);
-  color: var(--bb-ink-soft);
-  font-size: var(--bb-text-body);
-  font-style: italic;
-}
-
-.bb-reader__note {
-  margin-top: var(--bb-s-3);
-  padding-left: var(--bb-s-4);
-  border-left: var(--bb-hairline) solid var(--bb-rule-strong);
-  color: var(--bb-ink-soft);
-  font-size: var(--bb-text-body);
-  overflow-wrap: anywhere;
-}
-
-.bb-reader__time {
-  margin-top: var(--bb-s-4);
-  color: var(--bb-ink-faint);
-}
-
-.bb-reader__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--bb-s-3);
-  margin-top: var(--bb-s-5);
-  padding-bottom: var(--bb-s-5);
-  border-bottom: var(--bb-hairline) solid var(--bb-rule);
-}
-
-.bb-reader__open,
-.bb-reader__edit,
-.bb-reader__save,
-.bb-reader__cancel {
-  min-height: 2.5rem;
-}
-
-.bb-reader__open-host {
-  color: var(--bb-ink-faint);
-  text-transform: none;
-}
-
-.bb-reader__open:hover .bb-reader__open-host {
-  color: inherit;
-}
-
-/* Reading copy */
-.bb-reader__body {
-  margin-top: var(--bb-s-6);
-  font-size: var(--bb-text-read);
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-
-.bb-reader__body > * + * {
-  margin-top: 1.1em;
-}
-
-.bb-reader__body h2,
-.bb-reader__body h3 {
-  font-family: var(--bb-font-serif);
-  line-height: 1.2;
-}
-
-.bb-reader__body h2 {
-  margin-top: 2em;
-  font-size: 1.5em;
-}
-
-.bb-reader__body h3 {
-  margin-top: 1.7em;
-  font-size: 1.2em;
-}
-
-.bb-reader__body ul,
-.bb-reader__body ol {
-  padding-left: 1.4em;
-}
-
-.bb-reader__body li + li {
-  margin-top: 0.4em;
-}
-
-.bb-reader__body blockquote {
-  padding-left: var(--bb-s-4);
-  border-left: 2px solid var(--bb-rule-strong);
-  color: var(--bb-ink-soft);
-}
-
-.bb-reader__body code {
-  padding: 0.05em 0.3em;
-  border-radius: var(--bb-r-1);
-  background: color-mix(in srgb, var(--bb-ink) 6%, transparent);
-  font-family: var(--bb-font-mono);
-  font-size: 0.85em;
-}
-
-.bb-reader__body pre {
-  padding: var(--bb-s-3) var(--bb-s-4);
-  overflow-x: auto;
-  border-radius: var(--bb-r-2);
-  background: color-mix(in srgb, var(--bb-ink) 6%, transparent);
-  line-height: 1.5;
-}
-
-.bb-reader__body pre code {
-  padding: 0;
-  background: none;
-  font-size: 0.8em;
-  overflow-wrap: normal;
-}
-
-.bb-reader__body hr {
-  height: 0;
-  margin-block: 2em;
-  border: 0;
-  border-top: var(--bb-hairline) solid var(--bb-rule);
-}
-
-.bb-reader__body a {
-  text-decoration-color: var(--bb-accent);
-}
-
-.bb-reader__body a:hover {
-  color: var(--bb-accent-strong);
-}
-
-/* Empty state and paste panel */
-.bb-reader__empty-title {
-  font-size: var(--bb-text-title);
-}
-
-.bb-reader__empty-body {
-  margin-top: var(--bb-s-3);
-  color: var(--bb-ink-soft);
-}
-
-.bb-reader__paste {
-  display: grid;
-  gap: var(--bb-s-2);
-  margin-top: var(--bb-s-5);
-  font-size: var(--bb-text-body);
-}
-
-.bb-reader__paste-label {
-  color: var(--bb-ink-soft);
-}
-
-.bb-reader__paste-field {
-  width: 100%;
-  min-height: 10rem;
-  padding: var(--bb-s-3);
-  border: var(--bb-hairline) solid var(--bb-rule-strong);
-  border-radius: var(--bb-r-1);
-  background: var(--bb-paper-raised);
-  line-height: 1.5;
-  resize: vertical;
-}
-
-.bb-reader__paste-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--bb-s-3);
 }
 
 @media (prefers-reduced-motion: reduce) {
