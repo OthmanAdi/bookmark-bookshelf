@@ -46,10 +46,27 @@
 
       <p id="storage-warning" class="bb-app__notice" role="status" hidden>This browser is not saving. Changes last until you close this tab.</p>
 
-      <div class="bb-app__shelves">
-        <div id="tabs" class="bb-tabs" role="group" aria-label="Shelves"></div>
-        <div id="shelf-tools" class="bb-app__shelf-tools"></div>
-      </div>
+      <nav class="bb-app__shelves" aria-label="Shelves">
+        <div class="bb-app__tabset">
+          <div id="tabs" class="bb-tabs"></div>
+          <button id="new-shelf" type="button" class="bb-button bb-button--quiet bb-app__new-shelf">New shelf</button>
+        </div>
+        <div id="shelf-menu-wrap" class="bb-menu bb-app__shelf-menu" hidden>
+          <button id="shelf-button" type="button" class="bb-button bb-button--quiet bb-menu__button" aria-haspopup="menu">
+            Shelf
+            <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M2.5 4.5 6 8l3.5-3.5" /></svg>
+          </button>
+          <div id="shelf-menu" class="bb-menu__panel" role="menu" aria-label="This shelf" hidden>
+            <button id="shelf-rename" type="button" role="menuitem" tabindex="-1" class="bb-menu__item bb-menu__item--plain"><span class="bb-menu__label">Rename</span></button>
+            <button id="shelf-describe" type="button" role="menuitem" tabindex="-1" class="bb-menu__item bb-menu__item--plain"><span class="bb-menu__label">Describe</span></button>
+            <div class="bb-menu__rule" role="separator"></div>
+            <button id="shelf-share" type="button" role="menuitem" tabindex="-1" class="bb-menu__item bb-menu__item--plain"><span class="bb-menu__label">Share this shelf</span></button>
+            <button id="shelf-hand-in" type="button" role="menuitem" tabindex="-1" class="bb-menu__item bb-menu__item--plain"><span class="bb-menu__label">Hand-in summary</span></button>
+            <div class="bb-menu__rule" role="separator"></div>
+            <button id="shelf-remove" type="button" role="menuitem" tabindex="-1" class="bb-menu__item bb-menu__item--plain"><span class="bb-menu__label">Remove shelf</span></button>
+          </div>
+        </div>
+      </nav>
 
       <main id="main" class="bb-app__main">
         <h1 class="bb-visually-hidden">Your shelf</h1>

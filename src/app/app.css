@@ -261,43 +261,84 @@
 
 /* ---------- shelf tabs ---------- */
 
+/*
+ * Three columns: the tabs and New shelf in the middle, the Shelf menu at the right end. The outer
+ * columns share the room equally, so the tabs never shift sideways when the Shelf menu appears.
+ */
 .bb-app__shelves {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(0, 1fr);
   align-items: center;
-  justify-content: center;
-  gap: var(--bb-s-2) var(--bb-s-4);
-  padding: var(--bb-s-5) var(--bb-s-5) var(--bb-s-2);
+  column-gap: var(--bb-s-4);
+  padding: var(--bb-s-3) var(--bb-gutter, clamp(1.25rem, 2.5vw, 2.5rem)) 0;
+}
+
+.bb-app__tabset {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--bb-s-2);
+  min-width: 0;
+}
+
+.bb-app__new-shelf {
+  flex: none;
+}
+
+.bb-app__shelf-menu {
+  grid-column: 3;
+  justify-self: end;
 }
 
 .bb-tabs {
+  position: relative;
   display: flex;
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: 100%;
   border: var(--bb-hairline) solid var(--bb-rule-strong);
   border-radius: var(--bb-r-1);
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--bb-s-5);
   scrollbar-width: none;
 }
 
+.bb-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* The strip fades out at an edge that has more tabs beyond it. The mask only reads alpha. */
+.bb-tabs[data-fade='end'] {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 1.5rem), transparent);
+}
+
+.bb-tabs[data-fade='start'] {
+  mask-image: linear-gradient(270deg, #000 calc(100% - 1.5rem), transparent);
+}
+
+.bb-tabs[data-fade='both'] {
+  mask-image: linear-gradient(90deg, transparent, #000 1.5rem, #000 calc(100% - 1.5rem), transparent);
+}
+
 .bb-tab {
-  position: relative;
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: var(--bb-s-2);
-  min-height: 2.5rem;
+  min-height: var(--bb-control-h, 2.5rem);
   padding: 0 var(--bb-s-4);
   border: 0;
   border-right: var(--bb-hairline) solid var(--bb-rule-strong);
   background: transparent;
   color: var(--bb-ink);
-  font-family: var(--bb-font-mono);
-  font-size: var(--bb-text-micro);
+  font-family: var(--bb-font-serif);
+  font-size: var(--bb-text-ui, 0.9375rem);
   font-weight: 500;
-  letter-spacing: var(--bb-track-label);
-  text-transform: uppercase;
+  line-height: 1.33;
   white-space: nowrap;
-  transition-property: background-color, color;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition-property: background-color, color, scale;
   transition-duration: var(--bb-dur-1);
   transition-timing-function: var(--bb-ease-out);
 }
@@ -310,6 +351,10 @@
   background: var(--bb-rule);
 }
 
+.bb-tab:active {
+  scale: 0.97;
+}
+
 .bb-tab[aria-pressed='true'] {
   background: var(--bb-accent);
   color: var(--bb-accent-ink);
@@ -319,33 +364,25 @@
   outline-offset: -3px;
 }
 
-/* A short rule under the shelf that holds the centred volume. */
-.bb-tab.is-here:not([aria-pressed='true'])::after {
-  content: '';
-  position: absolute;
-  left: var(--bb-s-4);
-  right: var(--bb-s-4);
-  bottom: 0.4rem;
-  height: 2px;
-  background: var(--bb-accent);
-}
-
+/* The count is a figure, so it is set as one: small mono numerals after the name the person chose. */
 .bb-tab__count {
-  font-variant-numeric: tabular-nums;
-  opacity: 0.62;
-}
-
-.bb-tab--new {
   color: var(--bb-ink-soft);
+  font-family: var(--bb-font-mono);
+  font-size: var(--bb-text-micro);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--bb-track-label);
 }
 
-.bb-app__shelf-tools {
-  display: flex;
-  gap: var(--bb-s-1);
+.bb-tab[aria-pressed='true'] .bb-tab__count {
+  color: inherit;
 }
 
-.bb-app__shelf-tools:empty {
-  display: none;
+@media (forced-colors: active) {
+  .bb-tab[aria-pressed='true'] {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
 }
 
 /* ---------- main ---------- */
@@ -543,8 +580,16 @@
   }
 
   .bb-app__shelves {
-    justify-content: flex-start;
-    padding: var(--bb-s-4) var(--bb-s-4) var(--bb-s-2);
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--bb-s-2);
+  }
+
+  .bb-app__tabset {
+    grid-column: 1;
+  }
+
+  .bb-app__shelf-menu {
+    grid-column: 2;
   }
 }
 
@@ -559,6 +604,10 @@
 
   .bb-menu__panel {
     animation: none;
+  }
+
+  .bb-tab:active {
+    scale: none;
   }
 
   .bb-stage__arrow.is-bumping:first-child,

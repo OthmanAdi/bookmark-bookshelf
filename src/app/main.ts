@@ -6,12 +6,13 @@ import { listVariants } from '../shelf';
 import { createStore, type Bookmark, type Store } from '../store';
 import { minutesOf } from '../store/reading-time';
 import { createBookshelf } from './bookshelf';
-import { button, downloadText, make, must, toast } from './dom';
+import { downloadText, must, toast } from './dom';
 import { askText } from './editor';
 import { createFlows } from './flows';
 import { renderList } from './list-view';
 import { createMenu } from './menu';
 import { createStageCaption, type LinkView } from './shell-stage';
+import { createShelfTabs } from './shell-tabs';
 import { renderViewMenu, type ViewMode } from './shell-view-menu';
 
 /**
@@ -23,9 +24,6 @@ const store = createStore({ seed: () => sampleLibrary() });
 const chrome = must<HTMLElement>('#chrome');
 const shelfHost = must<HTMLElement>('#shelf');
 const listHost = must<HTMLElement>('#list');
-const tabs = must<HTMLElement>('#tabs');
-const shelfTools = must<HTMLElement>('#shelf-tools');
-
 const captionHost = must<HTMLElement>('#caption');
 
 let lastOpenedId: string | null = null;
@@ -43,12 +41,11 @@ const bookshelf = createBookshelf({
   label: 'Your shelf',
   caption: false,
   arrows: false,
-  onFocusChange: (bookmark) => {
+  onFocusChange: () => {
     if (!ready) return;
     // The row was rebuilt or retargeted: read its links again before describing the centre.
     row = store.bookmarks(store.session().shelfId);
     syncStage();
-    markCurrentShelf(bookmark);
   },
   onOpenChange: (bookmark) => {
     if (bookmark) {
@@ -181,72 +178,79 @@ function shelfNameError(value: string, ownId?: string): string | null {
   return taken ? 'A shelf with that name already exists.' : null;
 }
 
+function openShelf(id: string | null): void {
+  if (store.session().shelfId === id) return;
+  bookshelf.setShelf(id);
+  renderAll();
+}
+
+const shelfTabs = createShelfTabs(must<HTMLElement>('#tabs'), openShelf, { reduced: () => bookshelf.motion.state.reduced });
+const shelfMenuWrap = must<HTMLElement>('#shelf-menu-wrap');
+const shelfMenuPanel = must<HTMLElement>('#shelf-menu');
+const removeShelfItem = must<HTMLButtonElement>('#shelf-remove');
+
+function openShelfId(): string | null {
+  const id = store.session().shelfId;
+  return id !== null && store.shelves().some((shelf) => shelf.id === id) ? id : null;
+}
+
 function renderTabs(): void {
   const active = store.session().shelfId;
-  const entries: Array<{ id: string | null; name: string; count: number }> = [
-    { id: null, name: 'All', count: store.bookmarks(null).length },
-    ...store.shelves().map((shelf) => ({ id: shelf.id, name: shelf.name, count: store.bookmarks(shelf.id).length })),
-  ];
-
-  const nodes = entries.map((entry) => {
-    const tab = button(entry.name, 'bb-tab', () => {
-      bookshelf.setShelf(entry.id);
-      renderAll();
-    });
-    tab.setAttribute('aria-pressed', String(entry.id === active));
-    tab.dataset.shelf = entry.id ?? '';
-    tab.appendChild(make('span', 'bb-tab__count', String(entry.count)));
-    return tab;
-  });
-
-  nodes.push(
-    button('New shelf', 'bb-tab bb-tab--new', async () => {
-      const name = await askText('New shelf', 'Name', '', (value) => shelfNameError(value));
-      if (name === null) return;
-      const result = store.addShelf(name);
-      if (!result.ok) return toast(result.error.message);
-      bookshelf.setShelf(result.value.id);
-      renderAll();
-    }),
+  shelfTabs.render(
+    [
+      { id: null, name: 'All', count: store.bookmarks(null).length },
+      ...store.shelves().map((shelf) => ({ id: shelf.id, name: shelf.name, count: store.bookmarks(shelf.id).length })),
+    ],
+    active,
   );
-  tabs.replaceChildren(...nodes);
 
-  const tools: HTMLElement[] = [];
   const shelf = store.shelves().find((entry) => entry.id === active);
-  if (shelf) {
-    tools.push(
-      button('Rename shelf', 'bb-button bb-button--quiet', async () => {
-        const name = await askText('Rename shelf', 'Name', shelf.name, (value) => shelfNameError(value, shelf.id));
-        if (name === null) return;
-        const result = store.renameShelf(shelf.id, name);
-        if (!result.ok) toast(result.error.message);
-        renderAll();
-      }),
-    );
-    if (store.shelves().length > 1) {
-      tools.push(
-        button('Remove shelf', 'bb-button bb-button--quiet', () => {
-          const moved = store.bookmarks(shelf.id).length;
-          const result = store.removeShelf(shelf.id);
-          if (!result.ok) return toast(result.error.message);
-          const home = store.shelves()[0]?.name ?? 'another shelf';
-          toast(moved > 0 ? `Removed "${shelf.name}". Its ${moved} volumes moved to "${home}".` : `Removed "${shelf.name}".`);
-          bookshelf.setShelf(null);
-          renderAll();
-        }),
-      );
-    }
+  const hide = shelf === undefined;
+  if (hide && shelfMenuWrap.contains(document.activeElement)) {
+    // The open shelf went away with focus on its menu: the tab that is now active takes it.
+    must<HTMLElement>('#tabs').querySelector<HTMLElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
   }
-  shelfTools.replaceChildren(...tools);
-  markCurrentShelf(bookshelf.current());
+  shelfMenuWrap.hidden = hide;
+  if (shelf) shelfMenuPanel.setAttribute('aria-label', shelf.name);
 }
 
-/** In the "All" view, mark which shelf the centred volume belongs to. */
-function markCurrentShelf(bookmark: Bookmark | undefined): void {
-  for (const tab of tabs.querySelectorAll<HTMLElement>('.bb-tab')) {
-    tab.classList.toggle('is-here', bookmark !== undefined && tab.dataset.shelf === bookmark.shelfId);
-  }
-}
+must<HTMLButtonElement>('#new-shelf').addEventListener('click', async () => {
+  const name = await askText('New shelf', 'Name', '', (value) => shelfNameError(value));
+  if (name === null) return;
+  const result = store.addShelf(name);
+  if (!result.ok) return toast(result.error.message);
+  openShelf(result.value.id);
+});
+
+createMenu({
+  button: must<HTMLButtonElement>('#shelf-button'),
+  panel: shelfMenuPanel,
+  onOpen: () => {
+    removeShelfItem.hidden = store.shelves().length < 2;
+  },
+});
+
+/** Runs a Shelf menu action on the open shelf, if one is still open by the time it is chosen. */
+const onShelf = (selector: string, action: (id: string) => void): void => {
+  must<HTMLButtonElement>(selector).addEventListener('click', () => {
+    const id = openShelfId();
+    if (id) action(id);
+  });
+};
+
+onShelf('#shelf-rename', async (id) => {
+  const shelf = store.shelves().find((entry) => entry.id === id);
+  if (!shelf) return;
+  const name = await askText('Rename shelf', 'Name', shelf.name, (value) => shelfNameError(value, shelf.id));
+  if (name === null) return;
+  const result = store.renameShelf(shelf.id, name);
+  if (!result.ok) toast(result.error.message);
+  renderAll();
+});
+onShelf('#shelf-describe', (id) => flows.describeShelf(id));
+onShelf('#shelf-share', (id) => flows.shareShelf(id));
+onShelf('#shelf-hand-in', (id) => flows.handIn(id));
+onShelf('#shelf-remove', (id) => flows.removeShelf(id));
 
 /* ---------- list view ---------- */
 
