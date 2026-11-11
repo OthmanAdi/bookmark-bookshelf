@@ -103,6 +103,16 @@ describe('add', () => {
   });
 });
 
+describe('words', () => {
+  it('calls the saved text text and the saved item a link', () => {
+    editor().add();
+    expect(input('readingText').closest('label')?.textContent).toContain('Text to read (optional)');
+    expect(document.getElementById('editor-delete')?.textContent).toBe('Remove link');
+    const words = (document.getElementById('editor') as HTMLElement).textContent ?? '';
+    expect(words).not.toMatch(/volume|reading copy|sample/i);
+  });
+});
+
 describe('edit', () => {
   it('says Edit link, offers removal and hides Save and add another', () => {
     const target = store.bookmarks()[0] as Bookmark;

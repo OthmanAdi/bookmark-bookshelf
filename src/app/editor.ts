@@ -62,6 +62,8 @@ export function createEditor(store: Store, onSaved: (bookmark: Bookmark, created
     errorElement(control);
     clearErrorOnInput(control);
   }
+  const textLabel = readingText.closest('.bb-field')?.querySelector('.bb-label');
+  if (textLabel && /reading (copy|text)/i.test(textLabel.textContent ?? '')) textLabel.textContent = 'Text to read (optional)';
   markRequired(url);
   const titleHint = ensureHint(titleInput, 'Leave this empty and the title is taken from the address.');
   const showTitleHint = (): void => {
