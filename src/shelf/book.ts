@@ -1,4 +1,5 @@
 import { createCover } from './cover-art';
+import type { TitleFit } from './title-fit';
 import { resolveCloth } from './variants';
 import type { ShelfItem } from './types';
 
@@ -13,6 +14,8 @@ export interface BookNode {
   slot: number;
   index: number;
   item: ShelfItem;
+  /** The lettering on the spine; the shelf fits it to the spine's size. */
+  title: HTMLElement;
   spineShade: HTMLElement;
   /** The front board. The printed cover is laid on it. */
   cover: HTMLElement;
@@ -51,7 +54,9 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   const spine = span('bb-book__spine');
   spine.appendChild(span('bb-spine__mark', markFor(item, index)));
   spine.appendChild(span('bb-spine__rule'));
-  spine.appendChild(span('bb-spine__title', item.title));
+  const title = span('bb-spine__title', item.title);
+  if (item.lang) title.lang = item.lang;
+  spine.appendChild(title);
   spine.appendChild(span('bb-spine__rule'));
   spine.appendChild(span('bb-spine__sigil'));
   const spineShade = span('bb-book__shade');
@@ -76,7 +81,7 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
   body.append(cover, back);
 
   element.appendChild(body);
-  return { element, slot, index, item, spineShade, cover, coverShade, back, backShade, print: null, turn: 0, shades: [-1, -1, -1], control: null };
+  return { element, slot, index, item, title, spineShade, cover, coverShade, back, backShade, print: null, turn: 0, shades: [-1, -1, -1], control: null };
 }
 
 /**
@@ -108,6 +113,15 @@ export function describe(item: ShelfItem, index: number, count: number): string 
   const progress = item.progress ?? 0;
   if (progress > 0) parts.push(`${Math.round(progress * 100)} percent read`);
   return parts.join('. ');
+}
+
+/** Letters the spine with a fitted title: its size, and a line break when it is set on two lines. */
+export function letterSpine(node: BookNode, fit: TitleFit): void {
+  const text = fit.lines.join('\n');
+  if (node.title.textContent !== text) node.title.textContent = text;
+  node.title.style.fontSize = `${fit.size.toFixed(2)}px`;
+  node.title.dataset.lines = String(fit.lines.length);
+  node.title.classList.toggle('is-clipped', fit.clipped);
 }
 
 /** Adds or removes the single operable control, depending on whether this copy is the real one. */

@@ -1,7 +1,8 @@
 import './shelf.css';
 import './cover.css';
 import './variants.css';
-import { createBook, dropPrint, ensurePrint, setReal, type BookNode } from './book';
+import { createBook, dropPrint, ensurePrint, letterSpine, setReal, type BookNode } from './book';
+import { fitTitle, forgetTitleWidths, type TitleFont } from './title-fit';
 import {
   computeRow,
   pitchAt,
@@ -31,6 +32,11 @@ const PRINT_NEAR = 1.5;
 const PRINT_FAR = 2.5;
 /** A change of shade smaller than this cannot be seen. */
 const SHADE_STEP = 0.002;
+/**
+ * Share of the measured room a fitted spine title may fill. The room of other spine widths is worked out
+ * from one measured spine, and a letter cut at the end of a title is worse than a title a little smaller.
+ */
+const TITLE_ROOM = 0.97;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
 const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
@@ -63,6 +69,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   /** Each item's volume size at the current scale; null when every volume has the look's size. */
   let sizes: VolumeSize[] | null = null;
   const sizeOf = (slot: number): VolumeSize => sizeAt(slot) ?? geometry;
+  /** The spine title's font as the page sets it, and how many spine widths the other spine parts take. */
+  let titleFont: TitleFont = { family: 'serif', weight: '600', letterSpacing: 0, upper: false };
+  let spineParts = 1.45;
   const nodes = new Map<number, BookNode>();
   const listeners = new Set<(intent: ShelfIntent) => void>();
 
@@ -133,11 +142,49 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   function measureSizes(): void {
     const any = items.some((item) => item.thickness !== undefined || item.stature !== undefined);
     sizes = any ? items.map((item) => volumeSize(geometry, item.thickness, item.stature)) : null;
-    for (const node of nodes.values()) applySize(node);
+    for (const node of nodes.values()) {
+      applySize(node);
+      fitSpine(node);
+    }
   }
 
   function sizeAt(slot: number): VolumeSize | undefined {
     return sizes?.[wrap(slot, items.length)];
+  }
+
+  /**
+   * Fits the spine's lettering. The font and the share of the spine its other parts take are read from
+   * the page once per refresh; volumes built while the row moves reuse them and read no layout.
+   */
+  function fitSpine(node: BookNode): void {
+    const size = sizeOf(node.slot);
+    const length = (size.bookHeight - spineParts * size.spineWidth) * TITLE_ROOM;
+    letterSpine(node, fitTitle(node.item.title, { length, breadth: size.spineWidth }, titleFont));
+  }
+
+  function readLettering(): void {
+    const node = nodes.get(centre) ?? nodes.values().next().value;
+    if (!node || !node.title.isConnected) return;
+    const style = getComputedStyle(node.title);
+    const fontSize = parseFloat(style.fontSize) || 16;
+    const font: TitleFont = {
+      family: style.fontFamily || titleFont.family,
+      weight: style.fontWeight || titleFont.weight,
+      letterSpacing: (parseFloat(style.letterSpacing) || 0) / fontSize,
+      upper: style.textTransform === 'uppercase',
+    };
+    const size = sizeOf(node.slot);
+    const room = node.title.clientHeight;
+    const parts = room > 0 ? (size.bookHeight - room) / size.spineWidth : spineParts;
+    const changed =
+      Math.abs(parts - spineParts) > 0.01 ||
+      font.family !== titleFont.family ||
+      font.weight !== titleFont.weight ||
+      Math.abs(font.letterSpacing - titleFont.letterSpacing) > 0.001 ||
+      font.upper !== titleFont.upper;
+    titleFont = font;
+    spineParts = parts;
+    if (changed) for (const each of nodes.values()) fitSpine(each);
   }
 
   function applySize(node: BookNode): void {
@@ -198,6 +245,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       if (!item) continue;
       const node = createBook(item, index, slot);
       applySize(node);
+      fitSpine(node);
       setReal(node, isReal(slot), items.length);
       nodes.set(slot, node);
       row.appendChild(node.element);
@@ -390,7 +438,16 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   const refresh = (): void => {
     measure();
     render();
+    readLettering();
   };
+
+  // Titles measured before the web fonts arrived were measured in a fallback face.
+  let alive = true;
+  void document.fonts?.ready.then(() => {
+    if (!alive) return;
+    forgetTitleWidths();
+    for (const node of nodes.values()) fitSpine(node);
+  });
   const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(refresh) : null;
   observer?.observe(scene);
 
@@ -474,6 +531,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     },
     refresh,
     destroy() {
+      alive = false;
       observer?.disconnect();
       row.removeEventListener('click', onClick);
       scene.removeEventListener('pointerdown', onPointerDown);

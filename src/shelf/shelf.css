@@ -222,8 +222,17 @@
   font-weight: 600;
   letter-spacing: 0.012em;
   line-height: 1;
-  white-space: nowrap;
+  /* The shelf fits the size and decides the line break; the box only keeps a letter from spilling. */
+  white-space: pre;
   overflow: hidden;
+  text-overflow: clip;
+}
+
+.bb-spine__title[data-lines='2'] {
+  line-height: 1.02;
+}
+
+.bb-spine__title.is-clipped {
   text-overflow: ellipsis;
 }
 
