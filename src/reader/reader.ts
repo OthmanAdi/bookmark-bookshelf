@@ -120,7 +120,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
 
   function render(focusTarget: 'field' | 'edit' | null = null, relayout = true): void {
     const restoreNote = notesOn ? notes.keepFocus() : null;
-    const parts = buildArticleParts(dom, { source, labels, titleId, canEdit, handlers });
+    const parts = buildArticleParts(dom, { source, labels, titleId, canEdit, editing, handlers });
     shell.article.replaceChildren(...parts.nodes);
     body = parts.body;
     const lang = cleanLang(source.lang);

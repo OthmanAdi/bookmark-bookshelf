@@ -21,6 +21,8 @@ export interface ArticleInput {
   labels: ReaderLabels;
   titleId: string;
   canEdit: boolean;
+  /** The paste field is open, so there is nothing left for an edit button to open. */
+  editing: boolean;
   handlers: ArticleHandlers;
 }
 
@@ -74,7 +76,7 @@ export function buildArticleParts(dom: Document, input: ArticleInput): ArticlePa
   const actions = el(dom, 'div', 'bb-reader__actions');
   actions.appendChild(buildOpenOriginal(dom, source, labels));
   let editButton: HTMLButtonElement | null = null;
-  if (input.canEdit) {
+  if (input.canEdit && !input.editing && source.text?.trim()) {
     editButton = el(dom, 'button', 'bb-reader__edit bb-button', labels.editCopy);
     editButton.type = 'button';
     editButton.addEventListener('click', () => input.handlers.edit());
@@ -98,7 +100,7 @@ export function buildPastePanel(
   handlers: ArticleHandlers,
 ): PastePanel {
   const panel = el(dom, 'div', 'bb-reader__paste');
-  const label = el(dom, 'label', 'bb-reader__paste-label bb-label', labels.pasteLabel);
+  const label = el(dom, 'label', 'bb-reader__paste-label', labels.pasteLabel);
   label.setAttribute('for', fieldId);
   const textarea = el(dom, 'textarea', 'bb-reader__paste-field');
   textarea.id = fieldId;

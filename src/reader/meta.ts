@@ -6,14 +6,13 @@ export const WORDS_PER_MINUTE = 220;
 export const defaultReaderLabels: ReaderLabels = {
   close: 'Back to shelf',
   openOriginal: 'Open original',
-  editCopy: 'Edit reading copy',
-  saveCopy: 'Save',
+  editCopy: 'Edit text',
+  saveCopy: 'Save text',
   cancel: 'Cancel',
-  pasteLabel: 'Reading copy (plain text or markdown)',
-  emptyTitle: 'No reading copy yet',
+  pasteLabel: 'Text to read',
+  emptyTitle: 'No text saved yet',
   emptyBody:
-    'Paste the text you want to read and it is kept with this link. You can stop and pick it up later, ' +
-    'and the original page stays one click away.',
+    'Paste the part of the page you want to read. It stays with this link, and the reader remembers where you stop.',
   progress: (percent) => `${percent}% read`,
   minutes: (minutes) => `${minutes} min`,
   newTab: 'opens in a new tab',

@@ -26,8 +26,8 @@ describe('labels and helpers', () => {
 
   it('has the documented default texts', () => {
     expect(defaultReaderLabels.close).toBe('Back to shelf');
-    expect(defaultReaderLabels.emptyTitle).toBe('No reading copy yet');
-    expect(defaultReaderLabels.emptyBody).toContain('Paste the text you want to read');
+    expect(defaultReaderLabels.emptyTitle).toBe('No text saved yet');
+    expect(defaultReaderLabels.emptyBody).toContain('Paste the part of the page you want to read');
     expect(JSON.stringify(Object.values(defaultReaderLabels).filter((v) => typeof v === 'string'))).not.toMatch(
       /[–—]|\s-\s/,
     );

@@ -272,12 +272,14 @@ describe('empty state and the paste panel', () => {
 
   it('shows the explanation and the panel when there is no text', () => {
     mount({ doc: empty, onSaveText: () => undefined });
-    expect(query('.bb-reader__empty-title').textContent).toBe('No reading copy yet');
-    expect(query('.bb-reader__empty-body').textContent).toContain('Paste the text you want to read');
+    expect(query('.bb-reader__empty-title').textContent).toBe('No text saved yet');
+    expect(query('.bb-reader__empty-body').textContent).toContain('Paste the part of the page you want to read');
     const label = query<HTMLLabelElement>('.bb-reader__paste label');
     const field = query<HTMLTextAreaElement>('.bb-reader__paste textarea');
     expect(label.getAttribute('for')).toBe(field.id);
-    expect(query('.bb-reader__save').textContent).toBe('Save');
+    expect(label.textContent).toBe('Text to read');
+    expect(query('.bb-reader__save').textContent).toBe('Save text');
+    expect(host.querySelector('.bb-reader__edit')).toBeNull();
     expect(query('.bb-reader__cancel').textContent).toBe('Cancel');
     expect(query('.bb-reader__saved').textContent).toBe('Saved 4 Mar 2026');
   });
@@ -302,14 +304,17 @@ describe('empty state and the paste panel', () => {
     expect(query('.bb-reader__saved').textContent).toBe('Saved 4 Mar 2026, 1 min');
   });
 
-  it('reopens the panel pre-filled from Edit reading copy, and Cancel returns to the text', () => {
+  it('reopens the panel pre-filled from Edit text, which then gives way to the field, and Cancel returns to the text', () => {
     const onSaveText = vi.fn();
     mount({ onSaveText });
     expect(host.querySelector('.bb-reader__paste')).toBeNull();
+    expect(query('.bb-reader__edit').textContent).toBe('Edit text');
     query<HTMLButtonElement>('.bb-reader__edit').click();
+    expect(host.querySelector('.bb-reader__edit')).toBeNull();
     expect(query<HTMLTextAreaElement>('.bb-reader__paste textarea').value).toBe(doc.text);
     query<HTMLButtonElement>('.bb-reader__cancel').click();
     expect(host.querySelector('.bb-reader__paste')).toBeNull();
+    expect(host.querySelector('.bb-reader__edit')).not.toBeNull();
     expect(query('.bb-reader__body h2').textContent).toBe('Heading');
     expect(onSaveText).not.toHaveBeenCalled();
   });

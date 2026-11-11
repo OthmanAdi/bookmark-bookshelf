@@ -194,6 +194,8 @@
   border: var(--bb-hairline) solid var(--bb-rule-strong);
   border-radius: var(--bb-r-1);
   background: var(--bb-paper-raised);
+  color: var(--bb-ink);
+  font: inherit;
   line-height: var(--bb-leading-body);
   resize: vertical;
 }
@@ -255,6 +257,7 @@
 
 .bb-reader__paste-label {
   color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
 }
 
 .bb-reader__paste-field {
@@ -264,6 +267,8 @@
   border: var(--bb-hairline) solid var(--bb-rule-strong);
   border-radius: var(--bb-r-1);
   background: var(--bb-paper-raised);
+  color: var(--bb-ink);
+  font: inherit;
   line-height: 1.5;
   resize: vertical;
 }
