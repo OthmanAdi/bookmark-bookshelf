@@ -173,52 +173,83 @@
         <h2 id="editor-title" class="bb-dialog__title">Add a link</h2>
         <p id="editor-error" class="bb-dialog__error" role="alert" hidden></p>
 
-        <label class="bb-field">
-          <span class="bb-label">Link</span>
-          <input name="url" type="url" inputmode="url" autocomplete="url" required placeholder="https://example.org/article" />
-        </label>
-        <label class="bb-field">
-          <span class="bb-label">Title</span>
-          <input name="title" type="text" maxlength="300" placeholder="Leave empty to use the site name" />
-        </label>
-        <div class="bb-field-row">
+        <div class="bb-field-group">
           <label class="bb-field">
-            <span class="bb-label">Author</span>
-            <input name="author" type="text" maxlength="200" />
+            <span class="bb-label">Link <span class="bb-field__required">(required)</span></span>
+            <input id="field-url" name="url" type="url" inputmode="url" autocomplete="url" required aria-required="true" placeholder="https://example.org/article" />
           </label>
+          <p id="error-url" class="bb-field__error" hidden></p>
+        </div>
+        <div class="bb-field-group">
+          <label class="bb-field">
+            <span class="bb-label">Title</span>
+            <input id="field-title" name="title" type="text" maxlength="300" aria-describedby="hint-title" />
+          </label>
+          <p id="hint-title" class="bb-field__hint">Leave this empty and the title is taken from the address.</p>
+          <p id="error-title" class="bb-field__error" hidden></p>
+        </div>
+        <div class="bb-field-group">
           <label class="bb-field">
             <span class="bb-label">Shelf</span>
-            <select name="shelfId"></select>
+            <select id="field-shelfId" name="shelfId"></select>
           </label>
+          <p id="error-shelfId" class="bb-field__error" hidden></p>
         </div>
-        <label class="bb-field">
-          <span class="bb-label">Why you saved it</span>
-          <input name="note" type="text" maxlength="5000" />
-        </label>
-        <label class="bb-field">
-          <span class="bb-label">Tags, separated by commas</span>
-          <input name="tags" type="text" />
-        </label>
-        <div class="bb-field-row">
+        <div class="bb-field-group">
           <label class="bb-field">
-            <span class="bb-label">Cloth</span>
-            <select name="cloth"></select>
+            <span class="bb-label">Why you saved it</span>
+            <input id="field-note" name="note" type="text" maxlength="5000" />
           </label>
-          <label class="bb-field">
-            <span class="bb-label">Cover pattern</span>
-            <select name="pattern"></select>
-          </label>
+          <p id="error-note" class="bb-field__error" hidden></p>
         </div>
-        <label class="bb-field">
-          <span class="bb-label">Reading copy, optional</span>
-          <textarea name="readingText" rows="6" placeholder="Paste the text you want to read here. The app does not fetch it from the link."></textarea>
-          <span class="bb-field__hint">Plain text with simple marks: # headings, - lists, &gt; quotes, **bold**, *italic*.</span>
-        </label>
+        <div class="bb-field-group">
+          <label class="bb-field">
+            <span class="bb-label">Text to read (optional)</span>
+            <textarea id="field-readingText" name="readingText" rows="3" aria-describedby="hint-readingText"></textarea>
+          </label>
+          <p id="hint-readingText" class="bb-field__hint">Paste the text you want to read; the app never fetches it from the link. Simple marks work: # headings, - lists, &gt; quotes, **bold**, *italic*.</p>
+          <p id="error-readingText" class="bb-field__error" hidden></p>
+        </div>
+
+        <details class="bb-dialog__more">
+          <summary>Cover, author and tags</summary>
+          <div class="bb-field-group">
+            <label class="bb-field">
+              <span class="bb-label">Author</span>
+              <input id="field-author" name="author" type="text" maxlength="200" />
+            </label>
+            <p id="error-author" class="bb-field__error" hidden></p>
+          </div>
+          <div class="bb-field-group">
+            <label class="bb-field">
+              <span class="bb-label">Tags, separated by commas</span>
+              <input id="field-tags" name="tags" type="text" />
+            </label>
+            <p id="error-tags" class="bb-field__error" hidden></p>
+          </div>
+          <div class="bb-field-row">
+            <div class="bb-field-group">
+              <label class="bb-field">
+                <span class="bb-label">Cloth</span>
+                <select id="field-cloth" name="cloth"></select>
+              </label>
+              <p id="error-cloth" class="bb-field__error" hidden></p>
+            </div>
+            <div class="bb-field-group">
+              <label class="bb-field">
+                <span class="bb-label">Cover pattern</span>
+                <select id="field-pattern" name="pattern"></select>
+              </label>
+              <p id="error-pattern" class="bb-field__error" hidden></p>
+            </div>
+          </div>
+        </details>
 
         <div class="bb-dialog__actions">
-          <button id="editor-delete" type="button" class="bb-button bb-button--quiet" hidden>Remove volume</button>
+          <button id="editor-delete" type="button" class="bb-button bb-button--quiet" hidden>Remove link</button>
           <span class="bb-dialog__spacer"></span>
           <button id="editor-cancel" type="button" class="bb-button">Cancel</button>
+          <button id="editor-save-more" type="button" class="bb-button">Save and add another</button>
           <button id="editor-save" type="submit" class="bb-button bb-button--solid">Save</button>
         </div>
       </form>
@@ -227,11 +258,13 @@
     <dialog id="prompt" class="bb-dialog bb-dialog--small" aria-labelledby="prompt-title">
       <form id="prompt-form" method="dialog" novalidate>
         <h2 id="prompt-title" class="bb-dialog__title"></h2>
-        <p id="prompt-error" class="bb-dialog__error" role="alert" hidden></p>
-        <label class="bb-field">
-          <span id="prompt-label" class="bb-label"></span>
-          <input id="prompt-input" type="text" maxlength="60" />
-        </label>
+        <div class="bb-field-group">
+          <label class="bb-field">
+            <span id="prompt-label" class="bb-label"></span>
+            <input id="prompt-input" type="text" maxlength="60" aria-describedby="prompt-error" />
+          </label>
+          <p id="prompt-error" class="bb-field__error" role="alert" hidden></p>
+        </div>
         <div class="bb-dialog__actions">
           <span class="bb-dialog__spacer"></span>
           <button id="prompt-cancel" type="button" class="bb-button">Cancel</button>
