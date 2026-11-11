@@ -107,14 +107,14 @@ shelf.on((intent) => {
 
 `items` is an array of `{ id, title, source?, author?, cloth?, pattern?, seed?, progress?, thickness?, stature?, outline?, note?, done? }`. Runnable versions of the combinations are in `examples/`.
 
-Looping: the shelf decides, not the host. A row loops only when its volumes fill at least four fifths of the scene. A shorter row stands still in the middle between two bookends (`shelf.fixed`): the arrows, the arrow keys and a click on a spine choose the presented volume, and a drag does nothing. Tell the person which of the two they will see with their number of items, because eight titles on a desktop screen stand still.
+Looping is decided by the shelf. A row loops only when its volumes fill at least four fifths of the scene. A shorter row stands still in the middle between two bookends (`shelf.fixed`): the arrows, the arrow keys and a click on a spine choose the presented volume, and a drag does nothing. Tell the person which of the two they will see with their number of items, because eight titles on a desktop screen stand still.
 
 ## 4. Rules that keep it working
 
 These are the things that break when changed. Each has a reason.
 
 - Nothing between `.bb-shelf__row` and a book face may set `overflow`, `filter`, `clip-path`, `mask`, `contain: paint` or `opacity` below 1. Any of them flattens the 3D context and the books collapse into a plane. Fade the scene (the perspective element) instead.
-- The shelf draws poses and never animates the row itself. All movement comes from `setPose` on a frame loop owned by the motion module. Adding CSS transitions to `.bb-book` fights that loop. Hover effects go on `.bb-book__body`.
+- The shelf draws the pose it is given. Movement along the row and the opening come from `setPose` on a frame loop owned by the motion module. Adding CSS transitions to `.bb-book` fights that loop. Hover effects go on `.bb-book__body`.
 - The shelf does not fly the cover. While `pose.open` is above 0 it hides the centred volume and parts its neighbours. A travelling cover is the host's job (`src/app/flight.ts`): one copy on a fixed layer, moved by `transform` only, from `shelf.coverPlacement()` to `reader.flightTarget()`. The shelf's volume, the copy and the reader's own cover are never visible together.
 - One native button per item, not per rendered book. A looping row renders copies. Only the real copy carries `button.bb-book__control`, and copies are `aria-hidden`. The faces are plain spans and the button is a separate, invisible element in front of them. Do not make faces focusable and do not wrap the faces in a `<button>`.
 - Keep `touch-action: pan-y` on the drag surface. With `none`, a finger that lands on the shelf can no longer scroll the page.

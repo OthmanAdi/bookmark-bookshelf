@@ -6,7 +6,7 @@ Contents: [shelf only](#shelf-only), [shelf and motion](#shelf-and-motion), [rea
 
 ## Shelf only
 
-You own input. Useful for a static showcase, or when something else drives the position.
+You own input. Useful for a static display, or when something else drives the position.
 
 ```ts
 import './styles/tokens.css';

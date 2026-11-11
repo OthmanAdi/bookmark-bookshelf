@@ -18,7 +18,7 @@ Options
 |---|---|---|---|
 | `items` | `ShelfItem[]` | required | the volumes, in row order |
 | `variant` | name or `Variant` | `'paper'` | `paper`, `oak`, `night`, `pocket`, or your own object |
-| `loop` | boolean | from the variant | a wish, not a promise: the shelf decides (see "Looping and standing") |
+| `loop` | boolean | from the variant | a wish. The shelf decides whether the row loops (see "Looping and standing") |
 | `onLoopChange` | `(loop) => void` | none | called when the row starts or stops looping after mounting |
 | `label` | string | `'Bookshelf'` | accessible name of the region |
 | `caption`, `arrows` | boolean | true | the built-in title line and the previous and next buttons |
@@ -48,7 +48,7 @@ Handle
 | Member | Use |
 |---|---|
 | `setPose({ position, open, reduced? })` | Draws one frame. `position` is a float index: 3.4 is 40 % of the way from volume 3 to volume 4. While `open` is above 0 the shelf hides the centred volume and moves its neighbours apart a little. It does not fly the cover: the host does (see composition.md). With `reduced` the row stays as it is |
-| `setItems(items)` | Replaces the row. Follow with `motion.setCount(n, index)` |
+| `setItems(items)` | Changes what stands in the row. A volume whose item stays (same `id`) keeps its element. Follow with `motion.setCount(n, index)` |
 | `setVariant(name)` | Switches the look. Follow with `motion.setLoop(shelf.loop)` and `motion.setTiming(shelf.variant.motion)` |
 | `loop` | whether the row repeats endlessly right now |
 | `fixed` | true while the row is short enough to stand whole in the scene. Do not let a drag or the wheel move such a row |

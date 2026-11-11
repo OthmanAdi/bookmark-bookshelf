@@ -62,7 +62,7 @@ The skill holds instructions only. It takes the modules from a checkout next to 
 
 ### By hand
 
-Copy the folders you need from `src/`, with `src/styles/tokens.css`. This is the shelf with motion:
+Copy the folders you need from `src/`, with `src/styles/tokens.css`. The shelf with motion:
 
 ```ts
 import { createShelfMotion, prefersReducedMotion } from './motion';
@@ -88,7 +88,7 @@ shelf.on((intent) => {
 | Store | [`src/store`](src/store) | A versioned library in local storage, with import, export, search and sharing. | [`examples/store-only.html`](examples/store-only.html) |
 | Reader | [`src/reader`](src/reader) | Shows saved text as a page built from text nodes only, and reports the reading position. | [`examples/reader-only.html`](examples/reader-only.html) |
 
-They meet in [`src/app/bookshelf.ts`](src/app/bookshelf.ts). Their contracts and wiring recipes are in the skill's [`references/`](.agents/skills/bookshelf/references).
+They meet in [`src/app/bookshelf.ts`](src/app/bookshelf.ts). Contracts and wiring recipes are in the skill's [`references/`](.agents/skills/bookshelf/references).
 
 ## What it does not do
 
