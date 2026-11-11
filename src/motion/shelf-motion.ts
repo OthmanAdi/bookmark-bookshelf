@@ -120,6 +120,8 @@ const FLICK_MIN_TRAVEL = 24; // px
 const FLICK_DECAY_MS = 325;
 /** Window of recent positions that gives the speed of a released drag. */
 const RELEASE_VELOCITY_WINDOW_MS = 80;
+/** Window of recent wheel positions that gives the speed of a trackpad scroll. */
+const WHEEL_VELOCITY_WINDOW_MS = 50;
 const FLICK_MAX_ITEMS = 6;
 /** Every release looks this far ahead before it snaps, so a gentle push never slides back against the hand. */
 const RELEASE_PROJECTION_MS = 180;
@@ -215,6 +217,8 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   let dragOrigin = 0;
   let dragBias = 0;
   let wheelRaw = 0;
+  let wheelSamples: PositionSample[] = [];
+  let wheelVelocity = 0;
   let overscrollItems = DEFAULT_OVERSCROLL_ITEMS;
   let dragStartTarget = 0;
   let dragTravel = 0;
@@ -487,19 +491,32 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
       if (wheelTimer === null) {
         measureOverscroll();
         wheelRaw = unlimitPosition(state.position);
+        wheelSamples = [];
       }
       state.dragging = true;
       wheelRaw += sideways / pitch();
       state.position = limitDragPosition(wheelRaw);
       syncOverscroll();
       state.velocity = 0;
+      const now = clock.now();
+      pushSample(wheelSamples, now, state.position);
+      // Taken at every event: once the events stop, the last one tells how fast the scroll was going.
+      wheelVelocity = sampleVelocity(wheelSamples, now, WHEEL_VELOCITY_WINDOW_MS);
       setTarget(state.position);
       wake();
       if (wheelTimer !== null) clearTimeout(wheelTimer);
       wheelTimer = setTimeout(() => {
         wheelTimer = null;
         state.dragging = false;
-        setTarget(Math.round(state.position));
+        state.reduced = readReduced();
+        const itemsPerMs = state.reduced ? 0 : wheelVelocity;
+        const here = Math.round(state.position);
+        setTarget(clamp(Math.round(state.position + itemsPerMs * RELEASE_PROJECTION_MS), here - FLICK_MAX_ITEMS, here + FLICK_MAX_ITEMS));
+        state.velocity = itemsPerMs;
+        if (state.reduced) {
+          state.position = state.target;
+          syncOverscroll();
+        }
         wake();
       }, WHEEL_SETTLE_MS);
     };

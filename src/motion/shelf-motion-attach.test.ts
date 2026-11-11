@@ -409,6 +409,53 @@ describe('motion.attach wheel', () => {
     expect(motion.state.position).toBe(1);
   });
 
+  it('carries the speed of a trackpad scroll into the settle', () => {
+    vi.useFakeTimers();
+    const { clock, motion, element } = setup();
+    for (let event = 0; event < 6; event++) {
+      wheel(element, { deltaX: 5 });
+      clock.advance(10);
+    }
+    expect(motion.state.position).toBeCloseTo(0.3, 10);
+    vi.advanceTimersByTime(200);
+    expect(motion.state.dragging).toBe(false);
+    expect(motion.state.velocity).toBeGreaterThan(0.004);
+    expect(motion.state.target).toBe(1);
+    clock.advance(3000);
+    expect(motion.state.position).toBe(1);
+  });
+
+  it('measures the scroll speed over the last 50 ms only', () => {
+    vi.useFakeTimers();
+    const { clock, motion, element } = setup();
+    wheel(element, { deltaX: 60 });
+    clock.advance(300);
+    wheel(element, { deltaX: 1 });
+    clock.advance(10);
+    wheel(element, { deltaX: 1 });
+    vi.advanceTimersByTime(200);
+    expect(motion.state.velocity).toBeCloseTo(0.001, 6);
+    expect(motion.state.target).toBe(1);
+  });
+
+  it('settles on the nearest volume when a single wheel notch arrives', () => {
+    vi.useFakeTimers();
+    const { motion, element } = setup();
+    wheel(element, { deltaX: 130 });
+    vi.advanceTimersByTime(200);
+    expect(motion.state.velocity).toBe(0);
+    expect(motion.state.target).toBe(1);
+  });
+
+  it('lands a trackpad scroll at once under reduced motion', () => {
+    vi.useFakeTimers();
+    const { motion, element } = setup({ reducedMotion: true });
+    wheel(element, { deltaX: 130 });
+    vi.advanceTimersByTime(200);
+    expect(motion.state.position).toBe(1);
+    expect(motion.state.velocity).toBe(0);
+  });
+
   it('resists a wheel pushed past the end of a finite row', () => {
     const { motion, element } = setup({ loop: false, count: 5, initial: 4 });
     wheel(element, { deltaX: 3 * PITCH });
