@@ -239,6 +239,16 @@
   line-height: 1.4;
 }
 
+/* Field labels in dialogs are ordinary words, not metadata figures. */
+.bb-dialog .bb-field > .bb-label {
+  color: var(--bb-ink);
+  font-family: var(--bb-font-serif);
+  font-size: var(--bb-text-small);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .bb-field-group {
   display: grid;
   gap: var(--bb-s-2);

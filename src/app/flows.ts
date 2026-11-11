@@ -2,6 +2,7 @@ import type { Bookshelf } from './bookshelf';
 import { toast } from './dom';
 import { createEditor, type LinkPreset } from './editor';
 import { removeExampleLinks } from './flow-examples';
+import { removeShelfFlow } from './flow-shelf';
 import type { Store } from '../store';
 
 /**
@@ -52,7 +53,7 @@ export function createFlows(context: FlowContext): Flows {
     shareShelf: () => undefined,
     handIn: () => undefined,
     describeShelf: () => undefined,
-    removeShelf: () => undefined,
+    removeShelf: (shelfId) => void removeShelfFlow(context, shelfId),
     sendPageHere: () => undefined,
     removeExamples() {
       const result = removeExampleLinks(store);

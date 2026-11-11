@@ -1,5 +1,6 @@
 import { isExampleId, isExampleShelfId } from '../data/sample-library';
 import type { RemovedBookmark, Shelf, Store } from '../store';
+import { undoerFor } from './flow-undo';
 
 /**
  * Taking the example links out of a library in one step, and putting them back. A shelf that only the
@@ -20,10 +21,10 @@ export function removeExampleLinks(store: Store): ExamplesRemoval | null {
   if (doomed.length === 0) return null;
 
   const before = store.snapshot();
-  const taken: RemovedBookmark[] = [];
+  const removed: RemovedBookmark[] = [];
   for (const bookmark of doomed) {
     const entry = store.removeBookmark(bookmark.id);
-    if (entry) taken.push(entry);
+    if (entry) removed.push(entry);
   }
 
   const emptied = store.shelves().filter((shelf) => isExampleShelfId(shelf.id) && store.bookmarks(shelf.id).length === 0);
@@ -32,20 +33,10 @@ export function removeExampleLinks(store: Store): ExamplesRemoval | null {
     const keep = emptied.find((shelf) => shelf.name === 'Reading list') ?? emptied[emptied.length - 1];
     emptied.splice(emptied.indexOf(keep as Shelf), 1);
   }
-  const gone: Shelf[] = [];
+  const shelves: Shelf[] = [];
   for (const shelf of emptied) {
-    if (store.removeShelf(shelf.id).ok) gone.push(shelf);
+    if (store.removeShelf(shelf.id).ok) shelves.push(shelf);
   }
 
-  return {
-    links: taken.length,
-    undo() {
-      if (gone.length > 0) {
-        const shelvesOnly = { ...before, shelves: gone, bookmarks: [], progress: {}, done: {}, notes: {} };
-        store.importLibrary(shelvesOnly, 'merge');
-      }
-      // Each link recorded its place after the earlier ones had gone, so they come back last to first.
-      for (const entry of [...taken].reverse()) store.restoreBookmark(entry);
-    },
-  };
+  return { links: removed.length, undo: undoerFor(store, { before, removed, shelves, moved: [] }) };
 }
