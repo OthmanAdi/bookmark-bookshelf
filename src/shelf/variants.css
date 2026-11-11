@@ -77,7 +77,6 @@
 @media (min-width: 900px) {
   :root[data-variant='paper'] {
     --bb-reader-cover: 17.8125rem;
-    --bb-reader-cover-aspect: 0.521;
     --bb-reader-text: 40.875rem;
     --bb-reader-gap: clamp(2rem, 11.25vw, 9rem);
     --bb-reader-justify: start;
