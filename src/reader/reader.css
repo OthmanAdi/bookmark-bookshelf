@@ -40,10 +40,18 @@
   outline: none;
 }
 
-/* The sticky bar never covers what has focus: the browser keeps it this far from the top edge. */
 .bb-reader__sheet {
-  scroll-padding-top: calc(var(--bb-reader-bar) + var(--bb-s-4));
   scroll-padding-bottom: var(--bb-s-5);
+}
+
+/*
+ * The sticky bar never covers what has focus: a control in the document keeps this distance from the top
+ * edge. The distance is a margin on those controls and not a padding on the sheet, because a padding also
+ * counts for the bar's own buttons. They sit inside that strip, so every Tab along the bar scrolled the
+ * text in an attempt to bring them out of it.
+ */
+.bb-reader__layout :is(a, button, summary, textarea, [tabindex]) {
+  scroll-margin-top: calc(var(--bb-reader-bar) + var(--bb-s-4));
 }
 
 /* Opened by a tap or a click: no ring on the first focus. A key press brings the rings back. */
