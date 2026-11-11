@@ -310,7 +310,9 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     // Perspective draws the presented face a little larger than its layout size: start at what is on screen.
     const start: FlightStart = { ...placement, width: placement.width * placement.scale, height: placement.height * placement.scale };
     const cover = createCover(itemOf(bookmark, 0), marks.get(bookmark.id), { aspect: coverAspect() });
-    const scale = placement.width > 0 ? flightLayoutWidth(start, end) / placement.width : 1;
+    // Measured against the look's own cover, as the reader's cover is, so the two are dressed alike on landing.
+    const shelfCover = shelf.coverSize();
+    const scale = shelfCover.width > 0 ? flightLayoutWidth(start, end) / shelfCover.width : 1;
     cover.style.setProperty('--bb-cover-k', String(scale));
     const spineEdge = Math.abs(Math.sin((placement.yaw * Math.PI) / 180)) * shelf.variant.geometry.spineWidth * scale;
     flight = createFlight({
