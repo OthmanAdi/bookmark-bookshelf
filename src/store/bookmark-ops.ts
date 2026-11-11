@@ -1,10 +1,10 @@
-import type { Bookmark, BookmarkInput, BookmarkPatch, LibraryV1, Progress, Result } from './types';
+import type { Bookmark, BookmarkInput, BookmarkPatch, LibraryV2, Progress, Result } from './types';
 import { defaultCover, mergeCover } from './cover';
 import { ownValue } from './ids';
 import { placeBookmark, shelfBookmarks, sortLibrary } from './ordering';
 import { clone, notFound, ok } from './result';
 import { normalizeUrl } from './url';
-import { checkOptionalText, checkReadingText, checkTitle, normalizeTags } from './validate';
+import { checkMinutes, checkOptionalText, checkReadingText, checkTitle, normalizeTags } from './validate';
 
 /** Clock and id source shared by every operation. Operations change the library in place. */
 export interface OpContext {
@@ -12,11 +12,11 @@ export interface OpContext {
   newId: () => string;
 }
 
-export function findBookmark(lib: LibraryV1, id: string): Bookmark | undefined {
+export function findBookmark(lib: LibraryV2, id: string): Bookmark | undefined {
   return lib.bookmarks.find((bookmark) => bookmark.id === id);
 }
 
-function hasShelf(lib: LibraryV1, shelfId: string): boolean {
+function hasShelf(lib: LibraryV2, shelfId: string): boolean {
   return lib.shelves.some((shelf) => shelf.id === shelfId);
 }
 
@@ -49,12 +49,25 @@ function applyTextFields(draft: Bookmark, input: BookmarkInput | BookmarkPatch, 
     if (!reading.ok) return reading;
     setReading(draft, reading.value, now);
   }
+  if (input.required !== undefined) {
+    if (input.required) delete draft.required;
+    else draft.required = false;
+  }
+  if (input.minutes !== undefined) {
+    if (input.minutes === null) {
+      delete draft.minutes;
+    } else {
+      const minutes = checkMinutes(input.minutes);
+      if (!minutes.ok) return minutes;
+      draft.minutes = minutes.value;
+    }
+  }
   if (input.tags !== undefined) draft.tags = normalizeTags(input.tags);
   if (input.cover !== undefined) draft.cover = mergeCover(draft.cover, input.cover);
   return ok(undefined);
 }
 
-export function addBookmarkTo(lib: LibraryV1, ctx: OpContext, input: BookmarkInput): Result<Bookmark> {
+export function addBookmarkTo(lib: LibraryV2, ctx: OpContext, input: BookmarkInput): Result<Bookmark> {
   const url = normalizeUrl(input.url);
   if (!url.ok) return url;
   const shelfId = input.shelfId ?? lib.shelves[0]?.id;
@@ -79,7 +92,7 @@ export function addBookmarkTo(lib: LibraryV1, ctx: OpContext, input: BookmarkInp
   return ok(draft);
 }
 
-export function updateBookmarkIn(lib: LibraryV1, ctx: OpContext, id: string, patch: BookmarkPatch): Result<Bookmark> {
+export function updateBookmarkIn(lib: LibraryV2, ctx: OpContext, id: string, patch: BookmarkPatch): Result<Bookmark> {
   const current = findBookmark(lib, id);
   if (!current) return notFound('bookmark');
   const draft = clone(current);
@@ -99,7 +112,7 @@ export function updateBookmarkIn(lib: LibraryV1, ctx: OpContext, id: string, pat
   return ok(draft);
 }
 
-export function removeBookmarkFrom(lib: LibraryV1, id: string): { bookmark: Bookmark; progress?: Progress } | undefined {
+export function removeBookmarkFrom(lib: LibraryV2, id: string): { bookmark: Bookmark; progress?: Progress } | undefined {
   const bookmark = findBookmark(lib, id);
   if (!bookmark) return undefined;
   const progress = ownValue(lib.progress, id);
@@ -112,7 +125,7 @@ export function removeBookmarkFrom(lib: LibraryV1, id: string): { bookmark: Book
 }
 
 /** Puts a removed volume and its progress back at the old position. Ignored if the id is taken. */
-export function restoreBookmarkTo(lib: LibraryV1, entry: { bookmark: Bookmark; progress?: Progress }): boolean {
+export function restoreBookmarkTo(lib: LibraryV2, entry: { bookmark: Bookmark; progress?: Progress }): boolean {
   if (findBookmark(lib, entry.bookmark.id)) return false;
   const fallback = lib.shelves[0]?.id;
   const shelfId = hasShelf(lib, entry.bookmark.shelfId) ? entry.bookmark.shelfId : fallback;
@@ -125,7 +138,7 @@ export function restoreBookmarkTo(lib: LibraryV1, entry: { bookmark: Bookmark; p
 }
 
 export function moveBookmarkIn(
-  lib: LibraryV1,
+  lib: LibraryV2,
   ctx: OpContext,
   id: string,
   to: { shelfId?: string; index?: number },

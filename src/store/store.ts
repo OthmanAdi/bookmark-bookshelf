@@ -2,7 +2,7 @@ import type {
   BookmarkInput,
   BookmarkPatch,
   ChangeReason,
-  LibraryV1,
+  LibraryV2,
   Progress,
   Result,
   Session,
@@ -42,7 +42,7 @@ export function createStore(options: StoreOptions = {}): Store {
   const { storage, persistence } = resolveStorage(options.storage, key);
   const progressDelay = options.progressDelay ?? 250;
   const listeners = new Set<Listener>();
-  const load = (): LibraryV1 =>
+  const load = (): LibraryV2 =>
     loadLibrary({ storage, key, now: clock, idFactory: ctx.newId, ...(options.seed ? { seed: options.seed } : {}) });
 
   let lib = load();

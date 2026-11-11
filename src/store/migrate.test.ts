@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyLibrary, migrateLibrary } from './index';
-import type { LibraryV1 } from './index';
+import type { LibraryV1, LibraryV2 } from './index';
 import { counterIds, testClock } from './test-helpers';
 
 const options = () => ({ now: testClock().now, idFactory: counterIds('m') });
@@ -33,21 +33,26 @@ function validV1(): LibraryV1 {
   };
 }
 
-function migrated(raw: unknown): LibraryV1 {
+/** What a version 1 document becomes: the same content in the version 2 layout. */
+function upgraded(doc: LibraryV1): LibraryV2 {
+  return { ...doc, version: 2, done: {}, notes: {} };
+}
+
+function migrated(raw: unknown): LibraryV2 {
   const result = migrateLibrary(raw, options());
   if (!result.ok) throw new Error(`migration failed: ${result.error.code}`);
   return result.value;
 }
 
 describe('migrateLibrary version 1', () => {
-  it('keeps a valid document unchanged', () => {
+  it('keeps a valid document as it is and adds empty done marks and notes', () => {
     const doc = validV1();
-    expect(migrated(doc)).toEqual(doc);
+    expect(migrated(doc)).toEqual(upgraded(doc));
   });
 
   it('accepts JSON text of a document', () => {
     const doc = validV1();
-    expect(migrated(JSON.stringify(doc))).toEqual(doc);
+    expect(migrated(JSON.stringify(doc))).toEqual(upgraded(doc));
   });
 
   it('does not mutate its input', () => {
@@ -64,7 +69,7 @@ describe('migrateLibrary version 1', () => {
     (doc.bookmarks as Record<string, unknown>[])[0]!.secret = 'x';
     ((doc.bookmarks as Record<string, Record<string, unknown>>[])[0]!.cover as Record<string, unknown>).extra = 1;
     const result = migrated(doc);
-    expect(result).toEqual(validV1());
+    expect(result).toEqual(upgraded(validV1()));
     expect(result).not.toHaveProperty('extra');
   });
 
@@ -150,7 +155,7 @@ describe('migrateLibrary version 0', () => {
       42,
     ]);
     expect(result.format).toBe('bookmark-bookshelf');
-    expect(result.version).toBe(1);
+    expect(result.version).toBe(2);
     expect(result.shelves).toHaveLength(1);
     expect(result.shelves[0]?.name).toBe('Reading list');
     expect(result.bookmarks.map((b) => [b.title, b.url, b.order])).toEqual([
@@ -174,7 +179,7 @@ describe('migrateLibrary version 0', () => {
 
 describe('migrateLibrary errors', () => {
   it('rejects a higher version as unsupported-version', () => {
-    const result = migrateLibrary({ ...validV1(), version: 2 });
+    const result = migrateLibrary({ ...validV1(), version: 3 });
     expect(result).toMatchObject({ ok: false, error: { code: 'unsupported-version' } });
     expect(migrateLibrary(JSON.stringify({ ...validV1(), version: 9 }))).toMatchObject({
       ok: false,
@@ -200,7 +205,14 @@ describe('migrateLibrary errors', () => {
 describe('emptyLibrary', () => {
   it('has one empty shelf and a default session', () => {
     const library = emptyLibrary(new Date('2026-01-01T00:00:00.000Z'));
-    expect(library).toMatchObject({ format: 'bookmark-bookshelf', version: 1, bookmarks: [], progress: {} });
+    expect(library).toMatchObject({
+      format: 'bookmark-bookshelf',
+      version: 2,
+      bookmarks: [],
+      progress: {},
+      done: {},
+      notes: {},
+    });
     expect(library.shelves).toHaveLength(1);
     expect(library.session).toEqual({ shelfId: null, focusId: null, openId: null, view: 'shelf', variant: 'default' });
     expect(migrated(library)).toEqual(library);

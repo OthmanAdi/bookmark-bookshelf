@@ -1,4 +1,4 @@
-import type { Bookmark, ImportSummary, LibraryV1 } from './types';
+import type { Bookmark, ImportSummary, LibraryV2 } from './types';
 import type { OpContext } from './bookmark-ops';
 import { ownValue } from './ids';
 import { shelfBookmarks, sortLibrary } from './ordering';
@@ -11,7 +11,7 @@ function takeId(wanted: string, used: Set<string>, ctx: OpContext): string {
 }
 
 /** Existing shelves are matched by name, new ones are added at the end. Returns incoming shelf id to local id. */
-function mergeShelves(lib: LibraryV1, incoming: LibraryV1, ctx: OpContext): { ids: Map<string, string>; added: number } {
+function mergeShelves(lib: LibraryV2, incoming: LibraryV2, ctx: OpContext): { ids: Map<string, string>; added: number } {
   const used = new Set(lib.shelves.map((shelf) => shelf.id));
   const ids = new Map<string, string>();
   let added = 0;
@@ -43,7 +43,7 @@ function updateExisting(existing: Bookmark, incoming: Bookmark, now: string): vo
  * Adds shelves by name and volumes by URL. A volume whose URL is already present keeps its id,
  * shelf, cover and progress. `updated` counts every URL that matched an existing volume.
  */
-export function mergeLibrary(lib: LibraryV1, incoming: LibraryV1, ctx: OpContext): ImportSummary {
+export function mergeLibrary(lib: LibraryV2, incoming: LibraryV2, ctx: OpContext): ImportSummary {
   const { ids: shelfIds, added: shelvesAdded } = mergeShelves(lib, incoming, ctx);
   const usedIds = new Set(lib.bookmarks.map((bookmark) => bookmark.id));
   let added = 0;

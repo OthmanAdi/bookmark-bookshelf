@@ -1,10 +1,11 @@
-import type { LibraryV1, Session } from './types';
+import type { LibraryV2, Session } from './types';
+import { SORT_MODES } from './types';
 
 /**
  * Applies the valid parts of a session patch and reports whether anything changed.
- * Ids that point at nothing, an unknown view and an empty variant are ignored.
+ * Ids that point at nothing, an unknown view, sort or text size and an empty variant are ignored.
  */
-export function applySessionPatch(lib: LibraryV1, patch: Partial<Session>): boolean {
+export function applySessionPatch(lib: LibraryV2, patch: Partial<Session>): boolean {
   const session = lib.session;
   let changed = false;
   const set = <K extends keyof Session>(key: K, value: Session[K]): void => {
@@ -22,5 +23,9 @@ export function applySessionPatch(lib: LibraryV1, patch: Partial<Session>): bool
   }
   if (patch.view === 'shelf' || patch.view === 'list') set('view', patch.view);
   if (typeof patch.variant === 'string' && patch.variant.trim() !== '') set('variant', patch.variant.trim());
+  if (typeof patch.textScale === 'number' && Number.isFinite(patch.textScale)) {
+    set('textScale', Math.min(4, Math.max(0, Math.round(patch.textScale))));
+  }
+  if (typeof patch.sort === 'string' && (SORT_MODES as readonly string[]).includes(patch.sort)) set('sort', patch.sort);
   return changed;
 }

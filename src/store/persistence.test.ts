@@ -64,7 +64,7 @@ describe('persistence', () => {
   });
 
   it('backs up a library from a newer version as well', () => {
-    const newer = JSON.stringify({ format: 'bookmark-bookshelf', version: 2, shelves: [], bookmarks: [] });
+    const newer = JSON.stringify({ format: 'bookmark-bookshelf', version: 3, shelves: [], bookmarks: [] });
     const storage = createMemoryStorage({ [DEFAULT_STORAGE_KEY]: newer });
     createStore({ storage, now: testClock().now, syncTabs: false });
     const backups = backupKeys(storage, [DEFAULT_STORAGE_KEY]);

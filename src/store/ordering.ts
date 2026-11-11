@@ -1,7 +1,7 @@
-import type { Bookmark, LibraryV1 } from './types';
+import type { Bookmark, LibraryV2 } from './types';
 
 /** Puts shelves and volumes in canonical order and re-indexes both to 0..n-1. */
-export function sortLibrary(lib: LibraryV1): void {
+export function sortLibrary(lib: LibraryV2): void {
   lib.shelves.sort((a, b) => a.order - b.order);
   lib.shelves.forEach((shelf, index) => {
     shelf.order = index;
@@ -18,12 +18,12 @@ export function sortLibrary(lib: LibraryV1): void {
 }
 
 /** Live references to one shelf's volumes in order. */
-export function shelfBookmarks(lib: LibraryV1, shelfId: string): Bookmark[] {
+export function shelfBookmarks(lib: LibraryV2, shelfId: string): Bookmark[] {
   return lib.bookmarks.filter((bookmark) => bookmark.shelfId === shelfId).sort((a, b) => a.order - b.order);
 }
 
 /** Live references, ordered by shelf and then volume when no shelf is given. */
-export function orderedBookmarks(lib: LibraryV1, shelfId: string | null | undefined): Bookmark[] {
+export function orderedBookmarks(lib: LibraryV2, shelfId: string | null | undefined): Bookmark[] {
   return shelfId == null ? [...lib.bookmarks] : shelfBookmarks(lib, shelfId);
 }
 
@@ -31,7 +31,7 @@ export function orderedBookmarks(lib: LibraryV1, shelfId: string | null | undefi
  * Moves a volume (already in `lib.bookmarks`) to `shelfId` at `index`.
  * Without an index it keeps its place on the same shelf, or goes to the end of another one.
  */
-export function placeBookmark(lib: LibraryV1, bookmark: Bookmark, shelfId: string, index?: number): void {
+export function placeBookmark(lib: LibraryV2, bookmark: Bookmark, shelfId: string, index?: number): void {
   const sameShelf = bookmark.shelfId === shelfId;
   const currentIndex = shelfBookmarks(lib, bookmark.shelfId).findIndex((item) => item.id === bookmark.id);
   const target = shelfBookmarks(lib, shelfId).filter((item) => item.id !== bookmark.id);

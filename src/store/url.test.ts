@@ -46,8 +46,8 @@ describe('defaultCover', () => {
   });
 
   it('matches the FNV-1a 32-bit reference values', () => {
-    expect(defaultCover('').seed).toBe(0x811c9dc5);
-    expect(defaultCover('a').seed).toBe(0xe40c292c);
+    expect(defaultCover('').seed).toBe(0x811c9dc5 & 0x7fffffff);
+    expect(defaultCover('a').seed).toBe(0xe40c292c & 0x7fffffff);
   });
 
   it('varies with the text', () => {

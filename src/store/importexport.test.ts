@@ -21,7 +21,7 @@ describe('exportLibrary', () => {
     const text = store.exportLibrary();
     expect(text.endsWith('}\n')).toBe(true);
     expect(text).toBe(`${JSON.stringify(store.snapshot(), null, 2)}\n`);
-    expect(text).toContain('\n  "version": 1');
+    expect(text).toContain('\n  "version": 2');
   });
 
   it('round trips through importLibrary replace into an equal snapshot', () => {

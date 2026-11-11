@@ -1,11 +1,11 @@
-import type { KeyValueStorage, LibraryV1, StoreError } from './types';
+import type { KeyValueStorage, LibraryV1, LibraryV2, StoreError } from './types';
 import { emptyLibrary } from './library';
 import { migrateLibrary } from './migrate';
 
 export interface LoadParams {
   storage: KeyValueStorage;
   key: string;
-  seed?: () => LibraryV1;
+  seed?: () => LibraryV1 | LibraryV2;
   now: () => Date;
   idFactory: () => string;
 }
@@ -28,7 +28,7 @@ function backUpRaw(params: LoadParams, raw: string): void {
   }
 }
 
-function seedLibrary(params: LoadParams): LibraryV1 {
+function seedLibrary(params: LoadParams): LibraryV2 {
   const seeded = params.seed?.();
   if (seeded) {
     const migrated = migrateLibrary(seeded, params);
@@ -37,7 +37,7 @@ function seedLibrary(params: LoadParams): LibraryV1 {
   return emptyLibrary(params.now());
 }
 
-export function loadLibrary(params: LoadParams): LibraryV1 {
+export function loadLibrary(params: LoadParams): LibraryV2 {
   const raw = readRaw(params.storage, params.key);
   if (raw === null) return seedLibrary(params);
   const migrated = migrateLibrary(raw, params);
@@ -47,7 +47,7 @@ export function loadLibrary(params: LoadParams): LibraryV1 {
 }
 
 /** Writes the library. A refusal from storage becomes a `quota` error instead of an exception. */
-export function saveLibrary(storage: KeyValueStorage, key: string, library: LibraryV1): StoreError | undefined {
+export function saveLibrary(storage: KeyValueStorage, key: string, library: LibraryV2): StoreError | undefined {
   try {
     storage.setItem(key, JSON.stringify(library));
     return undefined;

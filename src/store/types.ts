@@ -4,7 +4,7 @@
  */
 
 export const LIBRARY_FORMAT = 'bookmark-bookshelf' as const;
-export const LIBRARY_VERSION = 1 as const;
+export const LIBRARY_VERSION = 2 as const;
 export const DEFAULT_STORAGE_KEY = 'bookmark-bookshelf:library';
 
 export type Unsubscribe = () => void;
@@ -32,10 +32,25 @@ export interface CoverSpec {
   seed: number;
 }
 
+/** Where a shelf came from when it arrived as a shelf file or link. */
+export interface ShelfOrigin {
+  shelfId: string;
+  revision: number;
+}
+
 export interface Shelf {
   id: string;
   name: string;
   order: number;
+  /** At most 500 characters. */
+  description?: string;
+  /** Language of the texts on the shelf: letters, digits and hyphens, at most 12 characters. */
+  lang?: string;
+  /** Who put the shelf together, at most 80 characters. */
+  author?: string;
+  /** Due date, `YYYY-MM-DD`. */
+  due?: string;
+  origin?: ShelfOrigin;
 }
 
 /** Text the person saved to read in the app. The app never fetches it from the web. */
@@ -43,6 +58,12 @@ export interface ReadingCopy {
   format: 'markdown-lite';
   text: string;
   savedAt: string;
+}
+
+/** Where a link came from when its shelf arrived as a shelf file or link. */
+export interface BookmarkOrigin {
+  shelfId: string;
+  volumeId: string;
 }
 
 export interface Bookmark {
@@ -60,6 +81,11 @@ export interface Bookmark {
   updatedAt: string;
   cover: CoverSpec;
   reading?: ReadingCopy;
+  /** Absent means required. Only `false` is stored. */
+  required?: boolean;
+  /** Reading time in minutes, 1 to 600. Overrides the estimate made from the text. */
+  minutes?: number;
+  origin?: BookmarkOrigin;
 }
 
 /**
@@ -74,6 +100,18 @@ export interface Progress {
   updatedAt: string;
 }
 
+export const SORT_MODES = [
+  'manual',
+  'added-new',
+  'added-old',
+  'title',
+  'source',
+  'unread-first',
+  'shortest',
+] as const;
+
+export type SortMode = (typeof SORT_MODES)[number];
+
 export interface Session {
   /** Active shelf filter. `null` means every shelf. */
   shelfId: string | null;
@@ -83,14 +121,36 @@ export interface Session {
   openId: string | null;
   view: 'shelf' | 'list';
   variant: string;
+  /** Reading text size step, 0 to 4. Absent means 1. */
+  textScale?: number;
+  /** How the list and the shelf are ordered. Absent means `manual`. */
+  sort?: SortMode;
 }
 
+/** The shape of a library saved before version 2. It is read and upgraded, never written. */
 export interface LibraryV1 {
+  format: typeof LIBRARY_FORMAT;
+  version: 1;
+  shelves: Shelf[];
+  bookmarks: Bookmark[];
+  progress: Record<string, Progress>;
+  session: Session;
+}
+
+/**
+ * Everything personal lives in the maps next to `progress`, keyed by volume id, so a shelf can be handed
+ * to someone without taking any of it.
+ */
+export interface LibraryV2 {
   format: typeof LIBRARY_FORMAT;
   version: typeof LIBRARY_VERSION;
   shelves: Shelf[];
   bookmarks: Bookmark[];
   progress: Record<string, Progress>;
+  /** When each volume was marked read, as an ISO time. */
+  done: Record<string, string>;
+  /** Private notes, at most 2,000 characters each. */
+  notes: Record<string, string>;
   session: Session;
 }
 
@@ -110,6 +170,10 @@ export interface BookmarkInput {
   shelfId?: string;
   cover?: Partial<CoverSpec>;
   readingText?: string;
+  /** `false` marks the link as optional. */
+  required?: boolean;
+  /** Whole minutes, 1 to 600. */
+  minutes?: number;
 }
 
 export interface BookmarkPatch {
@@ -122,6 +186,9 @@ export interface BookmarkPatch {
   cover?: Partial<CoverSpec>;
   /** Empty string removes the reading copy. */
   readingText?: string;
+  required?: boolean;
+  /** Whole minutes, 1 to 600. `null` goes back to the estimate made from the text. */
+  minutes?: number | null;
 }
 
 export type ChangeReason = 'bookmarks' | 'shelves' | 'progress' | 'session' | 'replace' | 'external';
@@ -136,7 +203,7 @@ export interface StoreOptions {
   storage?: KeyValueStorage;
   key?: string;
   /** Library used when nothing is stored yet. Defaults to one empty shelf. */
-  seed?: () => LibraryV1;
+  seed?: () => LibraryV1 | LibraryV2;
   now?: () => Date;
   idFactory?: () => string;
   /** Listen for changes from other tabs. Defaults to true when `window` exists. */
@@ -155,7 +222,7 @@ export interface Store {
   /** `local` when writes reach durable storage, `memory` when they do not. */
   readonly persistence: 'local' | 'memory';
   /** Deep copy of the whole library. */
-  snapshot(): LibraryV1;
+  snapshot(): LibraryV2;
 
   shelves(): Shelf[];
   /** Ordered volumes of one shelf, or of every shelf when `shelfId` is null or omitted. */
