@@ -1,5 +1,5 @@
 import type { Bookshelf } from './bookshelf';
-import { createEditor } from './editor';
+import { createEditor, type LinkPreset } from './editor';
 import type { Store } from '../store';
 
 /**
@@ -14,12 +14,7 @@ export interface FlowContext {
   refresh(): void;
 }
 
-export interface LinkPreset {
-  url?: string;
-  title?: string;
-  text?: string;
-  shelfId?: string;
-}
+export type { LinkPreset };
 
 export interface Flows {
   addLink(preset?: LinkPreset): void;
@@ -49,7 +44,7 @@ export function createFlows(context: FlowContext): Flows {
   });
 
   return {
-    addLink: () => editor.add(),
+    addLink: (preset) => editor.add(preset),
     editLink: (id) => editor.edit(id),
     bringLinksIn: () => undefined,
     shareShelf: () => undefined,
