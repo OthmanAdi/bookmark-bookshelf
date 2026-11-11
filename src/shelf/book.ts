@@ -143,11 +143,12 @@ export function createBookend(side: 'start' | 'end'): BookendNode {
 
 /**
  * Lays the printed cover on the front board. The print only shows as the volume turns toward the viewer,
- * so a volume that is still at rest looks the same with or without it.
+ * so a volume that is still at rest looks the same with or without it. `aspect` is the cover's width over
+ * its height in the current look, so the plate is composed for the board it is printed on.
  */
-export function ensurePrint(node: BookNode): void {
+export function ensurePrint(node: BookNode, aspect?: number): void {
   if (node.print) return;
-  const print = createCover(node.item, markFor(node.item, node.index));
+  const print = createCover(node.item, markFor(node.item, node.index), { aspect });
   node.cover.insertBefore(print, node.coverShade);
   node.cover.insertBefore(span('bb-book__sheen'), node.coverShade.nextSibling);
   node.print = print;

@@ -451,7 +451,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       // The print is laid on well before the volume starts to turn and kept a while after, so a volume
       // drifting back and forth at the edge of the band does not build and drop it over and over.
       const distance = Math.abs(slotPose.slot - position);
-      if (distance < PRINT_NEAR || slotPose.slot === openSlot) ensurePrint(node);
+      // Every cover keeps the look's proportion, however tall its volume is.
+      if (distance < PRINT_NEAR || slotPose.slot === openSlot) ensurePrint(node, geometry.coverWidth / geometry.bookHeight);
       else if (distance > PRINT_FAR) dropPrint(node);
 
       const offset = parting && openSlot !== null ? slotPose.slot - openSlot : Number.NaN;

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createCover } from './cover-art';
 import { DEFAULT_LIGHT, faceShades } from './light';
 import { mountShelf } from './shelf';
 import type { ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions } from './types';
@@ -250,6 +251,15 @@ describe('mountShelf rendering', () => {
     expect(bySlot(shelf, 1).querySelector('.bb-book__cover .bb-cover')).not.toBeNull();
     expect(bySlot(shelf, 2).querySelector('.bb-cover')).toBeNull();
     expect(bySlot(shelf, -3).querySelector('.bb-cover')).toBeNull();
+  });
+
+  it('composes the printed cover for the proportion of the look', () => {
+    const { shelf } = mount({ variant: 'oak' });
+    const { coverWidth, bookHeight } = shelf.variant.geometry;
+    const item = makeItems(1)[0]!;
+    const printed = bySlot(shelf, 0).querySelector('.bb-book__cover .bb-cover svg')?.getAttribute('viewBox');
+    expect(printed).toBe(createCover(item, '01', { aspect: coverWidth / bookHeight }).querySelector('svg')?.getAttribute('viewBox'));
+    expect(printed).not.toBe(createCover(item, '01').querySelector('svg')?.getAttribute('viewBox'));
   });
 
   it('keeps a print until the volume is well past the centre, then drops it', () => {
