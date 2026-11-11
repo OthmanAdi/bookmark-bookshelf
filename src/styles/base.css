@@ -120,6 +120,52 @@ label,
   line-height: var(--bb-line-micro);
 }
 
+/*
+ * The wordmark: two spines and one volume turned to its cover, leaning on its neighbour.
+ * The books stand on the text baseline and the shelf rule hangs just under it, so the mark
+ * sits on the line like a letter. Drawn in CSS so any host can use it with one empty span:
+ *   <a class="bb-brand" href="..."><span class="bb-mark" aria-hidden="true"></span>Bookmark Bookshelf</a>
+ */
+.bb-brand {
+  display: inline-block;
+  color: var(--bb-ink);
+  font-family: var(--bb-font-serif);
+  font-size: var(--bb-text-brand);
+  font-weight: var(--bb-weight-title);
+  line-height: var(--bb-control-h);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.bb-mark {
+  --u: 0.04em;
+  position: relative;
+  display: inline-block;
+  width: calc(25 * var(--u));
+  height: calc(22.5 * var(--u));
+  margin: 0 0.42em calc(-2.5 * var(--u)) 0;
+  vertical-align: baseline;
+  background:
+    linear-gradient(currentColor, currentColor) 0 100% / 100% calc(2.5 * var(--u)) no-repeat,
+    linear-gradient(currentColor, currentColor) calc(1.5 * var(--u)) 0 / calc(5 * var(--u)) calc(20 * var(--u)) no-repeat,
+    linear-gradient(currentColor, currentColor) calc(8 * var(--u)) calc(4 * var(--u)) / calc(4 * var(--u)) calc(16 * var(--u)) no-repeat;
+}
+
+.bb-mark::before {
+  content: '';
+  position: absolute;
+  left: calc(14.25 * var(--u));
+  bottom: calc(2.5 * var(--u));
+  width: calc(9 * var(--u));
+  height: calc(19 * var(--u));
+  background:
+    linear-gradient(var(--bb-paper-raised), var(--bb-paper-raised)) calc(2 * var(--u)) calc(3 * var(--u)) / calc(5 * var(--u)) calc(2 * var(--u)) no-repeat,
+    var(--bb-accent);
+  transform-origin: 0 100%;
+  rotate: -8deg;
+}
+
 /* Present for assistive technology and keyboard focus, absent visually. */
 .bb-visually-hidden {
   position: absolute;
@@ -295,5 +341,17 @@ textarea.bb-input {
     border-color: GrayText;
     color: GrayText;
     opacity: 1;
+  }
+
+  .bb-mark,
+  .bb-mark::before {
+    forced-color-adjust: none;
+    color: CanvasText;
+  }
+
+  .bb-mark::before {
+    background:
+      linear-gradient(Canvas, Canvas) calc(2 * var(--u)) calc(3 * var(--u)) / calc(5 * var(--u)) calc(2 * var(--u)) no-repeat,
+      CanvasText;
   }
 }
