@@ -19,11 +19,13 @@
           <span>Bookmark Bookshelf</span>
         </a>
         <div class="bb-app__tools">
-          <label class="bb-field-inline">
-            <span class="bb-label">Look</span>
-            <select id="variant" class="bb-select"></select>
-          </label>
-          <button id="view" type="button" class="bb-button" aria-pressed="false">List view</button>
+          <div class="bb-menu">
+            <button id="view-button" type="button" class="bb-button bb-button--quiet bb-menu__button" aria-haspopup="menu">
+              View
+              <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M2.5 4.5 6 8l3.5-3.5" /></svg>
+            </button>
+            <div id="view-menu" class="bb-menu__panel" role="menu" aria-label="View" hidden></div>
+          </div>
           <button id="add" type="button" class="bb-button bb-button--solid">Add a link</button>
         </div>
       </header>

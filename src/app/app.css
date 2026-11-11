@@ -39,14 +39,19 @@
 
 /* ---------- top bar ---------- */
 
+/* One row: the wordmark at the left, the tools at the right, the solid Add a link last. */
 .bb-app__bar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--bb-s-3) var(--bb-s-5);
-  padding: var(--bb-s-4) var(--bb-s-5);
+  gap: var(--bb-s-3);
+  min-height: var(--bb-bar-h, 3.5rem);
+  padding: 0 var(--bb-gutter, clamp(1.25rem, 2.5vw, 2.5rem));
   border-bottom: var(--bb-hairline) solid var(--bb-rule);
+}
+
+.bb-app__bar .bb-wordmark {
+  flex: none;
+  margin-right: auto;
 }
 
 .bb-wordmark {
@@ -74,35 +79,148 @@
 
 .bb-app__tools {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--bb-s-2) var(--bb-s-3);
-}
-
-.bb-field-inline {
-  display: inline-flex;
   align-items: center;
   gap: var(--bb-s-2);
-  color: var(--bb-ink-soft);
+  min-width: 0;
 }
 
-.bb-select {
-  min-height: 2.5rem;
-  padding: 0 var(--bb-s-3);
+/* ---------- menus ---------- */
+
+.bb-menu {
+  position: relative;
+}
+
+.bb-menu__button svg {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bb-menu__button[aria-expanded='true'] svg {
+  rotate: 180deg;
+}
+
+.bb-menu__panel {
+  position: absolute;
+  top: calc(100% + var(--bb-s-1));
+  right: 0;
+  z-index: var(--bb-z-chrome);
+  display: grid;
+  width: max-content;
+  min-width: 16rem;
+  max-width: min(22rem, calc(100vw - 2 * var(--bb-gutter, 1.25rem)));
+  padding: var(--bb-s-2);
   border: var(--bb-hairline) solid var(--bb-rule-strong);
-  border-radius: var(--bb-r-1);
+  border-radius: var(--bb-r-2);
   background: var(--bb-paper-raised);
   color: var(--bb-ink);
-  font-family: var(--bb-font-serif);
-  font-size: 1rem;
+  text-align: left;
+  box-shadow: 0 18px 40px -18px color-mix(in srgb, var(--bb-ink) 55%, transparent);
+  animation: bb-menu-in var(--bb-dur-2) var(--bb-ease-out);
 }
 
-.bb-select {
-  font-family: var(--bb-font-mono);
-  font-size: var(--bb-text-micro);
+.bb-menu__panel[hidden] {
+  display: none;
+}
+
+/* A menu opened from the bottom dock rises above it. */
+.bb-menu__panel[data-side='top'] {
+  top: auto;
+  bottom: calc(100% + var(--bb-s-1));
+}
+
+@keyframes bb-menu-in {
+  from {
+    opacity: 0;
+    translate: 0 -0.25rem;
+  }
+}
+
+.bb-menu__group {
+  display: grid;
+}
+
+.bb-menu__heading {
+  padding: var(--bb-s-2) var(--bb-s-3) var(--bb-s-1);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+}
+
+.bb-menu__rule {
+  height: var(--bb-hairline);
+  margin: var(--bb-s-2) 0;
+  background: var(--bb-rule);
+}
+
+.bb-menu__item {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--bb-s-1);
+  width: 100%;
+  min-height: var(--bb-control-h, 2.5rem);
+  padding: var(--bb-s-2) var(--bb-s-3) var(--bb-s-2) var(--bb-s-2);
+  border: 0;
+  border-radius: var(--bb-r-1);
+  background: transparent;
+  color: var(--bb-ink);
+  font-family: var(--bb-font-serif);
+  font-size: var(--bb-text-ui, 0.9375rem);
   font-weight: 500;
-  letter-spacing: var(--bb-track-label);
-  text-transform: uppercase;
+  line-height: 1.33;
+  text-align: left;
+  text-decoration: none;
+  touch-action: manipulation;
+}
+
+.bb-menu__item:hover {
+  background: var(--bb-rule);
+}
+
+.bb-menu__item:focus-visible {
+  outline-offset: -2px;
+}
+
+.bb-menu__item[aria-checked='true']::before {
+  content: '\2713';
+  grid-column: 1;
+}
+
+.bb-menu__label,
+.bb-menu__summary {
+  grid-column: 2;
+}
+
+.bb-menu__summary {
+  margin-top: var(--bb-s-1);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.bb-menu__note {
+  max-width: 18rem;
+  padding: var(--bb-s-2) var(--bb-s-3);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  line-height: 1.4;
+}
+
+/* The row fades out and back while the look changes, so nothing is seen being rebuilt. */
+#shelf {
+  transition: opacity calc(var(--bb-dur-2) / 2) var(--bb-ease-in-out);
+}
+
+#shelf.is-changing {
+  opacity: 0;
+}
+
+.bb-app {
+  transition: background-color var(--bb-dur-2) var(--bb-ease-in-out);
 }
 
 /* ---------- shelf tabs ---------- */
@@ -409,8 +527,22 @@
     column-gap: var(--bb-s-3);
   }
 
+  /* On a phone a menu spans the screen between the gutters instead of hanging off its button. */
+  .bb-menu__panel {
+    position: fixed;
+    top: calc(var(--bb-bar-h, 3.5rem) + var(--bb-s-1));
+    left: var(--bb-gutter, 1.25rem);
+    right: var(--bb-gutter, 1.25rem);
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    max-height: calc(100dvh - var(--bb-bar-h, 3.5rem) - var(--bb-s-5));
+    overflow-y: auto;
+  }
+
   .bb-app__bar {
-    padding: var(--bb-s-3) var(--bb-s-4);
+    flex-wrap: wrap;
+    padding-block: var(--bb-s-2);
   }
 
   .bb-app__shelves {
@@ -428,10 +560,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .bb-app,
+  #shelf,
   .bb-tab,
   .bb-stage__title,
   .bb-stage__line {
     transition: none;
+  }
+
+  .bb-menu__panel {
+    animation: none;
   }
 
   .bb-stage__arrow.is-bumping:first-child,

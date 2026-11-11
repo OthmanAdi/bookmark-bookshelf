@@ -6,11 +6,13 @@ import { listVariants } from '../shelf';
 import { createStore, type Bookmark, type Store } from '../store';
 import { minutesOf } from '../store/reading-time';
 import { createBookshelf } from './bookshelf';
-import { button, downloadText, make, must, option, toast } from './dom';
+import { button, downloadText, make, must, toast } from './dom';
 import { askText } from './editor';
 import { createFlows } from './flows';
 import { renderList } from './list-view';
+import { createMenu } from './menu';
 import { createStageCaption, type LinkView } from './shell-stage';
+import { renderViewMenu, type ViewMode } from './shell-view-menu';
 
 /**
  * The app shell: page chrome around the composed bookshelf.
@@ -23,8 +25,6 @@ const shelfHost = must<HTMLElement>('#shelf');
 const listHost = must<HTMLElement>('#list');
 const tabs = must<HTMLElement>('#tabs');
 const shelfTools = must<HTMLElement>('#shelf-tools');
-const viewToggle = must<HTMLButtonElement>('#view');
-const variantPicker = must<HTMLSelectElement>('#variant');
 
 const captionHost = must<HTMLElement>('#caption');
 
@@ -265,8 +265,6 @@ function applyView(): void {
   shelfHost.hidden = list;
   captionHost.hidden = list;
   listHost.hidden = !list;
-  viewToggle.setAttribute('aria-pressed', String(list));
-  viewToggle.textContent = list ? 'Shelf view' : 'List view';
   if (list) renderListView();
   else bookshelf.shelf.refresh();
 }
@@ -280,13 +278,33 @@ function renderAll(): void {
 
 /* ---------- wiring ---------- */
 
-for (const variant of listVariants()) variantPicker.appendChild(option(variant.name, variant.label));
-variantPicker.value = bookshelf.shelf.variant.name;
-variantPicker.addEventListener('change', () => bookshelf.setVariant(variantPicker.value));
+/** Half of the look change: the row fades out, the look changes while nothing is visible, and the row fades back. */
+const LOOK_FADE_MS = 110;
 
-viewToggle.addEventListener('click', () => {
-  store.setSession({ view: store.session().view === 'list' ? 'shelf' : 'list' });
+function changeLook(name: string): void {
+  if (name === bookshelf.shelf.variant.name) return;
+  if (bookshelf.motion.state.reduced || store.session().view === 'list') {
+    bookshelf.setVariant(name);
+    return;
+  }
+  shelfHost.classList.add('is-changing');
+  window.setTimeout(() => {
+    bookshelf.setVariant(name);
+    shelfHost.classList.remove('is-changing');
+  }, LOOK_FADE_MS);
+}
+
+function setView(view: ViewMode): void {
+  if (store.session().view === view) return;
+  store.setSession({ view });
   applyView();
+}
+
+const viewMenu = renderViewMenu({ panel: must<HTMLElement>('#view-menu'), looks: listVariants(), onView: setView, onLook: changeLook });
+createMenu({
+  button: must<HTMLButtonElement>('#view-button'),
+  panel: must<HTMLElement>('#view-menu'),
+  onOpen: () => viewMenu.update({ view: store.session().view, look: bookshelf.shelf.variant.name }),
 });
 
 must<HTMLButtonElement>('#add').addEventListener('click', () => flows.addLink());
