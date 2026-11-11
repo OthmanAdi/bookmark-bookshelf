@@ -3,6 +3,7 @@
  * No shelf, no motion, no store. Progress lives in sessionStorage under one key.
  */
 import '../src/styles/base.css';
+import './example.css';
 import { mountReader, type ReaderDoc, type ReaderHandle, type ReaderProgress } from '../src/reader';
 
 const STORAGE_KEY = 'bookmark-bookshelf:example:reader-only';

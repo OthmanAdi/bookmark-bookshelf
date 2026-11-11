@@ -1,53 +1,31 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-variant="paper">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Shelf and motion only · Bookmark Bookshelf example</title>
-    <style>
-      .example {
-        display: grid;
-        gap: 1.5rem;
-        padding: 2rem 0 3rem;
-      }
-      .example__head {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 1rem;
-        padding: 0 1.5rem;
-      }
-      .example__head h1 {
-        font-size: 1.5rem;
-      }
-      .example__note {
-        max-width: 60ch;
-        padding: 0 1.5rem;
-        color: var(--bb-ink-soft);
-      }
-      #log {
-        min-height: 1.5em;
-        text-align: center;
-      }
-    </style>
+    <title>Shelf and motion: a Bookmark Bookshelf example</title>
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
   </head>
-  <body>
-    <main class="example">
-      <div class="example__head">
-        <h1>Shelf and motion only</h1>
-        <label class="bb-label">
-          Variant
-          <select id="variant"></select>
+  <body class="bb-example">
+    <header class="bb-example__bar">
+      <a class="bb-brand" href="../index.html"><span class="bb-mark" aria-hidden="true"></span>Bookmark Bookshelf</a>
+    </header>
+    <main class="bb-example__main">
+      <div class="bb-example__head">
+        <h1>Shelf and motion</h1>
+        <p class="bb-example__lead">
+          Only the shelf and the motion parts, with no store and no reader: drag or flick the row, use the arrow keys
+          or pick a spine, and the page names the link you chose.
+        </p>
+        <label class="bb-example__row">
+          Look
+          <select id="variant" class="bb-select"></select>
         </label>
       </div>
-      <p class="example__note">
-        Two modules, no store and no reader. Drag the row, flick it, use the arrow keys, or pick a spine. Picking the
-        centred volume reports it below.
-      </p>
       <div id="shelf"></div>
-      <p id="log" class="bb-label" role="status" aria-live="polite"></p>
-      <p class="example__note"><a href="../index.html">Back to the homepage</a></p>
+      <p id="log" class="bb-example__log" role="status" aria-live="polite"></p>
+      <p class="bb-example__back"><a href="../index.html">Back to the homepage</a></p>
     </main>
     <script type="module" src="./shelf-only.ts"></script>
   </body>

@@ -3,6 +3,7 @@
  * No store, no reader. Items are a plain array and "open" just reports the pick.
  */
 import '../src/styles/base.css';
+import './example.css';
 import { createShelfMotion, prefersReducedMotion } from '../src/motion';
 import { listVariants, mountShelf, type ShelfItem } from '../src/shelf';
 

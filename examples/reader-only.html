@@ -1,49 +1,34 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-variant="paper">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Reader only · Bookmark Bookshelf example</title>
-    <style>
-      .example {
-        display: grid;
-        gap: 1.5rem;
-        padding: 2rem 0 3rem;
-      }
-      .example__head {
-        padding: 0 1.5rem;
-      }
-      .example__head h1 {
-        font-size: 1.5rem;
-      }
-      .example__note {
-        max-width: 60ch;
-        padding: 0 1.5rem;
-        color: var(--bb-ink-soft);
-      }
-      .example__actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        padding: 0 1.5rem;
-      }
-    </style>
+    <title>Reader: a Bookmark Bookshelf example</title>
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
   </head>
-  <body>
-    <main id="page" class="example">
-      <div class="example__head">
-        <h1>Reader only</h1>
-      </div>
-      <p class="example__note">
-        One module, no shelf and no store. The reader shows a short text, remembers how far you scrolled in this tab
-        (kept in session storage by a few lines in the example), and offers the paste panel when a document has no text.
-      </p>
-      <div class="example__actions">
-        <button id="open-text" type="button" class="bb-button bb-button--solid">Open the reader</button>
-        <button id="open-link" type="button" class="bb-button">Open a link without text</button>
-      </div>
-      <p class="example__note"><a href="../index.html">Back to the homepage</a></p>
-    </main>
+  <body class="bb-example">
+    <div id="page">
+      <header class="bb-example__bar">
+        <a class="bb-brand" href="../index.html"><span class="bb-mark" aria-hidden="true"></span>Bookmark Bookshelf</a>
+      </header>
+      <main class="bb-example__main">
+        <div class="bb-example__head">
+          <h1>Reader</h1>
+          <p class="bb-example__lead">
+            Only the reader, with no shelf and no store: it shows a short text, remembers how far you scrolled in
+            this tab, and offers a field for text when a link has none.
+          </p>
+        </div>
+        <div class="bb-example__panel">
+          <p class="bb-example__row">
+            <button id="open-text" type="button" class="bb-button bb-button--solid">Read the example text</button>
+            <button id="open-link" type="button" class="bb-button">Open a link with no text</button>
+          </p>
+        </div>
+        <p class="bb-example__back"><a href="../index.html">Back to the homepage</a></p>
+      </main>
+    </div>
     <div id="reader"></div>
     <script type="module" src="./reader-only.ts"></script>
   </body>

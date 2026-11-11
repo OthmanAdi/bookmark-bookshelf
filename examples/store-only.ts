@@ -3,6 +3,7 @@
  * No shelf, no reader, no motion. Storage is in memory, so nothing outlives the tab.
  */
 import '../src/styles/base.css';
+import './example.css';
 import { createMemoryStorage, createStore } from '../src/store';
 
 const store = createStore({ storage: createMemoryStorage() });

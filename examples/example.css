@@ -1,0 +1,104 @@
+/* Shared by the example pages: the base styles plus one frame, set from the same tokens as the app. */
+
+.bb-example {
+  --example-gutter: clamp(1.25rem, 5vw, 3rem);
+}
+
+.bb-example__bar {
+  display: flex;
+  align-items: center;
+  min-height: var(--bb-bar-h);
+  padding: 0 var(--example-gutter);
+  border-bottom: var(--bb-hairline) solid var(--bb-rule);
+}
+
+.bb-example__main {
+  display: grid;
+  gap: var(--bb-s-5);
+  padding: var(--bb-s-6) 0 var(--bb-s-7);
+}
+
+.bb-example__head {
+  display: grid;
+  gap: var(--bb-s-3);
+  max-width: calc(36rem + 2 * var(--example-gutter));
+  padding: 0 var(--example-gutter);
+}
+
+.bb-example__head h1 {
+  font-size: var(--bb-text-heading);
+}
+
+.bb-example__lead {
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-read);
+  line-height: var(--bb-leading-read);
+}
+
+.bb-example__panel {
+  display: grid;
+  gap: var(--bb-s-4);
+  max-width: calc(36rem + 2 * var(--example-gutter));
+  padding: 0 var(--example-gutter);
+}
+
+.bb-example__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--bb-s-2);
+}
+
+.bb-example__field {
+  display: grid;
+  gap: var(--bb-s-1);
+  font-size: var(--bb-text-small);
+  line-height: var(--bb-line-small);
+}
+
+.bb-example__error {
+  color: var(--bb-danger);
+  font-size: var(--bb-text-small);
+}
+
+.bb-example__error:empty {
+  display: none;
+}
+
+.bb-example__log {
+  min-height: var(--bb-line-micro);
+  text-align: center;
+}
+
+.bb-example__list {
+  display: grid;
+  gap: var(--bb-s-2);
+}
+
+.bb-example__list li {
+  display: grid;
+  overflow-wrap: anywhere;
+}
+
+.bb-example__list small {
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+}
+
+.bb-example__json {
+  max-height: 20rem;
+  margin: 0;
+  padding: var(--bb-s-3);
+  overflow: auto;
+  border: var(--bb-hairline) solid var(--bb-rule);
+  background: var(--bb-sheet);
+  font-family: var(--bb-font-mono);
+  font-size: var(--bb-text-small);
+  line-height: var(--bb-line-small);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bb-example__back {
+  padding: 0 var(--example-gutter);
+}
