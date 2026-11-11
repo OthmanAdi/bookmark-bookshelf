@@ -27,7 +27,6 @@ import {
   readLibrary,
   readerOf,
   readerTitle,
-  rowTitle,
   shelfOf,
   shelfTab,
   showList,
@@ -345,6 +344,6 @@ test.describe('the reader, Escape and Back', () => {
     await tab.keyboard.press('Escape');
     await expectReaderGone(tab);
     await expect(shelfOf(tab)).toHaveAttribute('data-focus-id', bookmark.id);
-    await expect(rowTitle(tab.locator('#list'))).toHaveCount(0);
+    await expect(shelfTab(tab, LOOKUPS.id)).toHaveAttribute('aria-pressed', 'true');
   });
 });

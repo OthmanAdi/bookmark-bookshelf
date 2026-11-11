@@ -21,8 +21,8 @@ import {
   test,
 } from './fixtures';
 
-const onVolume = (page: Page): Promise<boolean> =>
-  page.evaluate(() => document.activeElement?.closest('.bb-book') !== null && document.activeElement?.closest('.bb-book') !== undefined);
+/** True when keyboard focus is on a volume of the row. */
+const onVolume = (page: Page): Promise<boolean> => page.evaluate(() => Boolean(document.activeElement?.closest('.bb-book')));
 
 /** Presses Tab until a volume has focus. Returns how many presses it took. */
 async function tabToVolume(page: Page): Promise<number> {
