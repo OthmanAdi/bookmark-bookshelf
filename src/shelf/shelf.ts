@@ -229,10 +229,12 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     timers.add(timer);
   };
   /** True when nothing may move by itself: every change of the row is then drawn at once. */
+  const reducedQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   const still = (): boolean =>
-    pose.reduced === true ||
-    typeof requestAnimationFrame !== 'function' ||
-    (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    pose.reduced === true || typeof requestAnimationFrame !== 'function' || reducedQuery?.matches === true;
+  /** What was last written on the shelf itself, so a frame that changes neither writes neither. */
+  let wroteEmpty: boolean | null = null;
+  let wroteOpen = '0';
   const listeners = new Set<(intent: ShelfIntent) => void>();
   /** Set once mounting is done, so a host is never called back before it has the handle. */
   let mounted = false;
@@ -613,7 +615,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       if (real !== (node.control !== null)) disordered = true;
       setReal(node, real, items.length, hint.id);
       if (labelsStale) relabel(node, items.length);
-      if (node.control) node.control.tabIndex = node.slot === centre ? 0 : -1;
+      const stop = node.slot === centre ? 0 : -1;
+      if (node.control && node.control.tabIndex !== stop) node.control.tabIndex = stop;
       node.element.classList.toggle('is-centre', node.slot === centre);
     }
     labelsStale = false;
@@ -641,10 +644,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
    * the row travels fast the fade simply continues and the caption that lands is the latest one.
    */
   function showCaption(text: CaptionText): void {
-    const quiet =
-      pose.reduced === true ||
-      typeof caption.animate !== 'function' ||
-      (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const quiet = pose.reduced === true || typeof caption.animate !== 'function' || reducedQuery?.matches === true;
     if (quiet || caption.hidden || captionTitle.textContent === '') {
       captionFade?.cancel();
       captionFade = null;
@@ -742,9 +742,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
         element.style.removeProperty('--bb-delay');
       }, delay + ENTER_MS);
     }
+    if (element.hidden) element.hidden = false;
+    if (x !== bookend.x) element.style.transform = `translate3d(${x}px, 0, 0)`;
     bookend.x = x;
-    element.hidden = false;
-    element.style.transform = `translate3d(${x}px, 0, 0)`;
     const shades = faceShades(light, 0, light.lamp ? (x - lampX) / geometry.coverWidth : 0);
     writeShade(bookend, 0, bookend.edgeShade, shades.spine);
     writeShade(bookend, 1, bookend.frontShade, shades.front);
@@ -760,8 +760,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const count = items.length;
     frameNow = -1;
     travelling = false;
-    empty.hidden = count > 0;
-    root.dataset.empty = count > 0 ? '0' : '1';
+    if (wroteEmpty !== (count === 0)) {
+      wroteEmpty = count === 0;
+      empty.hidden = count > 0;
+      root.dataset.empty = count > 0 ? '0' : '1';
+    }
     if (count === 0) {
       for (const node of nodes.values()) node.element.remove();
       nodes.clear();
@@ -792,7 +795,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     }
     const nextCentre = Math.round(position);
     const centreChanged = nextCentre !== centre;
-    const focusInside = row.contains(document.activeElement);
+    const focusInside = centreChanged && row.contains(document.activeElement);
     centre = nextCentre;
 
     const sized = sizes ? sizeOf : undefined;
@@ -877,17 +880,29 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       const offset = parting && openSlot !== null ? slotPose.slot - openSlot : Number.NaN;
       const reach = Math.abs(offset);
       const away = reach > 0 && reach <= PART_REACH ? Math.sign(offset) * PART * scale * (1 - reach / 5) * pose.open : 0;
+      // A volume that stands as it stood is not written to: most of the row holds still in most frames.
       const style = node.element.style;
-      style.visibility = reach === 0 ? 'hidden' : '';
+      const wrote = node.wrote;
+      if (wrote.out !== (reach === 0)) {
+        wrote.out = reach === 0;
+        style.visibility = wrote.out ? 'hidden' : '';
+      }
       // Only volumes standing at rest lean with the travel: the presented one and the two beside it hold still.
       const tilt = sway === 0 ? 0 : sway * swayShare(distance);
       const leaning = tilt === 0 ? '' : `rotateZ(${tilt.toFixed(3)}deg) `;
-      style.transform =
+      const transform =
         slotPose.lean === 0
           ? `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ${leaning}rotateY(${-slotPose.angle}deg)`
           : `translate3d(${slotPose.x + slotPose.corner + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ` +
             `rotateZ(${slotPose.lean}deg) translateX(${-slotPose.corner}px) ${leaning}rotateY(${-slotPose.angle}deg)`;
-      style.zIndex = slotPose.weight > 0 ? '2' : '';
+      if (wrote.transform !== transform) {
+        wrote.transform = transform;
+        style.transform = transform;
+      }
+      if (wrote.raised !== slotPose.weight > 0) {
+        wrote.raised = slotPose.weight > 0;
+        style.zIndex = wrote.raised ? '2' : '';
+      }
 
       // Distance of the volume's middle from the lamp, in cover widths.
       const along = light.lamp
@@ -900,12 +915,26 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       const turn = Math.sin(slotPose.angle * DEG);
       if (slotPose.weight > 0 || node.turn !== 0) {
         const turning = slotPose.weight > 0;
-        node.turn = turning ? turn : 0;
-        node.element.style.setProperty('--bb-turn', String(node.turn));
-        node.element.style.setProperty('--bb-sheen', turning ? sheenOf(light, slotPose.angle, along).toFixed(4) : '0');
-        node.element.style.setProperty('--bb-sweep', sweepOf(turning ? slotPose.weight : 0).toFixed(4));
+        const turned = turning ? turn : 0;
+        if (turned !== node.turn || wrote.sheen === '') {
+          node.turn = turned;
+          style.setProperty('--bb-turn', String(turned));
+        }
+        const sheen = turning ? sheenOf(light, slotPose.angle, along).toFixed(4) : '0';
+        if (wrote.sheen !== sheen) {
+          wrote.sheen = sheen;
+          style.setProperty('--bb-sheen', sheen);
+        }
+        const sweep = sweepOf(turning ? slotPose.weight : 0).toFixed(4);
+        if (wrote.sweep !== sweep) {
+          wrote.sweep = sweep;
+          style.setProperty('--bb-sweep', sweep);
+        }
       }
-      node.element.classList.toggle('is-turned', slotPose.weight > 0.98);
+      if (wrote.turned !== slotPose.weight > 0.98) {
+        wrote.turned = slotPose.weight > 0.98;
+        node.element.classList.toggle('is-turned', wrote.turned);
+      }
 
       // A bookend stands where its end of the row belongs and travels there by itself, whichever volume ends up beside it.
       if (!loop && live.slot === 0) start = extentOf(live, sizeOf(0), bookendTall)[0] + away - bookendGap;
@@ -914,7 +943,11 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     placeBookend(bookends.start, start);
     placeBookend(bookends.end, end);
 
-    root.dataset.open = pose.open <= 0 ? '0' : pose.open >= 1 ? '1' : 'moving';
+    const open = pose.open <= 0 ? '0' : pose.open >= 1 ? '1' : 'moving';
+    if (open !== wroteOpen) {
+      wroteOpen = open;
+      root.dataset.open = open;
+    }
     if (travelling) requestFrame();
   }
 

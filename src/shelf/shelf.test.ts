@@ -504,6 +504,34 @@ describe('mountShelf pose', () => {
     expect(shelf.surface.style.opacity).toBe('');
   });
 
+  it('writes nothing at all for a frame that changes nothing', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    shelf.setPose({ position: 3, open: 0 });
+    const watch = new MutationObserver(() => undefined);
+    watch.observe(shelf.element, { attributes: true, childList: true, characterData: true, subtree: true });
+    shelf.setPose({ position: 3, open: 0 });
+    shelf.setPose({ position: 3, open: 0 });
+    expect(watch.takeRecords()).toEqual([]);
+    watch.disconnect();
+  });
+
+  it('writes only to the volumes that make room while one opens', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    shelf.setPose({ position: 0, open: 0.4 });
+    const watch = new MutationObserver(() => undefined);
+    watch.observe(shelf.element, { attributes: true, childList: true, characterData: true, subtree: true });
+    shelf.setPose({ position: 0, open: 0.5 });
+    const touched = new Set(watch.takeRecords().map((record) => (record.target as Element).closest?.('.bb-book')));
+    watch.disconnect();
+    // Four volumes each side step aside a little further; the rest of the row is left alone.
+    expect(touched.has(bySlot(shelf, 1))).toBe(true);
+    expect(touched.has(bySlot(shelf, -4))).toBe(true);
+    expect(touched.has(bySlot(shelf, 0))).toBe(false);
+    expect(touched.has(bySlot(shelf, 5))).toBe(false);
+    expect(touched.has(bySlot(shelf, -7))).toBe(false);
+    expect(touched.size).toBe(8);
+  });
+
   it('turns the centred volume and leaves the others', () => {
     const { shelf } = mount();
     shelf.setPose({ position: 1, open: 0 });

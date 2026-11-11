@@ -39,6 +39,8 @@ export interface BookNode {
   print: HTMLElement | null;
   /** Last `--bb-turn` written, so a volume at rest is not written again on every frame. */
   turn: number;
+  /** What else was last written on the list item, for the same reason. */
+  wrote: { transform: string; out: boolean; raised: boolean; turned: boolean; sheen: string; sweep: string };
   /** Last shade written on the spine, the front board and the back board. */
   shades: [number, number, number];
   control: HTMLButtonElement | null;
@@ -156,6 +158,7 @@ export function createBook(item: ShelfItem, index: number, slot: number): BookNo
     fromAt: 0,
     print: null,
     turn: 0,
+    wrote: { transform: '', out: false, raised: false, turned: false, sheen: '', sweep: '' },
     shades: [-1, -1, -1],
     control: null,
   };
