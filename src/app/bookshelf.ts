@@ -1,9 +1,7 @@
 import './bookshelf.css';
 import { createShelfMotion, prefersReducedMotion, type ShelfMotion } from '../motion';
 import { defaultReaderLabels, estimateMinutes, mountReader, type ReaderDoc, type ReaderHandle } from '../reader';
-import { createCover, mountShelf, type ShelfHandle, type ShelfItem } from '../shelf';
-import { outlineOf } from '../shelf/cover-outline';
-import { hashText, imprintOf } from '../shelf/imprint';
+import { createCover, hashText, imprintOf, mountShelf, outlineOf, type ShelfHandle, type ShelfItem } from '../shelf';
 import { sortVolumes, type Bookmark, type Store } from '../store';
 import { createFlight, flightLayoutWidth, type Flight, type FlightEnd, type FlightStart } from './flight';
 
@@ -120,6 +118,9 @@ function toReaderDoc(bookmark: Bookmark, lang?: string): ReaderDoc {
   };
 }
 
+/** More new links than this at once came from a file, not from a hand. */
+const ARRIVE_LIMIT = 3;
+
 const KNOWN_VARIANT_FALLBACK = 'paper';
 
 function wrap(index: number, count: number): number {
@@ -191,6 +192,9 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
   /** True while "Next" swaps one open link for another. */
   let handingOver = false;
 
+  /** Every link in the library when the row was last drawn. */
+  let knownIds = new Set(store.bookmarks(null).map((bookmark) => bookmark.id));
+
   const nextUnread = (id: string): Bookmark | undefined => {
     if (store.session().shelfId === null) return undefined;
     const index = bookmarks.findIndex((bookmark) => bookmark.id === id);
@@ -238,6 +242,8 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
   const detachGesture = motion.attach(shelf.surface, {
     pxPerItem: () => shelf.pitch(),
     extent: () => shelf.surface.clientWidth,
+    // The shelf knows its own spacing, so the volume that was grabbed stays under the hand.
+    track: (start) => shelf.trackFrom(start),
     enabled: () => reader === null,
   });
 
@@ -249,7 +255,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
 
   const stopMotion = motion.subscribe((state) => {
     const time = state.openTime;
-    shelf.setPose({ position: state.position, open: state.open, reduced: state.reduced });
+    shelf.setPose({ position: state.position, open: state.open, reduced: state.reduced, velocity: state.velocity });
     if (flight) {
       if (coverLeavesOnMove && state.open < 1) {
         reader?.setCoverVisible(false);
@@ -469,7 +475,12 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       0,
       bookmarks.findIndex((bookmark) => bookmark.id === keepId),
     );
-    shelf.setItems(items);
+    // A link that was not in the library a moment ago was just added: it drops in, so the eye finds it.
+    // A whole file of new links simply stands there.
+    const all = store.bookmarks(null);
+    const added = all.filter((bookmark) => !knownIds.has(bookmark.id)).map((bookmark) => bookmark.id);
+    knownIds = new Set(all.map((bookmark) => bookmark.id));
+    shelf.setItems(items, added.length > 0 && added.length <= ARRIVE_LIMIT ? { arrive: added } : undefined);
     motion.setCount(items.length, index);
     lastFocusId = null;
     shelf.setPose({ position: motion.state.position, open: motion.state.open, reduced: motion.state.reduced });
