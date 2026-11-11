@@ -13,6 +13,7 @@ import { createFlows } from './flows';
 import { renderList } from './list-view';
 import { createMenu } from './menu';
 import { createSearch, findLinks } from './search';
+import { createPhoneLayout, PHONE_QUERY } from './shell-phone';
 import { createStageCaption, type LinkView } from './shell-stage';
 import { firstToRead, renderStatus, statusLine } from './status';
 import { createShelfTabs } from './shell-tabs';
@@ -364,6 +365,20 @@ function bringToCentre(id: string): void {
 }
 
 const searchInput = must<HTMLInputElement>('#search');
+const phone = createPhoneLayout(
+  {
+    tools: must<HTMLElement>('.bb-app__tools'),
+    viewAnchor: must<HTMLElement>('#library-menu-wrap'),
+    view: must<HTMLElement>('#view-menu-wrap'),
+    viewPanel: must<HTMLElement>('#view-menu'),
+    add: must<HTMLElement>('#add'),
+    dock: must<HTMLElement>('#dock'),
+    searchBox: must<HTMLElement>('#search-box'),
+    searchToggle: must<HTMLButtonElement>('#search-open'),
+    searchInput,
+  },
+  window.matchMedia(PHONE_QUERY),
+);
 let searchOrigin: HTMLElement | null = null;
 searchInput.addEventListener('focus', (event) => {
   searchOrigin = event.relatedTarget instanceof HTMLElement ? event.relatedTarget : null;
@@ -381,6 +396,7 @@ createSearch(
     find: (query) => findLinks(store.bookmarks(null), new Map(store.shelves().map((shelf) => [shelf.id, shelf.name])), query),
     choose: bringToCentre,
     leave: () => {
+      if (phone.isPhone()) return phone.closeSearch(true);
       const origin = searchOrigin;
       if (origin && origin.isConnected && origin.getClientRects().length > 0) origin.focus({ preventScroll: true });
       else bookshelf.shelf.focusCurrent();

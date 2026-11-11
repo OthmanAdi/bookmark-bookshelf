@@ -434,7 +434,8 @@
  */
 .bb-app__shelves {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(0, 1fr);
+  /* Plain 1fr keeps at least the Shelf menu's width at the right when room runs short. */
+  grid-template-columns: 1fr minmax(0, max-content) 1fr;
   align-items: center;
   column-gap: var(--bb-s-4);
   padding: var(--bb-s-3) var(--bb-gutter, clamp(1.25rem, 2.5vw, 2.5rem)) 0;
@@ -706,52 +707,213 @@
   }
 }
 
-/* ---------- small screens ---------- */
+/* ---------- phones ---------- */
 
-@media (max-width: 40rem) {
-  .bb-app__chrome {
-    height: auto;
-    min-height: 100dvh;
+/* Pull-to-refresh must not reload the app under a thumb that drifts down at the top of the page. */
+.bb-app-root {
+  overscroll-behavior-y: contain;
+}
+
+.bb-app :is(button, a, summary, input, select, textarea) {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bb-app__dock,
+.bb-search__toggle,
+.bb-menu__more {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .bb-tab,
+  .bb-menu__item,
+  .bb-search__field {
+    min-height: 2.75rem;
   }
 
+  .bb-stage__arrow {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
+/*
+ * A narrow screen, or a touch screen up to tablet width: one row of bar at the top with the wordmark,
+ * a search icon and the Library menu; the tabs; the stage; and a dock at the bottom with View and
+ * Add a link, where a thumb reaches them. Bar and dock keep clear of the notch and the home indicator.
+ */
+@media (max-width: 40rem), (pointer: coarse) and (max-width: 48rem) {
+  .bb-app-root {
+    --bb-safe-top: env(safe-area-inset-top, 0px);
+    --bb-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --bb-safe-left: max(var(--bb-gutter, 1.25rem), env(safe-area-inset-left, 0px));
+    --bb-safe-right: max(var(--bb-gutter, 1.25rem), env(safe-area-inset-right, 0px));
+    /* What a toast or a panel at the bottom has to keep clear of. */
+    --bb-dock-space: calc(var(--bb-bar-h, 3.5rem) + var(--bb-safe-bottom));
+  }
+
+  .bb-app__bar {
+    position: relative;
+    gap: var(--bb-s-1);
+    min-height: calc(var(--bb-bar-h, 3.5rem) + var(--bb-safe-top));
+    padding: var(--bb-safe-top) var(--bb-safe-right) 0 var(--bb-safe-left);
+  }
+
+  .bb-app__bar .bb-wordmark {
+    min-width: 0;
+  }
+
+  .bb-app__tools {
+    gap: 0;
+  }
+
+  /* Search folds into an icon; opened, the field lies across the whole bar. */
+  .bb-search {
+    position: static;
+    flex: none;
+    min-width: 0;
+  }
+
+  .bb-search__toggle,
+  .bb-menu__more {
+    display: inline-flex;
+  }
+
+  .bb-search__toggle,
+  #library-button {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0;
+  }
+
+  .bb-search__toggle svg,
+  .bb-menu__more {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+
+  .bb-menu__more {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  #library-button .bb-menu__text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  #library-button > svg:not(.bb-menu__more) {
+    display: none;
+  }
+
+  .bb-search:not([data-open]) :is(.bb-search__field, .bb-search__icon, .bb-search__key) {
+    display: none;
+  }
+
+  .bb-search[data-open] .bb-search__toggle {
+    visibility: hidden;
+  }
+
+  .bb-search[data-open] .bb-search__field {
+    position: absolute;
+    top: calc(var(--bb-safe-top) + (var(--bb-bar-h, 3.5rem) - 2.75rem) / 2);
+    left: var(--bb-safe-left);
+    right: var(--bb-safe-right);
+    z-index: 1;
+    width: auto;
+    height: 2.75rem;
+  }
+
+  .bb-search[data-open] .bb-search__icon {
+    top: calc(var(--bb-safe-top) + var(--bb-bar-h, 3.5rem) / 2);
+    left: calc(var(--bb-safe-left) + var(--bb-s-3));
+    z-index: 2;
+  }
+
+  .bb-search[data-open] .bb-search__key {
+    display: none;
+  }
+
+  .bb-search__popup {
+    position: fixed;
+    top: calc(var(--bb-safe-top) + var(--bb-bar-h, 3.5rem) + var(--bb-s-1));
+    left: var(--bb-safe-left);
+    right: var(--bb-safe-right);
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - var(--bb-safe-top) - var(--bb-bar-h, 3.5rem) - var(--bb-dock-space) - var(--bb-s-3));
+    overflow-y: auto;
+  }
+
+  /* On a phone a menu spans the screen between the gutters instead of hanging off its button. */
+  .bb-menu__panel {
+    position: fixed;
+    top: calc(var(--bb-safe-top) + var(--bb-bar-h, 3.5rem) + var(--bb-s-1));
+    left: var(--bb-safe-left);
+    right: var(--bb-safe-right);
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    max-height: calc(100dvh - var(--bb-safe-top) - var(--bb-bar-h, 3.5rem) - var(--bb-dock-space) - var(--bb-s-3));
+    overflow-y: auto;
+  }
+
+  .bb-menu__panel[data-side='top'] {
+    top: auto;
+    bottom: calc(var(--bb-dock-space) + var(--bb-s-1));
+  }
+
+  .bb-app__dock {
+    grid-area: dock;
+    display: flex;
+    align-items: center;
+    gap: var(--bb-s-2);
+    min-height: var(--bb-dock-space);
+    padding: var(--bb-s-2) var(--bb-safe-right) calc(var(--bb-s-2) + var(--bb-safe-bottom)) var(--bb-safe-left);
+    border-top: var(--bb-hairline) solid var(--bb-rule);
+    background: var(--bb-paper);
+  }
+
+  .bb-app__dock #add {
+    flex: 1;
+  }
+
+  .bb-app__dock .bb-menu__button {
+    min-width: 6rem;
+  }
+
+  .bb-app__shelves {
+    padding-top: var(--bb-s-2);
+    padding-inline: var(--bb-safe-left) var(--bb-safe-right);
+  }
+
+  .bb-tab {
+    min-height: 2.75rem;
+  }
+
+  /*
+   * A phone is narrow before it is short: the turned cover and a spine either side fill the width when
+   * the row is about 86 % of the width tall. A taller scene would only add empty room above the row.
+   */
   .bb-app__main {
-    grid-template-rows: auto auto;
-  }
-
-  .bb-app [data-fill] > .bb-shelf {
-    --bb-shelf-height: clamp(15rem, 40svh, 19rem);
-    height: auto;
-    grid-template-rows: auto;
+    --bb-stage-max: calc(3.5rem + 86vw);
+    padding: var(--bb-s-2) 0 var(--bb-s-4);
   }
 
   .bb-stage__head {
     column-gap: var(--bb-s-3);
   }
 
-  /* On a phone a menu spans the screen between the gutters instead of hanging off its button. */
-  .bb-menu__panel {
-    position: fixed;
-    top: calc(var(--bb-bar-h, 3.5rem) + var(--bb-s-1));
-    left: var(--bb-gutter, 1.25rem);
-    right: var(--bb-gutter, 1.25rem);
-    width: auto;
-    min-width: 0;
-    max-width: none;
-    max-height: calc(100dvh - var(--bb-bar-h, 3.5rem) - var(--bb-s-5));
-    overflow-y: auto;
-  }
-
-  .bb-app__bar {
-    flex-wrap: wrap;
-    padding-block: var(--bb-s-2);
-  }
-
-  .bb-app__tools {
-    flex-wrap: wrap;
-  }
-
-  .bb-search {
-    flex-basis: 100%;
+  .bb-stage__actions {
+    margin-top: var(--bb-s-4);
   }
 
   .bb-app__status {
@@ -774,6 +936,50 @@
 
   .bb-app__shelf-menu {
     grid-column: 2;
+  }
+}
+
+/*
+ * A phone held sideways, or any window this short: the title and the actions share one row under the
+ * scene and the line about the link steps aside, so a whole volume still fits without scrolling.
+ */
+@media (orientation: landscape) and (max-height: 32rem) {
+  .bb-app__chrome {
+    min-height: 0;
+  }
+
+  .bb-app__main {
+    grid-template-rows: minmax(10rem, var(--bb-stage-max)) auto;
+    padding: 0 0 var(--bb-s-2);
+  }
+
+  .bb-app__shelves {
+    padding-top: var(--bb-s-1);
+  }
+
+  .bb-stage__caption {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--bb-s-4);
+  }
+
+  .bb-stage__head {
+    justify-self: end;
+    min-height: 0;
+  }
+
+  .bb-stage__title {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+
+  .bb-stage__line {
+    display: none;
+  }
+
+  .bb-stage__actions {
+    flex-wrap: nowrap;
+    margin-top: 0;
   }
 }
 
