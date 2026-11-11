@@ -66,6 +66,33 @@ function group(label: string, items: HTMLElement[]): HTMLElement {
   return wrapper;
 }
 
+/**
+ * A group of single choices inside a menu, such as Sort by. Fills `host` (which keeps its own label)
+ * and returns a function that marks the current choice.
+ */
+export function renderChoices<T extends string>(
+  host: HTMLElement,
+  heading: string,
+  choices: ReadonlyArray<{ value: T; label: string }>,
+  onChoose: (value: T) => void,
+): (current: T) => void {
+  const items = choices.map((choice) => {
+    const element = item(choice.label);
+    element.addEventListener('click', () => onChoose(choice.value));
+    return { element, value: choice.value };
+  });
+  const title = document.createElement('span');
+  title.className = 'bb-menu__heading';
+  title.setAttribute('aria-hidden', 'true');
+  title.textContent = heading;
+  host.setAttribute('role', 'group');
+  host.setAttribute('aria-label', heading);
+  host.replaceChildren(title, ...items.map((entry) => entry.element));
+  return (current) => {
+    for (const entry of items) entry.element.setAttribute('aria-checked', String(entry.value === current));
+  };
+}
+
 export function renderViewMenu(options: ViewMenuOptions): ViewMenu {
   const { panel } = options;
   const prefix = panel.id || 'view-menu';

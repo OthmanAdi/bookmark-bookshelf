@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createMenu } from './menu';
-import { renderViewMenu } from './shell-view-menu';
+import { renderChoices, renderViewMenu } from './shell-view-menu';
 
 function setup() {
   document.body.replaceChildren();
@@ -116,6 +116,30 @@ describe('createMenu', () => {
     button.click();
     expect(onOpen).toHaveBeenCalledOnce();
     expect(document.activeElement).toBe(items[2]);
+  });
+});
+
+describe('renderChoices', () => {
+  it('fills a labelled group of single choices and marks the current one', () => {
+    document.body.replaceChildren();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const onChoose = vi.fn();
+    const mark = renderChoices(
+      host,
+      'Sort by',
+      [
+        { value: 'manual', label: 'Shelf order' },
+        { value: 'title', label: 'Title, A to Z' },
+      ],
+      onChoose,
+    );
+    mark('title');
+    expect(host.getAttribute('aria-label')).toBe('Sort by');
+    const items = [...host.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+    expect(items.map((item) => item.getAttribute('aria-checked'))).toEqual(['false', 'true']);
+    items[0]!.click();
+    expect(onChoose).toHaveBeenCalledWith('manual');
   });
 });
 

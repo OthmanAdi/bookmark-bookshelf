@@ -3,8 +3,9 @@ import './app.css';
 import './flows.css';
 import { sampleLibrary } from '../data/sample-library';
 import { listVariants } from '../shelf';
-import { createStore, type Bookmark, type Store } from '../store';
+import { createStore, type Bookmark, type SortMode } from '../store';
 import { minutesOf } from '../store/reading-time';
+import { SORT_MODES } from '../store/sort';
 import type { StatsVolume } from '../store/stats';
 import { createBookshelf } from './bookshelf';
 import { downloadText, must, toast } from './dom';
@@ -17,7 +18,7 @@ import { createPhoneLayout, PHONE_QUERY } from './shell-phone';
 import { createStageCaption, type LinkView } from './shell-stage';
 import { firstToRead, renderStatus, statusLine } from './status';
 import { createShelfTabs } from './shell-tabs';
-import { renderViewMenu, type ViewMode } from './shell-view-menu';
+import { renderChoices, renderViewMenu, type ViewMode } from './shell-view-menu';
 
 /**
  * The app shell: page chrome around the composed bookshelf.
@@ -81,10 +82,9 @@ function move(id: string, direction: -1 | 1): void {
   bookshelf.show(id, { immediate: true });
 }
 
-function isDone(id: string): boolean {
-  const probe = store as Store & { isDone?: (id: string) => boolean };
-  return typeof probe.isDone === 'function' ? probe.isDone(id) : false;
-}
+const isDone = (id: string): boolean => store.isDone(id);
+
+const sortMode = (): SortMode => store.session().sort ?? 'manual';
 
 /** Counting words of a long text is not free: keep the answer until the text is saved again. */
 const minutesCache = new Map<string, { savedAt: string; minutes: number | undefined }>();
@@ -142,18 +142,11 @@ const stage = createStageCaption(
 /** Above this speed (links per millisecond) the caption holds still instead of flickering through titles. */
 const FAST = 0.006;
 
-/** The link visibly in the centre: the rounded position, not where the row is heading. */
-function centredIndex(position: number): number {
-  const count = row.length;
-  if (count === 0) return -1;
-  const nearest = Math.round(position);
-  return bookshelf.shelf.loop ? ((nearest % count) + count) % count : Math.min(count - 1, Math.max(0, nearest));
-}
-
+/** Describes the link visibly in the centre (not where the row is heading) and what can be done with it. */
 function syncStage(force = false): void {
   const state = bookshelf.motion.state;
-  const index = centredIndex(state.position);
-  const bookmark = index >= 0 ? row[index] : undefined;
+  const centred = bookshelf.current();
+  const bookmark = centred ? (store.get(centred.id) ?? centred) : undefined;
   const id = bookmark?.id ?? null;
   if (id !== shownId) {
     if (!force && !state.settled && Math.abs(state.velocity) > FAST) return;
@@ -164,13 +157,17 @@ function syncStage(force = false): void {
     stage.show(bookmark ? linkView(bookmark) : null);
   }
   if (!state.settled && !force) return;
-  const single = store.session().shelfId !== null;
+  // The ends of a row with two ends are found by position, so they hold whatever order the row is in.
+  const count = row.length;
+  const slot = Math.min(count - 1, Math.max(0, Math.round(state.position)));
+  // Moving changes the stored order, which is the order shown only on a single shelf in its own order.
+  const own = id ? row.findIndex((entry) => entry.id === id) : -1;
   stage.setPlace({
-    atStart: !bookshelf.shelf.loop && index === 0,
-    atEnd: !bookshelf.shelf.loop && index === row.length - 1,
-    canMove: single && row.length > 1,
-    first: index === 0,
-    last: index === row.length - 1,
+    atStart: !bookshelf.shelf.loop && count > 0 && slot === 0,
+    atEnd: !bookshelf.shelf.loop && count > 0 && slot === count - 1,
+    canMove: store.session().shelfId !== null && sortMode() === 'manual' && count > 1,
+    first: own === 0,
+    last: own === count - 1,
   });
 }
 
@@ -253,11 +250,27 @@ must<HTMLButtonElement>('#new-shelf').addEventListener('click', async () => {
   openShelf(result.value.id);
 });
 
+/** Sorting changes how the row and the list are ordered, never the stored order; the centred link stays. */
+function setSort(mode: SortMode): void {
+  if (sortMode() === mode) return;
+  store.setSession({ sort: mode });
+  bookshelf.refresh();
+  renderAll();
+}
+
+const markSort = renderChoices(
+  must<HTMLElement>('#shelf-sort'),
+  'Sort by',
+  SORT_MODES.map((entry) => ({ value: entry.mode, label: entry.label })),
+  setSort,
+);
+
 createMenu({
   button: must<HTMLButtonElement>('#shelf-button'),
   panel: shelfMenuPanel,
   onOpen: () => {
     removeShelfItem.hidden = store.shelves().length < 2;
+    markSort(sortMode());
   },
 });
 
@@ -443,11 +456,11 @@ store.subscribe((event) => {
   renderAll();
 });
 
-// Alt + arrows reorder the centred volume, matching the Move buttons.
+// Alt + arrows reorder the centred link, matching the Move buttons, and only where those are offered.
 shelfHost.addEventListener('keydown', (event) => {
   if (!event.altKey || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
   const bookmark = bookshelf.current();
-  if (!bookmark || store.session().shelfId === null) return;
+  if (!bookmark || store.session().shelfId === null || sortMode() !== 'manual') return;
   event.preventDefault();
   move(bookmark.id, event.key === 'ArrowLeft' ? -1 : 1);
 });

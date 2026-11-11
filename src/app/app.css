@@ -301,6 +301,9 @@
   width: max-content;
   min-width: 16rem;
   max-width: min(22rem, calc(100vw - 2 * var(--bb-gutter, 1.25rem)));
+  /* A long menu in a short window scrolls inside itself rather than running off the screen. */
+  max-height: calc(100dvh - 8rem);
+  overflow-y: auto;
   padding: var(--bb-s-2);
   border: var(--bb-hairline) solid var(--bb-rule-strong);
   border-radius: var(--bb-r-2);
