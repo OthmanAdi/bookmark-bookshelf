@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   CLOTHS,
   DEFAULT_VARIANT,
@@ -97,5 +99,76 @@ describe('resolveCloth and resolvePattern', () => {
 
   it('is case sensitive', () => {
     expect(resolveCloth('RUST')).toBe(CLOTHS[0]);
+  });
+});
+
+describe('a look dresses a cover the same wherever it stands', () => {
+  const sheets = ['cover.css', 'variants.css'].map((name) => readFileSync(join(import.meta.dirname, name), 'utf8'));
+  const STYLE_ID = 'looks-under-test';
+  const DRESS = ['background-color', 'color', 'box-shadow', 'border-radius'] as const;
+  const HOOKS = ['--cloth', '--cloth-ink', '--cloth-art', '--bb-cover-shadow', '--bb-cover-mark', '--bb-cover-joint', '--bb-cover-edge'] as const;
+
+  beforeAll(() => {
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = sheets.join('\n');
+    document.head.appendChild(style);
+  });
+
+  afterEach(() => {
+    document.body.replaceChildren();
+    delete document.documentElement.dataset.variant;
+  });
+
+  const cover = (cloth: string): HTMLElement => {
+    const element = document.createElement('div');
+    element.className = `bb-cover bb-cloth--${cloth}`;
+    return element;
+  };
+
+  const dressOf = (element: HTMLElement): string[] => {
+    const computed = getComputedStyle(element);
+    return [...DRESS, ...HOOKS].map((property) => `${property}: ${computed.getPropertyValue(property).trim()}`);
+  };
+
+  it.each(Object.keys(VARIANTS))('%s: on the shelf, in the air and beside the page', (look) => {
+    document.documentElement.dataset.variant = look;
+    for (const cloth of CLOTHS) {
+      const shelf = document.createElement('section');
+      shelf.className = 'bb-shelf';
+      shelf.dataset.variant = look;
+      const onShelf = cover(cloth);
+      shelf.appendChild(onShelf);
+      // The flying copy and the reader's cover hang outside the shelf, straight under the page.
+      const flying = document.createElement('div');
+      flying.className = `bb-flight__book bb-cloth--${cloth}`;
+      const inAir = cover(cloth);
+      flying.appendChild(inAir);
+      const besidePage = cover(cloth);
+      document.body.append(shelf, flying, besidePage);
+      expect(dressOf(inAir), `${look} ${cloth} in the air`).toEqual(dressOf(onShelf));
+      expect(dressOf(besidePage), `${look} ${cloth} beside the page`).toEqual(dressOf(onShelf));
+      expect(getComputedStyle(flying).getPropertyValue('--cloth')).toBe(getComputedStyle(onShelf).getPropertyValue('--cloth'));
+    }
+  });
+
+  it.each(Object.keys(VARIANTS))('%s: a shelf used alone dresses its covers without the page', (look) => {
+    for (const cloth of CLOTHS) {
+      const alone = document.createElement('section');
+      alone.className = 'bb-shelf';
+      alone.dataset.variant = look;
+      const onShelf = cover(cloth);
+      alone.appendChild(onShelf);
+      document.body.appendChild(alone);
+      const expected = dressOf(onShelf);
+      document.body.replaceChildren();
+
+      document.documentElement.dataset.variant = look;
+      const besidePage = cover(cloth);
+      document.body.appendChild(besidePage);
+      expect(dressOf(besidePage), `${look} ${cloth}`).toEqual(expected);
+      delete document.documentElement.dataset.variant;
+      document.body.replaceChildren();
+    }
   });
 });

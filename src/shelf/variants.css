@@ -2,6 +2,10 @@
  * Cloth palettes and variant looks.
  * A variant is a `data-variant` value on the shelf root, and optionally on <html>
  * when the host wants the whole page to follow (the app does this).
+ *
+ * A cover is not always inside the shelf: it flies above the page while a volume opens and stands
+ * beside the text once it has. Everything a look sets for a cover or a cloth is therefore scoped to
+ * the page root as well as to the shelf, so the same volume looks the same in all three places.
  */
 
 /* ---------- cloths (shared by every variant unless overridden) ---------- */
@@ -202,10 +206,11 @@
   );
 }
 
+:root[data-variant='night'] .bb-cover,
 .bb-shelf[data-variant='night'] .bb-cover {
-  box-shadow:
-    0 0 0 1px rgba(255, 236, 200, 0.14),
-    0 22px 44px -18px rgba(0, 0, 0, 0.9);
+  --bb-cover-shadow:
+    0 0 0 calc(1px * var(--bb-cover-k, 1)) rgba(255, 236, 200, 0.14),
+    0 calc(22px * var(--bb-cover-k, 1)) calc(44px * var(--bb-cover-k, 1)) calc(-18px * var(--bb-cover-k, 1)) rgba(0, 0, 0, 0.9);
 }
 
 /* ---------- Pocket Paperbacks: thin, flat, bright ---------- */
@@ -219,48 +224,56 @@
   --bb-focus: #b5301a;
 }
 
+:root[data-variant='pocket'] .bb-cloth--ink,
 .bb-shelf[data-variant='pocket'] .bb-cloth--ink {
   --cloth: #23252b;
   --cloth-ink: #f6f3ea;
   --cloth-art: #ff7a59;
 }
 
+:root[data-variant='pocket'] .bb-cloth--bone,
 .bb-shelf[data-variant='pocket'] .bb-cloth--bone {
   --cloth: #f1e6c8;
   --cloth-ink: #23252b;
   --cloth-art: #1d4ed8;
 }
 
+:root[data-variant='pocket'] .bb-cloth--rust,
 .bb-shelf[data-variant='pocket'] .bb-cloth--rust {
   --cloth: #ef5b3a;
   --cloth-ink: #fff6ea;
   --cloth-art: #23252b;
 }
 
+:root[data-variant='pocket'] .bb-cloth--moss,
 .bb-shelf[data-variant='pocket'] .bb-cloth--moss {
   --cloth: #2f9e6b;
   --cloth-ink: #f4fff7;
   --cloth-art: #133b2a;
 }
 
+:root[data-variant='pocket'] .bb-cloth--plum,
 .bb-shelf[data-variant='pocket'] .bb-cloth--plum {
   --cloth: #7b3fa0;
   --cloth-ink: #fbf2ff;
   --cloth-art: #ffd166;
 }
 
+:root[data-variant='pocket'] .bb-cloth--ochre,
 .bb-shelf[data-variant='pocket'] .bb-cloth--ochre {
   --cloth: #ffc531;
   --cloth-ink: #23252b;
   --cloth-art: #c2371c;
 }
 
+:root[data-variant='pocket'] .bb-cloth--slate,
 .bb-shelf[data-variant='pocket'] .bb-cloth--slate {
   --cloth: #8fa6b8;
   --cloth-ink: #14202b;
   --cloth-art: #f6f3ea;
 }
 
+:root[data-variant='pocket'] .bb-cloth--teal,
 .bb-shelf[data-variant='pocket'] .bb-cloth--teal {
   --cloth: #1d4ed8;
   --cloth-ink: #f1f5ff;
@@ -292,6 +305,7 @@
   rotate: none;
 }
 
+:root[data-variant='pocket'] .bb-cover,
 .bb-shelf[data-variant='pocket'] .bb-cover {
   border-radius: 1px 2px 2px 1px;
   background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0) 4%);
