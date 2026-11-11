@@ -1117,11 +1117,11 @@
 /*
  * While the look changes, everything in the frame takes its new colours over the same short time as the
  * page ground, so a switch between a dark look and a light one never cuts. Only for that moment: at any
- * other time a control answers a pointer at once.
+ * other time a control answers a pointer at once. The shelf is left out: it fades by its own rule.
  */
 @media (prefers-reduced-motion: no-preference) {
   .bb-look-changing .bb-app__chrome,
-  .bb-look-changing .bb-app__chrome * {
+  .bb-look-changing .bb-app__chrome *:not(#shelf, #shelf *) {
     transition:
       background-color var(--bb-dur-2) var(--bb-ease-in-out),
       color var(--bb-dur-2) var(--bb-ease-in-out),
