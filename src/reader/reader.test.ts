@@ -532,6 +532,49 @@ describe('update and destroy', () => {
     expect(query('.bb-reader__body p').textContent).toBe('just text');
   });
 
+  it('changes nothing on the page when a host answers "Mark as read" by sending the same document', () => {
+    const onProgress = vi.fn();
+    // Like a host that stores the mark and then, as after any change of its data, hands the document back.
+    const reader: ReaderHandle = mount({ onProgress, onDone: () => reader.update({ ...doc }) });
+    const title = query('h1');
+    const done = query<HTMLButtonElement>('.bb-reader__done');
+    reader.scroller.scrollTop = 800;
+    done.focus();
+    done.click();
+    expect(done.getAttribute('aria-pressed')).toBe('true');
+    done.click();
+    expect(done.getAttribute('aria-pressed')).toBe('false');
+    expect(query('.bb-reader__done')).toBe(done);
+    expect(query('h1')).toBe(title);
+    expect(document.activeElement).toBe(done);
+    expect(reader.scroller.scrollTop).toBe(800);
+    expect(onProgress).not.toHaveBeenCalled();
+  });
+
+  it('measures the page only once a changed document is drawn in full', () => {
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
+    const reader = mount();
+    const bar = query<HTMLElement>('.bb-reader__bar');
+    const measure = bar.getBoundingClientRect.bind(bar);
+    const blocksOnThePage: number[] = [];
+    bar.getBoundingClientRect = () => {
+      blocksOnThePage.push(host.querySelectorAll('.bb-reader__body > [data-block]').length);
+      return measure();
+    };
+    // A page measured while its text is out is shorter than the screen, and a browser then moves the sheet to its top.
+    reader.update({ ...doc, title: 'Renamed' });
+    vi.unstubAllGlobals();
+    expect(query('h1').textContent).toBe('Renamed');
+    expect(blocksOnThePage.length).toBeGreaterThan(0);
+    expect(blocksOnThePage.every((count) => count === 3)).toBe(true);
+  });
+
   it('removes the root and ignores later calls', () => {
     const reader = mount();
     reader.destroy();

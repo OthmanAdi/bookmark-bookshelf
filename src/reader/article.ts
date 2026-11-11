@@ -27,6 +27,12 @@ export interface ArticleInput {
   handlers: ArticleHandlers;
 }
 
+/** True when both documents would be drawn the same, so there is nothing to draw again. */
+export function sameDocument(a: ReaderDoc, b: ReaderDoc): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof ReaderDoc>;
+  return [...keys].every((key) => String(a[key] ?? '') === String(b[key] ?? ''));
+}
+
 /** One sentence-case line: when it was saved and how long it takes to read. */
 function buildSavedLine(dom: Document, source: ReaderDoc, labels: ReaderLabels): HTMLElement | null {
   const saved = formatSavedDate(source.addedAt, cleanLang(source.lang) || dom.documentElement.lang);

@@ -1,12 +1,10 @@
 import './reader.css';
 import './reader-text.css';
-import { buildArticleParts, fillBody } from './article';
-import type { ArticleHandlers } from './article';
+import { buildArticleParts, fillBody, sameDocument, type ArticleHandlers } from './article';
 import { cleanLang, resolveLabels } from './meta';
 import { takeDraft, restoreDraft, worthKeeping } from './draft';
-import { buildEnd } from './end';
+import { buildEnd, type End } from './end';
 import { buildNotes } from './notes';
-import type { End } from './end';
 import { START, createProgressTracker, measureBlocks } from './progress';
 import { trapTab } from './focus-trap';
 import { measureFlightTarget, toBox } from './landing';
@@ -15,7 +13,7 @@ import { createRevealer } from './reveal';
 import { TEXT_SIZES, normaliseScale, stepScale } from './text-size';
 import { buildShell, showPlace } from './shell';
 import { createTitleWatch } from './title-watch';
-import type { NextLink, ReaderDoc, ReaderHandle, ReaderOptions, ReaderProgress } from './types';
+import type { NextLink, ReaderDoc, ReaderHandle, ReaderOptions } from './types';
 
 let instanceCounter = 0;
 
@@ -135,11 +133,12 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     else shell.article.removeAttribute('lang');
     editButton = parts.editButton;
     shell.barText.textContent = source.title;
-    titleWatch.watch(shell.article.querySelector('h1'));
     pasteField = fillBody({ dom, body, source, labels, fieldId: `${uid}-paste`, canEdit, editing, handlers });
     if (notesOn) notes.attach(body);
     restoreNote?.();
     renderEnd();
+    // Watching measures the page. Measured while the text was still out, the page was short and the sheet fell back to its top.
+    titleWatch.watch(shell.article.querySelector('h1'));
     Array.from(shell.article.children).forEach((child, index) => {
       child.classList.add('bb-reader__enter');
       (child as HTMLElement).style.setProperty('--bb-enter-index', String(Math.min(index, 4)));
@@ -156,8 +155,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     root.removeAttribute('data-pointer');
     if (event.key === 'Escape') {
       event.preventDefault();
-      notes.flush();
-      options.onClose?.();
+      requestClose();
       return true;
     }
     if (event.key === 'Tab' && root.dataset.open === '1') trapTab(event, root, sheet);
@@ -168,11 +166,11 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
 
   const applyReveal = createRevealer(root, sheet);
 
-  const closeClick = (): void => {
+  const requestClose = (): void => {
     notes.flush();
     options.onClose?.();
   };
-  shell.closeButton.addEventListener('click', closeClick);
+  shell.closeButton.addEventListener('click', requestClose);
   root.addEventListener('keydown', onKeydown);
   shell.sizeDown.addEventListener('click', () => stepText(-1));
   shell.sizeUp.addEventListener('click', () => stepText(1));
@@ -224,6 +222,8 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
     },
     update(doc) {
       if (destroyed) return;
+      // Marking a link as read or saving a note sends the same document again: the text keeps its place and the button its focus.
+      if (!editing && sameDocument(source, doc)) return;
       // Whatever is being typed in the paste field survives a change made elsewhere, such as another tab.
       const typed = takeDraft(dom, pasteField);
       source = doc;
@@ -241,7 +241,7 @@ export function mountReader(host: HTMLElement, options: ReaderOptions): ReaderHa
       tracker.destroy();
       observer?.disconnect();
       titleWatch.destroy();
-      shell.closeButton.removeEventListener('click', closeClick);
+      shell.closeButton.removeEventListener('click', requestClose);
       root.removeEventListener('keydown', onKeydown);
       root.remove();
     },
