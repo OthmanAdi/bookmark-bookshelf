@@ -1,6 +1,6 @@
 {
   "skill": "bookshelf",
-  "note": "Scenarios for checking that an agent can follow the skill. Each expected_output is a list of objectively checkable statements. Results of the runs made for release candidate 0.1.0-rc.1 are in docs/SKILL-TRIALS.md.",
+  "note": "Scenarios for checking that an agent can follow the skill. Each expected_output is a list of objectively checkable statements. Results of the runs made for release candidate 0.1.0-rc.1 are in docs/SKILL-TRIALS.md. The scenarios were updated for 0.2.0 and have not been run again.",
   "evals": [
     {
       "id": "partial-shelf-motion",
@@ -11,7 +11,7 @@
         "No file under the copied shelf folder imports from the copied motion folder or the reverse.",
         "npx tsc --noEmit exits 0 and npx vite build exits 0.",
         "In a browser the page shows exactly eight .bb-book__control buttons.",
-        "A real mouse drag across .bb-shelf__scene changes data-focus-id on .bb-shelf.",
+        "At a 1280 px wide viewport the eight volumes stand still (data-fixed is 1 on .bb-shelf) and a real mouse drag across .bb-shelf__scene leaves data-focus-id unchanged; at a 390 px wide viewport the row loops and the same drag changes it.",
         "ArrowRight on the focused volume changes data-focus-id.",
         "Activating the centred volume writes its title into the status line and creates no .bb-reader element.",
         "The agent's report says which checks it ran and which it did not."
@@ -22,7 +22,7 @@
       "prompt": "Build the whole Bookmark Bookshelf into the empty Vite + TypeScript project in this folder: shelf, drag, local storage and the reader with resume, seeded with three bookmarks of my own (links.json, one of them without reading text). Use the modules from <repo path>.",
       "files": ["links.json"],
       "expected_output": [
-        "src/shelf, src/motion, src/store and src/reader were copied unchanged, and the four meet only in one composition file.",
+        "src/shelf, src/motion, src/store and src/reader were copied unchanged, and the four meet only in one composition file, which has flight.ts and bookshelf.css beside it.",
         "npx tsc --noEmit exits 0 and npx vite build exits 0.",
         "The page shows three volumes with the titles from links.json.",
         "Opening a volume with reading text shows the text; after scrolling and a reload the reader is open on the same volume at the same scroll position within 80 px.",
