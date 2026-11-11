@@ -15,6 +15,7 @@ import { renderList } from './list-view';
 import { createMenu } from './menu';
 import { createSearch, findLinks } from './search';
 import { emptyState, READING_NOTE } from './shell-empty';
+import { createReaderHistory, pageTitle, type ReaderHistory } from './shell-history';
 import { createPhoneLayout, PHONE_QUERY } from './shell-phone';
 import { createStageCaption, type LinkView } from './shell-stage';
 import { examplesSentence, firstToRead, renderStatus, statusLine } from './status';
@@ -38,6 +39,7 @@ let row: Bookmark[] = [];
 let shownId: string | null | undefined;
 /** The bookshelf may report a change while it is still being built; the frame answers once it exists. */
 let ready = false;
+let readerHistory: ReaderHistory | null = null;
 
 const bookshelf = createBookshelf({
   store,
@@ -56,10 +58,16 @@ const bookshelf = createBookshelf({
   onOpenChange: (bookmark) => {
     if (bookmark) {
       lastOpenedId = bookmark.id;
+      readerHistory?.opened(bookmark.id);
+      if (ready) updateTitle();
       return;
     }
+    readerHistory?.closed();
     // Reading moved the place and maybe the status of the shelf.
-    if (ready) renderShelfStatus();
+    if (ready) {
+      renderShelfStatus();
+      updateTitle();
+    }
     // In list view the row that opened the reader may have been redrawn while it was open. Find it again by id.
     if (store.session().view !== 'list' || document.activeElement !== document.body || !lastOpenedId) return;
     const rows = listHost.querySelectorAll<HTMLElement>('.bb-list__row');
@@ -391,8 +399,16 @@ function applyView(): void {
   else bookshelf.shelf.refresh();
 }
 
+/** The page title names the open link, or else the open shelf. */
+function updateTitle(): void {
+  const openId = bookshelf.isOpen() ? store.session().openId : null;
+  const link = openId ? store.get(openId)?.title : undefined;
+  document.title = pageTitle(link ? { link } : { shelf: openShelfName() });
+}
+
 function renderAll(): void {
   row = store.bookmarks(store.session().shelfId);
+  updateTitle();
   renderTabs();
   renderShelfStatus();
   renderStage();
@@ -558,6 +574,14 @@ document.addEventListener('visibilitychange', () => {
 });
 
 ready = true;
+readerHistory = createReaderHistory({
+  isOpen: () => bookshelf.isOpen(),
+  open: (id) => void bookshelf.open(id),
+  close: () => void bookshelf.close(),
+});
+// A reader resumed from the last visit gets its entry too, so Back closes it rather than leaving.
+const resumedId = bookshelf.isOpen() ? store.session().openId : null;
+if (resumedId) readerHistory.opened(resumedId);
 renderAll();
 bookshelf.motion.subscribe(() => syncStage());
 applyView();
