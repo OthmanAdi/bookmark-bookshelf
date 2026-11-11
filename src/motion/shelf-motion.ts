@@ -19,6 +19,8 @@ export interface ShelfMotionState {
   focus: number;
   /** 0 closed, 1 open. Already eased. */
   open: number;
+  /** Linear time of the open or close, 0 closed to 1 open, not eased. Reversing keeps it continuous. */
+  openTime: number;
   /** Where `open` is heading. */
   openTarget: 0 | 1;
   dragging: boolean;
@@ -44,11 +46,11 @@ export interface MotionTiming {
   travel: TravelTiming | null;
   openDuration: number;
   closeDuration: number;
-  /** Pause between the trigger and the start of the opening move. `open` reads a tiny positive value meanwhile. */
+  /** Accepted so older callers compile; the opening starts at once and this value is ignored. */
   openHold: number;
 }
 
-export const DEFAULT_TIMING: MotionTiming = { travel: null, openDuration: 900, closeDuration: 640, openHold: 0 };
+export const DEFAULT_TIMING: MotionTiming = { travel: null, openDuration: 700, closeDuration: 520, openHold: 0 };
 
 export interface ShelfMotionOptions {
   count: number;
@@ -102,8 +104,6 @@ const WHEEL_SETTLE_MS = 140;
  * earlier timestamp than the call.
  */
 const FIRST_FRAME_MS = 1000 / 60;
-/** Value of `open` during the hold: enough for a renderer to show that the trigger landed. */
-const STAGED = 0.0001;
 
 interface Travel {
   from: number;
@@ -129,6 +129,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     target: start,
     focus: wrapIndex(start, count),
     open: 0,
+    openTime: 0,
     openTarget: 0,
     dragging: false,
     settled: true,
@@ -145,7 +146,6 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   let openRaw = 0;
   let openFrom = 0;
   let openStartTime: number | null = null;
-  let openHoldMs = 0;
   let openSpan = 0;
   let openResolvers: Array<() => void> = [];
 
@@ -203,19 +203,16 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     if (openStartTime === null) {
       // The tween runs on the clock of the frames, not on the clock of the call that asked for it.
       const fromRest = openFrom === 0 || openFrom === 1;
-      openStartTime = time + openHoldMs - (fromRest ? FIRST_FRAME_MS : 0);
-    }
-    if (time < openStartTime) {
-      // Holding: the trigger has landed, the move has not begun.
-      state.open = Math.max(state.open, STAGED);
-      return false;
+      openStartTime = fromRest ? time - FIRST_FRAME_MS : time;
     }
     const t = openSpan <= 0 ? 1 : clamp((time - openStartTime) / openSpan, 0, 1);
     openRaw = openFrom + (state.openTarget - openFrom) * t;
     const ease = state.reduced ? linear : easeInOutCubic;
-    state.open = state.openTarget === 1 ? Math.max(STAGED, ease(openRaw)) : ease(openRaw);
+    state.openTime = openRaw;
+    state.open = ease(openRaw);
     if (t < 1) return false;
     openRaw = state.openTarget;
+    state.openTime = state.openTarget;
     state.open = state.openTarget;
     resolveOpen();
     return true;
@@ -293,6 +290,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
 
     if (openOptions.immediate) {
       openRaw = target;
+      state.openTime = target;
       state.open = target;
       emit();
       return Promise.resolve();
@@ -300,16 +298,9 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     if (openRaw === target) return Promise.resolve();
 
     const full = state.reduced ? REDUCED_FADE_MS : open ? timing.openDuration : timing.closeDuration;
-    const hold = open && openRaw === 0 && !state.reduced ? timing.openHold : 0;
     openFrom = openRaw;
     openSpan = full * Math.abs(target - openRaw);
     openStartTime = null;
-    openHoldMs = hold;
-    if (hold > 0) {
-      // Show at once that the trigger landed, before the move begins.
-      state.open = STAGED;
-      emit();
-    }
     const done = new Promise<void>((resolve) => openResolvers.push(resolve));
     wake();
     return done;

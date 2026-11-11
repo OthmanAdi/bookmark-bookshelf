@@ -90,24 +90,61 @@ describe('eased travel for programmed moves', () => {
   });
 });
 
-describe('open with a staging hold', () => {
-  it('shows a tiny positive value at once, holds, then runs for the open duration', async () => {
+describe('open timing', () => {
+  it('ignores openHold: the move starts at once and runs for the open duration', async () => {
     const { clock, motion } = setup();
     const opened = motion.setOpen(true);
-    expect(motion.state.open).toBeGreaterThan(0);
-    expect(motion.state.open).toBeLessThan(0.001);
     clock.advance(150);
-    expect(motion.state.open).toBeLessThan(0.001);
+    expect(motion.state.open).toBeGreaterThan(0.005);
     clock.advance(570);
-    expect(motion.state.open).toBeGreaterThan(0.3);
-    expect(motion.state.open).toBeLessThan(0.7);
-    clock.advance(600);
+    expect(motion.state.open).toBeGreaterThan(0.6);
+    clock.advance(400);
     await opened;
     expect(motion.state.open).toBe(1);
+    expect(motion.state.openTime).toBe(1);
     expect(motion.state.settled).toBe(true);
   });
 
-  it('closes without a hold', async () => {
+  it('exposes linear time next to the eased value', () => {
+    const { clock, motion } = setup({ openDuration: 1000, closeDuration: 1000 });
+    void motion.setOpen(true);
+    clock.advance(1000 / 60);
+    clock.advance(250 - 1000 / 60);
+    expect(motion.state.openTime).toBeCloseTo(0.25, 2);
+    expect(motion.state.open).toBeLessThan(0.1);
+    clock.advance(250);
+    expect(motion.state.openTime).toBeCloseTo(0.5, 2);
+    expect(motion.state.open).toBeGreaterThan(0.5);
+  });
+
+  it('moves openTime back to 0 on a close and keeps it continuous on a reversal', () => {
+    const { clock, motion } = setup({ openDuration: 1000, closeDuration: 500 });
+    void motion.setOpen(true);
+    clock.advance(600);
+    const before = motion.state.openTime;
+    void motion.setOpen(false);
+    clock.advance(1000 / 60);
+    expect(motion.state.openTime).toBeLessThanOrEqual(before);
+    expect(before - motion.state.openTime).toBeLessThan(0.05);
+    clock.advance(600);
+    expect(motion.state.openTime).toBe(0);
+    expect(motion.state.open).toBe(0);
+  });
+
+  it('sets openTime with an immediate open and close', () => {
+    const { motion } = setup();
+    void motion.setOpen(true, { immediate: true });
+    expect(motion.state.openTime).toBe(1);
+    void motion.setOpen(false, { immediate: true });
+    expect(motion.state.openTime).toBe(0);
+  });
+
+  it('defaults to a 700 ms opening and a 520 ms closing', () => {
+    expect(DEFAULT_TIMING.openDuration).toBe(700);
+    expect(DEFAULT_TIMING.closeDuration).toBe(520);
+  });
+
+  it('closes over the close duration', async () => {
     const { clock, motion } = setup();
     void motion.setOpen(true, { immediate: true });
     const closed = motion.setOpen(false);
@@ -118,7 +155,7 @@ describe('open with a staging hold', () => {
     expect(motion.state.open).toBe(0);
   });
 
-  it('does not hold with reduced motion', async () => {
+  it('fades in 150 ms with reduced motion', async () => {
     const clock = createManualClock();
     const motion = createShelfMotion({ count: 12, clock, timing: measured, reducedMotion: true });
     const opened = motion.setOpen(true);
