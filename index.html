@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'sha256-nDl/8/oiAmXVGYTzQhw9YkUyzxcC4i2vyxXcUe+cbU8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+      content="default-src 'self'; script-src 'self' 'sha256-sEPyJT05LkZGU7u7phyfvkISZabtu9H4Q8+OlaEFUDM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Bookmark Bookshelf: a 3D bookmark manager for saved links</title>
@@ -20,7 +20,7 @@
         var looks = ['paper', 'oak', 'night', 'pocket'];
         var look = 'paper';
         try {
-          var raw = localStorage.getItem('bookmark-bookshelf:library') || '';
+          var raw = localStorage.getItem('bookmark-bookshelf:library:session') || localStorage.getItem('bookmark-bookshelf:library') || '';
           var at = raw.lastIndexOf('"variant"');
           var found = at < 0 ? null : /^"variant"\s*:\s*"([a-z-]+)"/.exec(raw.slice(at, at + 64));
           if (found && looks.indexOf(found[1]) >= 0) look = found[1];
