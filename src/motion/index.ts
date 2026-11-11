@@ -3,7 +3,7 @@
  * moved. A renderer subscribes to the state and draws it.
  */
 export { browserClock, createManualClock, type Clock, type ManualClock } from './clock';
-export { attachDrag, type DragHandlers, type DragOptions } from './gesture';
+export { attachDrag, type DragHandlers, type DragOptions, type DragOrigin } from './gesture';
 export {
   clamp,
   easeInOutCubic,
@@ -22,6 +22,7 @@ export {
   createShelfMotion,
   DEFAULT_TIMING,
   type AttachOptions,
+  type TrackStart,
   type MotionTiming,
   type TravelTiming,
   type ShelfMotion,

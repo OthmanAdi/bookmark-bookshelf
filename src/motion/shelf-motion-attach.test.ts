@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createManualClock } from './clock';
-import { createShelfMotion, type ShelfMotionOptions } from './shelf-motion';
+import { createShelfMotion, type AttachOptions, type ShelfMotionOptions } from './shelf-motion';
 
 const PITCH = 100;
 
@@ -24,13 +24,13 @@ function pointer(type: string, init: PointerInit): PointerEvent {
   return event;
 }
 
-function setup(options: Partial<ShelfMotionOptions> = {}, enabled?: () => boolean) {
+function setup(options: Partial<ShelfMotionOptions> = {}, enabled?: () => boolean, track?: AttachOptions['track']) {
   const clock = createManualClock();
   const motion = createShelfMotion({ count: 12, clock, ...options });
   const element = document.createElement('div');
   document.body.appendChild(element);
   element.setPointerCapture = vi.fn();
-  const detach = motion.attach(element, { pxPerItem: () => PITCH, enabled });
+  const detach = motion.attach(element, { pxPerItem: () => PITCH, enabled, track });
   const fire = (type: string, init: PointerInit): void => {
     element.dispatchEvent(pointer(type, init));
   };
@@ -239,6 +239,62 @@ describe('motion.attach drag', () => {
     expect(element.style.touchAction).toBe('pan-y');
     detach();
     expect(element.style.touchAction).toBe('');
+  });
+});
+
+describe('motion.attach track', () => {
+  /** A row whose spacing grows to the right: position(x) is not linear in x. */
+  const curve = (x: number): number => 2 + (x - 500) / 100 / (1 + (x - 500) / 1000);
+
+  it('follows the function it is given instead of the fixed pitch', () => {
+    const track = vi.fn(() => curve);
+    const { motion, fire } = setup({}, undefined, track);
+    fire('pointerdown', { x: 500, t: 0 });
+    fire('pointermove', { x: 600, t: 20 });
+    expect(motion.state.position).toBeCloseTo(curve(600), 10);
+    fire('pointermove', { x: 900, t: 40 });
+    expect(motion.state.position).toBeCloseTo(curve(900), 10);
+    expect(motion.state.position).not.toBeCloseTo(2 + 4, 3);
+    expect(motion.state.dragging).toBe(true);
+  });
+
+  it('hands the press x, what was pressed and the current position to track', () => {
+    const track = vi.fn((): ((x: number) => number) | null => null);
+    const { motion, element, fire } = setup({ initial: 3 }, undefined, track);
+    const inner = document.createElement('span');
+    element.appendChild(inner);
+    inner.dispatchEvent(pointer('pointerdown', { x: 480, t: 0 }));
+    fire('pointermove', { x: 440, t: 20 });
+    expect(track).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith({ x: 480, target: inner, position: 3 });
+    expect(motion.state.position).toBeCloseTo(3.4, 10);
+  });
+
+  it('uses the fixed pitch when track returns null', () => {
+    const { motion, drag } = setup({}, undefined, () => null);
+    drag(-PITCH);
+    expect(motion.state.position).toBeCloseTo(1, 10);
+  });
+
+  it('asks track once per drag and releases with the tracked speed', () => {
+    const track = vi.fn(() => curve);
+    const { motion, fire } = setup({}, undefined, track);
+    fire('pointerdown', { x: 500, t: 0 });
+    fire('pointermove', { x: 520, t: 20 });
+    fire('pointermove', { x: 540, t: 40 });
+    fire('pointermove', { x: 560, t: 60 });
+    fire('pointerup', { x: 560, t: 60 });
+    expect(track).toHaveBeenCalledTimes(1);
+    const expected = (curve(560) - curve(520)) / 40;
+    expect(motion.state.velocity).toBeCloseTo(expected, 6);
+  });
+
+  it('keeps the rubber band at the ends of a finite row on a tracked drag', () => {
+    const { motion, fire } = setup({ loop: false }, undefined, () => (x: number) => (500 - x) / 100 - 2);
+    fire('pointerdown', { x: 500, t: 0 });
+    fire('pointermove', { x: 800, t: 20 });
+    expect(motion.state.position).toBeLessThan(0);
+    expect(motion.state.position).toBeGreaterThan(-5);
   });
 });
 

@@ -75,6 +75,20 @@ describe('attachDrag classification', () => {
     expect(r.element.setPointerCapture).toHaveBeenCalledWith(1);
   });
 
+  it('tells onStart where the press began and onMove the pointer x', () => {
+    const origins: Array<{ x: number; y: number; target: EventTarget | null; time: number }> = [];
+    const xs: number[] = [];
+    const r = rig({
+      onStart: (_event, origin) => void origins.push(origin),
+      onMove: (_dx, _event, x) => void xs.push(x),
+    });
+    r.child.dispatchEvent(pointer('pointerdown', { x: 100, y: 50, t: 7 }));
+    r.fire('pointermove', { x: 112, y: 52, t: 20 });
+    r.fire('pointermove', { x: 130, y: 52, t: 30 });
+    expect(origins).toEqual([{ x: 100, y: 50, target: r.child, time: 7 }]);
+    expect(xs).toEqual([112, 130]);
+  });
+
   it('does not start on a mostly vertical move, and stays out of it afterwards', () => {
     const r = rig();
     r.fire('pointerdown', { x: 100, y: 50 });

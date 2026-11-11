@@ -6,10 +6,22 @@
  * slop radius while moving mostly sideways; otherwise it is left alone and stays
  * a tap or a page scroll.
  */
+/** Where the press that became a drag began. */
+export interface DragOrigin {
+  /** Pointer x at the press, in client px. */
+  x: number;
+  y: number;
+  /** What the press landed on, so a host can tell which part of the element was grabbed. */
+  target: EventTarget | null;
+  /** Timestamp of the press. */
+  time: number;
+}
+
 export interface DragHandlers {
-  onStart?(event: PointerEvent): void;
-  /** `dx` is the horizontal distance from where the pointer went down, in px. */
-  onMove(dx: number, event: PointerEvent): void;
+  /** `event` is the move that crossed the slop; `origin` describes the press before it. */
+  onStart?(event: PointerEvent, origin: DragOrigin): void;
+  /** `dx` is the horizontal distance from where the pointer went down, in px. `x` is the pointer's client x. */
+  onMove(dx: number, event: PointerEvent, x: number): void;
   /**
    * `velocityX` is in px per millisecond. `cancelled` is true after pointercancel or lost capture. `time` is the
    * timestamp of the releasing event, on the same scale as the `timeStamp` of the move events.
@@ -44,6 +56,8 @@ export function attachDrag(element: HTMLElement, handlers: DragHandlers, options
   let pointerId: number | null = null;
   let startX = 0;
   let startY = 0;
+  let startTarget: EventTarget | null = null;
+  let startTime = 0;
   let dragging = false;
   let samples: Sample[] = [];
   let suppressClick = false;
@@ -69,6 +83,8 @@ export function attachDrag(element: HTMLElement, handlers: DragHandlers, options
     pointerId = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
+    startTarget = event.target;
+    startTime = event.timeStamp;
     dragging = false;
     samples = [{ time: event.timeStamp, x: event.clientX }];
   };
@@ -92,12 +108,12 @@ export function attachDrag(element: HTMLElement, handlers: DragHandlers, options
       } catch {
         // Capture can fail if the pointer is already gone; the drag still works while it stays over the element.
       }
-      handlers.onStart?.(event);
+      handlers.onStart?.(event, { x: startX, y: startY, target: startTarget, time: startTime });
     }
 
     samples.push({ time: event.timeStamp, x: event.clientX });
     if (samples.length > 12) samples.shift();
-    handlers.onMove(dx, event);
+    handlers.onMove(dx, event, event.clientX);
   };
 
   const finish = (event: PointerEvent, cancelled: boolean): void => {

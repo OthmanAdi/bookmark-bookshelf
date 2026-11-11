@@ -67,9 +67,24 @@ export interface ShelfMotionOptions {
   closeDuration?: number;
 }
 
+/** What a host learns when a drag begins, to decide which row position keeps the grabbed item under the pointer. */
+export interface TrackStart {
+  /** Pointer x at the press, in client px. */
+  x: number;
+  /** What the press landed on. */
+  target: EventTarget | null;
+  /** Row position when the drag began, in items. */
+  position: number;
+}
+
 export interface AttachOptions {
-  /** Horizontal distance between two neighbouring volumes at rest, in px. */
+  /** Horizontal distance between two neighbouring volumes at rest, in px. Used when `track` is absent or declines. */
   pxPerItem: () => number;
+  /**
+   * Called when a drag begins. Return a function from pointer x to row position and the drag follows it, so
+   * what was grabbed stays under the pointer whatever the spacing. Return null to drag by `pxPerItem`.
+   */
+  track?: (start: TrackStart) => ((x: number) => number) | null;
   /** Return false to ignore a pointerdown, for example while a book is open. */
   enabled?: () => boolean;
 }
@@ -189,6 +204,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
   let dragStartTarget = 0;
   let dragTravel = 0;
   let dragSamples: PositionSample[] = [];
+  let dragTrack: ((x: number) => number) | null = null;
 
   function readReduced(): boolean {
     const value = options.reducedMotion;
@@ -364,7 +380,7 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
     const detachDrag = attachDrag(
       element,
       {
-        onStart() {
+        onStart(_event, origin) {
           travel = null;
           state.dragging = true;
           state.velocity = 0;
@@ -372,11 +388,12 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
           dragStartTarget = state.target;
           dragTravel = 0;
           dragSamples = [];
+          dragTrack = attachOptions.track?.({ x: origin.x, target: origin.target, position: state.position }) ?? null;
           wake();
         },
-        onMove(dx, event) {
+        onMove(dx, event, x) {
           dragTravel = dx;
-          state.position = limitDragPosition(dragOrigin - dx / pitch());
+          state.position = limitDragPosition(dragTrack ? dragTrack(x) : dragOrigin - dx / pitch());
           pushSample(dragSamples, event.timeStamp, state.position);
           setTarget(state.position);
           wake();
