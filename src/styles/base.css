@@ -45,12 +45,21 @@ ol[role='list'] {
   padding: 0;
 }
 
+/*
+ * Small titles need the weight; a page title is large enough for the optical size to carry
+ * its contrast, so it stands at the display weight with tighter tracking.
+ */
 h1,
 h2,
 h3 {
-  font-weight: 600;
-  line-height: 1.1;
+  font-weight: var(--bb-weight-title);
+  line-height: var(--bb-leading-tight);
   text-wrap: balance;
+}
+
+h1 {
+  font-weight: var(--bb-weight-display);
+  letter-spacing: var(--bb-track-heading);
 }
 
 p {

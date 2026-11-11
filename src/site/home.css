@@ -45,10 +45,10 @@ body.bb-home {
 
 .bb-hero__title {
   max-width: 13ch;
-  font-size: clamp(2.75rem, 5vw + 1rem, 5.25rem);
-  font-weight: 600;
-  letter-spacing: -0.032em;
-  line-height: 0.98;
+  font-size: var(--bb-text-display);
+  font-weight: var(--bb-weight-display);
+  letter-spacing: var(--bb-track-display);
+  line-height: var(--bb-leading-display);
   overflow-wrap: anywhere;
 }
 
@@ -161,10 +161,10 @@ body.bb-home {
 }
 
 .bb-passage__title {
-  font-size: clamp(1.625rem, 1.4vw + 1.2rem, 2.375rem);
-  font-weight: 600;
-  letter-spacing: -0.022em;
-  line-height: 1.06;
+  font-size: var(--bb-text-heading);
+  font-weight: var(--bb-weight-display);
+  letter-spacing: var(--bb-track-heading);
+  line-height: var(--bb-leading-tight);
 }
 
 .bb-passage__body {
