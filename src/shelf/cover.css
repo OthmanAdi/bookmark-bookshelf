@@ -335,3 +335,41 @@
     display: none;
   }
 }
+
+/* ---------- forced colours: a plain board in the system's colours ---------- */
+
+@media (forced-colors: active) {
+  /* The system palette replaces cloth and ink; the board keeps an edge so it still reads as an object. */
+  .bb-cover[data-layout] {
+    forced-color-adjust: auto;
+    border: 1px solid CanvasText;
+  }
+
+  /* Weave and joint are shading only, and would come out as noise. */
+  .bb-cover::after {
+    display: none;
+  }
+
+  /*
+   * A pattern drawn in one system colour is a field of shapes with no meaning, so it is left off. The
+   * shape of a saved text stays: it says how long the text is and where its headings fall.
+   */
+  .bb-cover[data-plate='art'] .bb-cover__art {
+    display: none;
+  }
+
+  /* SVG ink is not given the system colour by itself. */
+  .bb-cover__ink--1,
+  .bb-cover__ink--2 {
+    color: CanvasText;
+    mix-blend-mode: normal;
+  }
+
+  .bb-cover[data-layout='label'] .bb-cover__head {
+    border: 1px solid CanvasText;
+  }
+
+  .bb-cover[data-layout='band'] .bb-cover__plate {
+    border-bottom: 1px solid CanvasText;
+  }
+}
