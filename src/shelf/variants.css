@@ -58,7 +58,7 @@
   --cloth-art: #f0c56b;
 }
 
-/* ---------- Paper Row (default): cobalt accent, spines read bottom to top ---------- */
+/* ---------- Paper Row (default): cloth-bound volumes, the presented one in a printed paper jacket ---------- */
 
 :root[data-variant='paper'],
 .bb-shelf[data-variant='paper'] {
@@ -67,6 +67,8 @@
   --bb-accent-ink: #f6f7fb;
   /* The focus ring must stand apart from the cobalt accent it often sits on. */
   --bb-focus: #c2410c;
+  /* The page a volume opens to: warm, uncoated paper. */
+  --bb-sheet: #faf6ee;
 }
 
 .bb-shelf[data-variant='paper'] .bb-spine__title {
@@ -74,9 +76,31 @@
 }
 
 /*
- * Desktop only: the opened page as measured. In a 1280px window the cover is 285 by 547px with its left
- * edge at 840 and its top at 104, and the text column starts 42px from the left. Phones and narrow
- * windows keep the compact one-column reader, and the other looks keep the reader's own defaults.
+ * The jacket: printed paper wrapped round a cloth case. Paper grain in place of the weave. Where it
+ * bends over the joint of the case it shows a soft fold rather than a cut groove, and its edges are
+ * trimmed paper, catching the light at the head and turning under at the fore-edge.
+ */
+:root[data-variant='paper'] .bb-cover,
+.bb-shelf[data-variant='paper'] .bb-cover {
+  --bb-weave: var(--bb-grain);
+  --bb-cover-joint: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.22) 0,
+    rgba(0, 0, 0, 0.08) 1.2%,
+    rgba(255, 255, 255, 0.1) 2.4%,
+    rgba(255, 255, 255, 0) 4%,
+    rgba(0, 0, 0, 0.07) 5%,
+    rgba(0, 0, 0, 0) 6.5%
+  );
+  --bb-cover-edge:
+    inset 0 calc(1px * var(--bb-cover-k, 1)) 0 rgba(255, 255, 255, 0.14),
+    inset calc(-1px * var(--bb-cover-k, 1)) 0 0 rgba(0, 0, 0, 0.16),
+    inset 0 calc(-1px * var(--bb-cover-k, 1)) 0 rgba(0, 0, 0, 0.12);
+}
+
+/*
+ * Desktop only: the page opens with the text hung from the left and the cover standing in its own
+ * column at the right, level with the title. Phones and narrow windows keep the one-column reader.
  */
 @media (min-width: 900px) {
   :root[data-variant='paper'] {
@@ -88,13 +112,6 @@
     --bb-reader-pad-inline: 2.625rem;
     --bb-reader-cover-top: 6.5rem;
     --bb-reader-pad-top: calc(6.5rem - var(--bb-reader-bar, 3.5rem));
-  }
-}
-
-/* Desktop only: tall enough that spines reach about 340px in a 720px-high window. Phones keep the compact scene. */
-@media (min-width: 40.0625rem) {
-  .bb-shelf[data-variant='paper'] {
-    --bb-shelf-height: clamp(17rem, 55vh, 26rem);
   }
 }
 
