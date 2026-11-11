@@ -46,6 +46,8 @@ interface Parts {
   url: string;
   title: string;
   note: string;
+  /** The title came from the text of a Markdown link, so a dash or colon at its ends belongs to it. */
+  exactTitle?: boolean;
 }
 
 function isSpace(char: string | undefined): boolean {
@@ -147,7 +149,7 @@ function splitLine(line: string): Parts | undefined {
   const link = findMarkdownLink(line);
   if (link) {
     const rest = `${line.slice(0, link.start)} ${line.slice(link.end)}`;
-    return { url: link.target, title: link.text, note: rest };
+    return { url: link.target, title: link.text, note: rest, exactTitle: true };
   }
   return splitPiped(line) ?? splitLoose(line);
 }
@@ -176,7 +178,7 @@ function readLine(raw: string): LinkListEntry | undefined {
 
   let required: boolean | undefined;
   let minutes: number | undefined;
-  const read = (text: string): string => {
+  const read = (text: string, exact = false): string => {
     let out = text.replace(OPTIONAL, ' ');
     if (out !== text) required = false;
     const match = MINUTES.exec(out);
@@ -185,10 +187,11 @@ function readLine(raw: string): LinkListEntry | undefined {
       if (value >= 1 && value <= 600 && minutes === undefined) minutes = value;
       out = out.replace(MINUTES, ' ');
     }
-    return tidy(cleanLine(out));
+    const cleaned = cleanLine(out);
+    return exact ? cleaned.replace(/[ \t]{2,}/g, ' ') : tidy(cleaned);
   };
 
-  const title = read(parts.title);
+  const title = read(parts.title, parts.exactTitle === true);
   const note = read(parts.note);
   const entry: LinkListEntry = { url };
   if (title !== '') entry.title = title;

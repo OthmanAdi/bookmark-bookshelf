@@ -32,6 +32,11 @@ describe('parseLinkList formats', () => {
     expect(only('[Spaced](<https://example.org/a>)')).toEqual({ url: 'https://example.org/a', title: 'Spaced' });
   });
 
+  it('keeps a dash, colon or pipe at the ends of a markdown link title', () => {
+    expect(only('[- Wait:](https://example.org/a)')).toEqual({ url: 'https://example.org/a', title: '- Wait:' });
+    expect(only('[|](https://example.org/a) - note')).toEqual({ url: 'https://example.org/a', title: '|', note: 'note' });
+  });
+
   it('reads Title | url | note', () => {
     expect(only('Chapter two | https://example.org/two | read before class')).toEqual({
       url: 'https://example.org/two',
