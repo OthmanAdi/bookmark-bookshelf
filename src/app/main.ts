@@ -16,6 +16,7 @@ import { renderList } from './list-view';
  */
 const store = createStore({ seed: () => sampleLibrary() });
 
+const chrome = must<HTMLElement>('#chrome');
 const shelfHost = must<HTMLElement>('#shelf');
 const listHost = must<HTMLElement>('#list');
 const tabs = must<HTMLElement>('#tabs');
@@ -29,7 +30,7 @@ const bookshelf = createBookshelf({
   store,
   shelfHost,
   readerHost: must<HTMLElement>('#reader'),
-  background: [must<HTMLElement>('#chrome')],
+  background: [chrome],
   label: 'Your shelf',
   onFocusChange: (bookmark) => {
     renderActions(bookmark);
@@ -191,6 +192,7 @@ function renderListView(): void {
 
 function applyView(): void {
   const list = store.session().view === 'list';
+  chrome.dataset.view = list ? 'list' : 'shelf';
   shelfHost.hidden = list;
   listHost.hidden = !list;
   viewToggle.setAttribute('aria-pressed', String(list));

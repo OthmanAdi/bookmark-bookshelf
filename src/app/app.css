@@ -18,11 +18,22 @@
   top: var(--bb-s-4);
 }
 
+/*
+ * The working view is one screen: bar, shelf tabs and the stage, which takes whatever height is left.
+ * The shelf scales its volumes to the stage, so nothing has to scroll. List view is a document and
+ * scrolls the page like one.
+ */
 .bb-app__chrome {
   display: grid;
   /* minmax(0, 1fr): a wide child (tab strip, long title) must never widen the page. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: 100dvh;
+  min-height: 32rem;
+}
+
+.bb-app__chrome[data-view='list'] {
+  height: auto;
   min-height: 100dvh;
 }
 
@@ -186,25 +197,51 @@
 /* ---------- main ---------- */
 
 .bb-app__main {
+  /*
+   * The tallest stage worth having: headroom, the tallest volume at the largest scale the shelf allows
+   * (340 px at 1.5) and the floor. Past it the extra height is shared above and below the group, so
+   * the stage stays optically centred on a large screen instead of floating a short row near the top.
+   */
+  --bb-stage-max: calc(var(--bb-stage-headroom, 2.5rem) + 510px + var(--bb-stage-floor, 2rem));
   display: grid;
-  align-content: center;
-  padding: var(--bb-s-3) 0 var(--bb-s-6);
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
+  padding: var(--bb-s-5) 0 var(--bb-s-6);
+}
+
+.bb-app__chrome[data-view='list'] .bb-app__main {
+  display: block;
+}
+
+/* The app gives its shelf a real height: the scene takes the stage that is left once caption and actions have their room. */
+[data-fill] {
+  min-height: 0;
+}
+
+/* Scoped under .bb-app so it outweighs the per-look heights, which load after this file. */
+.bb-app [data-fill] > .bb-shelf {
+  --bb-shelf-height: auto;
+  height: 100%;
+  grid-template-rows: minmax(12rem, var(--bb-stage-max)) auto auto;
+  align-content: center;
 }
 
 /* ---------- footer: the boundary statement and library tools ---------- */
 
 .bb-app__foot {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: var(--bb-s-4) var(--bb-s-6);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: last baseline;
+  justify-content: space-between;
+  gap: var(--bb-s-3) var(--bb-s-6);
   padding: var(--bb-s-5);
   border-top: var(--bb-hairline) solid var(--bb-rule);
 }
 
 .bb-app__boundary {
-  max-width: 68ch;
+  flex: 1 1 24rem;
+  max-width: 62ch;
   color: var(--bb-ink-soft);
   font-size: var(--bb-text-small);
   line-height: 1.5;
@@ -216,6 +253,7 @@
 }
 
 .bb-app__library {
+  flex: 0 1 auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -231,6 +269,17 @@
 /* ---------- small screens ---------- */
 
 @media (max-width: 40rem) {
+  .bb-app__chrome {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .bb-app [data-fill] > .bb-shelf {
+    --bb-shelf-height: clamp(15rem, 40svh, 19rem);
+    height: auto;
+    grid-template-rows: auto;
+  }
+
   .bb-app__bar {
     padding: var(--bb-s-3) var(--bb-s-4);
   }
@@ -241,7 +290,6 @@
   }
 
   .bb-app__foot {
-    grid-template-columns: minmax(0, 1fr);
     padding: var(--bb-s-4);
   }
 
