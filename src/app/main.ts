@@ -1,7 +1,7 @@
 import '../styles/base.css';
 import './app.css';
 import './flows.css';
-import { sampleLibrary } from '../data/sample-library';
+import { isExampleId, sampleLibrary } from '../data/sample-library';
 import { listVariants } from '../shelf';
 import { createStore, type Bookmark, type SortMode } from '../store';
 import { minutesOf } from '../store/reading-time';
@@ -17,7 +17,7 @@ import { createSearch, findLinks } from './search';
 import { emptyState, READING_NOTE } from './shell-empty';
 import { createPhoneLayout, PHONE_QUERY } from './shell-phone';
 import { createStageCaption, type LinkView } from './shell-stage';
-import { firstToRead, renderStatus, statusLine } from './status';
+import { examplesSentence, firstToRead, renderStatus, statusLine } from './status';
 import { createShelfTabs } from './shell-tabs';
 import { renderChoices, renderViewMenu, type ViewMode } from './shell-view-menu';
 
@@ -205,13 +205,29 @@ function openShelf(id: string | null): void {
 
 const statusArea = must<HTMLElement>('#status-area');
 const shelfStatus = must<HTMLElement>('#shelf-status');
+const examplesLine = must<HTMLElement>('#examples-line');
+
+/** The example links are the ones the bundled library brings; any of them still here counts. */
+function examplesLeft(): number {
+  return store.bookmarks(null).filter((bookmark) => isExampleId(bookmark.id)).length;
+}
 
 function renderShelfStatus(): void {
   const id = openShelfId();
   const links = id ? store.bookmarks(id) : [];
   renderStatus(shelfStatus, links.length > 0 ? statusLine(statsVolumes(links), statusContext) : null, bringToCentre);
-  statusArea.hidden = shelfStatus.hidden;
+
+  const examples = examplesLeft();
+  if (examples === 0 && examplesLine.contains(document.activeElement)) {
+    // The examples were removed from this line: the active tab, which stays, takes focus.
+    must<HTMLElement>('#tabs').querySelector<HTMLElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
+  }
+  examplesLine.hidden = examples === 0;
+  if (examples > 0) must<HTMLElement>('#examples-text').textContent = examplesSentence(examples);
+  statusArea.hidden = shelfStatus.hidden && examplesLine.hidden;
 }
+
+must<HTMLButtonElement>('#examples-remove').addEventListener('click', () => flows.removeExamples());
 
 const shelfTabs = createShelfTabs(must<HTMLElement>('#tabs'), openShelf, { reduced: () => bookshelf.motion.state.reduced });
 const shelfMenuWrap = must<HTMLElement>('#shelf-menu-wrap');
@@ -496,13 +512,6 @@ createSearch(
 );
 
 /* ---------- the Library menu ---------- */
-
-/** The example links are the ones the bundled library brings; any of them still here counts. */
-const exampleIds = new Set(sampleLibrary().bookmarks.map((bookmark) => bookmark.id));
-
-function examplesLeft(): number {
-  return store.bookmarks(null).filter((bookmark) => exampleIds.has(bookmark.id)).length;
-}
 
 const saving = store.persistence === 'local';
 must<HTMLElement>('#storage-warning').hidden = saving;

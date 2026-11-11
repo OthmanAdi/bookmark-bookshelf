@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { firstToRead, renderStatus, statusLine } from './status';
+import { examplesSentence, firstToRead, renderStatus, statusLine } from './status';
+
+describe('examplesSentence', () => {
+  it('counts the examples that remain', () => {
+    expect(examplesSentence(15)).toBe('These 15 links are examples. Add your own, or remove the examples.');
+    expect(examplesSentence(1)).toBe('This link is an example. Add your own, or remove it.');
+  });
+});
 
 const volumes = [
   { id: 'a', title: 'What is a URL?', minutes: 6 },

@@ -23,6 +23,13 @@ export function statusLine(volumes: readonly StatsVolume[], context: StatusConte
   return next ? { text, next: { id: next.id, title: next.title } } : { text };
 }
 
+/** The line shown while any of the bundled examples remain, followed by its Remove examples button. */
+export function examplesSentence(count: number): string {
+  return count === 1
+    ? 'This link is an example. Add your own, or remove it.'
+    : `These ${count} links are examples. Add your own, or remove the examples.`;
+}
+
 /** Where to stand when a shelf is opened: the first link still to read, required ones first. */
 export function firstToRead(volumes: readonly StatsVolume[], context: StatusContext): string | undefined {
   return shelfStats(volumes, context).next?.id;
