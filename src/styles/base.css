@@ -75,6 +75,22 @@ button {
   cursor: pointer;
 }
 
+/* A double tap on a control must not zoom the page, and a tap must not flash grey. */
+a,
+button,
+select,
+summary,
+label,
+[role='button'] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hidden means hidden, whatever display a component class sets. */
+[hidden]:not([hidden='until-found']) {
+  display: none !important;
+}
+
 :focus-visible {
   outline: 2px solid var(--bb-focus);
   outline-offset: 2px;
@@ -112,6 +128,7 @@ button {
   align-items: center;
   justify-content: center;
   gap: var(--bb-s-2);
+  min-width: var(--bb-control-h);
   min-height: var(--bb-control-h);
   padding: 0 var(--bb-s-4);
   border: var(--bb-hairline) solid var(--bb-rule-strong);
@@ -126,19 +143,11 @@ button {
   text-transform: none;
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
   transition-property: background-color, color, border-color, scale;
   transition-duration: var(--bb-dur-1);
   transition-timing-function: var(--bb-ease-out);
-}
-
-.bb-button:hover {
-  background: var(--bb-ink);
-  border-color: var(--bb-ink);
-  color: var(--bb-paper);
-}
-
-.bb-button:active {
-  scale: 0.96;
 }
 
 .bb-button--solid {
@@ -148,14 +157,35 @@ button {
   font-weight: var(--bb-weight-title);
 }
 
-.bb-button--solid:hover {
-  background: var(--bb-accent-strong);
-  border-color: var(--bb-accent-strong);
-  color: var(--bb-accent-ink);
+.bb-button--quiet {
+  padding-inline: var(--bb-s-3);
+  border-color: transparent;
 }
 
-.bb-button--quiet {
-  border-color: transparent;
+/*
+ * Only the solid button changes its fill on hover. The outline button firms its edge and
+ * takes a faint wash; the quiet button takes the rule colour. A touch screen has no hover,
+ * so the state is not left behind after a tap.
+ */
+@media (hover: hover) {
+  .bb-button:hover {
+    border-color: var(--bb-ink);
+    background: color-mix(in srgb, var(--bb-ink) 7%, transparent);
+  }
+
+  .bb-button--solid:hover {
+    border-color: var(--bb-accent-strong);
+    background: var(--bb-accent-strong);
+  }
+
+  .bb-button--quiet:hover {
+    border-color: transparent;
+    background: var(--bb-rule);
+  }
+}
+
+.bb-button:active {
+  scale: 0.97;
 }
 
 .bb-button[disabled],
@@ -212,6 +242,14 @@ textarea.bb-input {
   *::before,
   *::after {
     scroll-behavior: auto !important;
+  }
+
+  .bb-button {
+    transition: none;
+  }
+
+  .bb-button:active {
+    scale: none;
   }
 }
 
