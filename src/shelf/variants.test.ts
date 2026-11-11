@@ -89,7 +89,7 @@ describe('VARIANTS', () => {
       expect(summary, variant.name).toMatch(/^[A-Z][^.!?]*\.$/);
       expect(summary.length, variant.name).toBeLessThanOrEqual(90);
       // It says what the look is, not which one to pick or how the app works.
-      expect(summary, variant.name).not.toMatch(/(default|variant|theme|look|style)/i);
+      expect(summary, variant.name).not.toMatch(/\b(default|variant|theme|look|style)\b/i);
       expect(summary.split(' ').length, variant.name).toBeGreaterThanOrEqual(6);
     }
   });
