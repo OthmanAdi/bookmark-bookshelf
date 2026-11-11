@@ -35,6 +35,7 @@ describe('flightPose', () => {
     expect(pose.tip).toBeCloseTo(0, 5);
     expect(pose.shadow).toBe(0);
     expect(pose.spine).toBe(1);
+    expect(pose.light).toBe(1);
   });
 
   it('lands flat and square in its place beside the page', () => {
@@ -47,6 +48,7 @@ describe('flightPose', () => {
     expect(pose.tip).toBeCloseTo(0, 5);
     expect(pose.shadow).toBeCloseTo(0, 5);
     expect(pose.spine).toBe(0);
+    expect(pose.light).toBe(0);
   });
 
   it('never jumps between two frames', () => {
@@ -107,6 +109,25 @@ describe('createFlight', () => {
 
     flight.destroy();
     expect(host.querySelector('.bb-flight')).toBeNull();
+  });
+
+  it('carries the highlight the cover had on the shelf and lets it go on the way', () => {
+    const host = document.createElement('div');
+    const flight = createFlight({ cover: document.createElement('span'), start, end, host, sheen: { opacity: 0.06, sweep: 0.3 } });
+    const sheen = host.querySelector<HTMLElement>('.bb-book__sheen');
+    expect(sheen?.style.getPropertyValue('--bb-sweep')).toBe('0.3');
+    flight.set(0);
+    expect(sheen?.style.getPropertyValue('--bb-sheen')).toBe('0.06');
+    flight.set(1);
+    expect(sheen?.style.getPropertyValue('--bb-sheen')).toBe('0');
+    flight.destroy();
+  });
+
+  it('adds no highlight when the cover had none', () => {
+    const host = document.createElement('div');
+    const flight = createFlight({ cover: document.createElement('span'), start, end, host });
+    expect(host.querySelector('.bb-book__sheen')).toBeNull();
+    flight.destroy();
   });
 
   it('is hidden from assistive technology', () => {

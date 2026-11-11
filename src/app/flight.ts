@@ -42,6 +42,8 @@ export interface FlightPose {
   shadow: number;
   /** How much of the spine edge is still showing. */
   spine: number;
+  /** How much of the highlight the cover had on the shelf is still on it. */
+  light: number;
 }
 
 type Ease = (t: number) => number;
@@ -119,6 +121,7 @@ export function flightPose(time: number, start: FlightStart, end: FlightEnd): Fl
     tip: TIP_ANGLE * tipped,
     shadow: within(t, 0, TIP_END, easeOut) * (1 - landed),
     spine: 1 - within(t, SPINE_GONE_FROM, 1, linear),
+    light: 1 - acrossX,
   };
 }
 
@@ -131,6 +134,8 @@ export interface FlightOptions {
   end: FlightEnd;
   /** Width of the spine edge showing beside the cover at the start, in px at landing size. */
   spineEdge?: number;
+  /** The highlight on the cover as it stands on the shelf: its opacity and the place of its band. */
+  sheen?: { opacity: number; sweep: number };
   /** Where the layer goes. Defaults to the document body. */
   host?: HTMLElement;
 }
@@ -161,6 +166,13 @@ export function createFlight(options: FlightOptions): Flight {
   spine.style.width = `${Math.max(0, options.spineEdge ?? 0)}px`;
 
   book.append(shadow, spine, options.cover);
+  // The same soft highlight the shelf lays over a presented cover, so the first frame in the air matches.
+  const sheen = options.sheen && options.sheen.opacity > 0 ? document.createElement('span') : null;
+  if (sheen && options.sheen) {
+    sheen.className = 'bb-book__sheen';
+    sheen.style.setProperty('--bb-sweep', String(options.sheen.sweep));
+    book.appendChild(sheen);
+  }
   layer.appendChild(book);
   (options.host ?? document.body).appendChild(layer);
 
@@ -176,6 +188,7 @@ export function createFlight(options: FlightOptions): Flight {
     book.style.transform = transform;
     shadow.style.opacity = String(round(pose.shadow));
     spine.style.transform = `scaleX(${round(pose.spine)})`;
+    if (sheen && options.sheen) sheen.style.setProperty('--bb-sheen', String(round(options.sheen.opacity * pose.light * 1000) / 1000));
   };
 
   return {
