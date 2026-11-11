@@ -1,6 +1,6 @@
 import type { Result } from './types';
 import { fail, ok } from './result';
-import { stripTracking } from './url-hygiene';
+import { MAX_URL_LENGTH, hasCredentials, looksLikeAddress, stripTracking } from './url-hygiene';
 
 const SCHEME = /^([a-z][a-z0-9+.-]*):(.*)$/is;
 const PORT_AFTER_HOST = /^\d+(?:[/?#]|$)/;
@@ -14,14 +14,26 @@ function hasScheme(text: string): boolean {
   return !(looksLikeHost && PORT_AFTER_HOST.test(match[2] ?? ''));
 }
 
-/** Returns the canonical `href` of an http(s) address, adding `https://` when no scheme is given. */
+function tooLong(): ReturnType<typeof fail> {
+  return fail('too-long', `A web address can have at most ${MAX_URL_LENGTH} characters.`, 'url');
+}
+
+/**
+ * Returns the canonical `href` of an http(s) address, without tracking parameters. `https://` is added when no
+ * scheme is given and the text looks like a host; a bare word or a sentence is refused, and so is an address
+ * that carries a user name or password.
+ */
 export function normalizeUrl(input: string): Result<string> {
   const text = typeof input === 'string' ? input.trim() : '';
   if (text === '') return fail('invalid-url', 'Enter a web address.', 'url');
-  const candidate = hasScheme(text) ? text : `https://${text}`;
+  if (text.length > MAX_URL_LENGTH) return tooLong();
+  const schemed = hasScheme(text);
+  if (!schemed && !looksLikeAddress(text)) {
+    return fail('invalid-url', 'That does not look like a web address. Try something like example.org/page.', 'url');
+  }
   let parsed: URL;
   try {
-    parsed = new URL(candidate);
+    parsed = new URL(schemed ? text : `https://${text}`);
   } catch {
     return fail('invalid-url', 'That is not a valid web address.', 'url');
   }
@@ -29,7 +41,11 @@ export function normalizeUrl(input: string): Result<string> {
     return fail('invalid-url', 'Only http and https addresses can be saved.', 'url');
   }
   if (parsed.hostname === '') return fail('invalid-url', 'The address has no host name.', 'url');
-  return ok(parsed.href);
+  if (hasCredentials(parsed)) {
+    return fail('invalid-url', 'Addresses with a user name or password are not saved.', 'url');
+  }
+  const href = stripTracking(parsed).href;
+  return href.length > MAX_URL_LENGTH ? tooLong() : ok(href);
 }
 
 /**

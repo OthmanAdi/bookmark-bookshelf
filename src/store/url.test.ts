@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultCover, normalizeUrl } from './index';
 import { urlKey } from './url';
+import { makeRig } from './test-helpers';
 
 describe('normalizeUrl', () => {
   it.each([
@@ -33,6 +34,58 @@ describe('normalizeUrl', () => {
       expect(result.error.code).toBe('invalid-url');
       expect(result.error.field).toBe('url');
     }
+  });
+});
+
+describe('normalizeUrl hygiene', () => {
+  it.each(['hello', 'my reading list', 'what is this?', 'notes.', 'a.b', 'version 2.0 is out'])(
+    'refuses %j, which is not meant as an address',
+    (input) => {
+      const result = normalizeUrl(input);
+      expect(result).toMatchObject({ ok: false, error: { code: 'invalid-url', field: 'url' } });
+      if (!result.ok) expect(result.error.message).toContain('does not look like a web address');
+    },
+  );
+
+  it('still accepts a bare host with a path, a port or an international name', () => {
+    for (const input of ['example.org/a?b=1', 'localhost', 'example.org:8080', 'bücher.example']) {
+      expect(normalizeUrl(input).ok).toBe(true);
+    }
+  });
+
+  it.each(['https://user:secret@example.org/', 'http://user@example.org'])(
+    'refuses credentials in %s',
+    (input) => {
+      const result = normalizeUrl(input);
+      expect(result).toMatchObject({ ok: false, error: { code: 'invalid-url', field: 'url' } });
+      if (!result.ok) expect(result.error.message).toContain('user name or password');
+    },
+  );
+
+  it('removes tracking parameters and keeps the rest of the query and the fragment', () => {
+    expect(normalizeUrl('https://example.org/p?utm_source=a&id=7&fbclid=x&utm_medium=b#part')).toEqual({
+      ok: true,
+      value: 'https://example.org/p?id=7#part',
+    });
+    expect(normalizeUrl('https://example.org/p?gclid=1&msclkid=2')).toEqual({ ok: true, value: 'https://example.org/p' });
+  });
+
+  it('caps the length at 2,048 characters', () => {
+    const fits = `https://example.org/${'a'.repeat(2048 - 'https://example.org/'.length)}`;
+    expect(normalizeUrl(fits).ok).toBe(true);
+    expect(normalizeUrl(`${fits}a`)).toMatchObject({ ok: false, error: { code: 'too-long', field: 'url' } });
+  });
+
+  it('applies to links added, edited and imported', () => {
+    const { store } = makeRig();
+    expect(store.addBookmark({ url: 'just words' })).toMatchObject({ ok: false, error: { field: 'url' } });
+    const added = store.addBookmark({ url: 'https://example.org/p?utm_campaign=x&id=1' });
+    if (!added.ok) throw new Error('add failed');
+    expect(added.value.url).toBe('https://example.org/p?id=1');
+    expect(store.updateBookmark(added.value.id, { url: 'https://u:p@example.org/' }).ok).toBe(false);
+    const imported = store.importLibrary([{ url: 'https://u:p@example.org/', title: 'Secret' }], 'merge');
+    expect(imported).toMatchObject({ ok: true, value: { added: 0 } });
+    expect(imported.ok && imported.value.skipped[0]?.reason).toContain('user name or password');
   });
 });
 
