@@ -141,6 +141,43 @@ describe('mountShelf pose', () => {
     expect(shelf.element.dataset.open).toBe('0');
   });
 
+  it('leaves the opening volume in place but hidden, and parts its near neighbours', () => {
+    const { shelf } = mount({ items: makeItems(12) });
+    const xOf = (slot: number): number => Number(/translate3d\(([-\d.e]+)px/.exec(bySlot(shelf, slot).style.transform)?.[1]);
+    const before = [-5, -4, -1, 0, 1, 4, 5].map(xOf);
+    shelf.setPose({ position: 0, open: 1 });
+    const after = [-5, -4, -1, 0, 1, 4, 5].map(xOf);
+    expect(bySlot(shelf, 0).style.visibility).toBe('hidden');
+    expect(after[3]).toBeCloseTo(before[3]!, 6);
+    // Nearest neighbours move furthest, outward, and slots beyond four stay put.
+    expect(before[2]! - after[2]!).toBeCloseTo(28 * (4 / 5) * (shelf.pitch() / 68), 6);
+    expect(after[4]! - before[4]!).toBeCloseTo(before[2]! - after[2]!, 6);
+    expect(after[5]! - before[5]!).toBeCloseTo(28 * (1 / 5) * (shelf.pitch() / 68), 6);
+    expect(after[1]! - before[1]!).toBeLessThan(0);
+    expect(after[0]).toBeCloseTo(before[0]!, 6);
+    expect(after[6]).toBeCloseTo(before[6]!, 6);
+    for (const slot of [-1, 1, 4]) expect(bySlot(shelf, slot).style.visibility).toBe('');
+  });
+
+  it('shows the volume again and closes the gap once it is back', () => {
+    const { shelf } = mount();
+    const resting = bySlot(shelf, 1).style.transform;
+    shelf.setPose({ position: 0, open: 0.5 });
+    expect(bySlot(shelf, 1).style.transform).not.toBe(resting);
+    shelf.setPose({ position: 0, open: 0 });
+    expect(bySlot(shelf, 0).style.visibility).toBe('');
+    expect(bySlot(shelf, 1).style.transform).toBe(resting);
+  });
+
+  it('moves nothing and hides nothing while opening under reduced motion', () => {
+    const { shelf } = mount();
+    const resting = books(shelf).map((book) => book.style.transform);
+    shelf.setPose({ position: 0, open: 0.6, reduced: true });
+    expect(books(shelf).map((book) => book.style.transform)).toEqual(resting);
+    expect(books(shelf).every((book) => book.style.visibility === '')).toBe(true);
+    expect(shelf.surface.style.opacity).toBe('');
+  });
+
   it('turns the centred volume and leaves the others', () => {
     const { shelf } = mount();
     shelf.setPose({ position: 1, open: 0 });

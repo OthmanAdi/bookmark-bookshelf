@@ -42,9 +42,12 @@ export interface ShelfItem {
 export interface Pose {
   /** Float index of the volume at the centre. Unbounded when the row loops. */
   position: number;
-  /** 0 closed, 1 the centred volume has flown to the stage. Already eased. */
+  /**
+   * 0 closed, 1 the centred volume is open beside the page. Already eased. Above 0 the shelf leaves that
+   * volume's place empty, so the host can carry a copy of its cover, and parts the neighbours around it.
+   */
   open: number;
-  /** Reduced motion: no flight, the row simply fades while opening. */
+  /** Reduced motion: the row stays exactly as it is while a volume opens. */
   reduced?: boolean;
 }
 
@@ -84,8 +87,8 @@ export interface Geometry {
 }
 
 /**
- * How a look moves. Durations in ms. The shelf only reads `swap`; the rest is data for whoever drives
- * the pose (the object has the shape the motion module's `setTiming` accepts).
+ * How a look moves. Durations in ms. The shelf reads none of it; it is data for whoever drives the
+ * pose (the object has the shape the motion module's `setTiming` accepts).
  */
 export interface VariantMotion {
   /** Eased travel for programmed moves: `min(max, base + perItem * (items - 1))`. Null uses the spring. */
@@ -94,8 +97,8 @@ export interface VariantMotion {
   closeDuration: number;
   /** Pause between the trigger and the opening move. */
   openHold: number;
-  /** While opening, the volume gives way to the page first and reappears in flight. */
-  swap: boolean;
+  /** Ignored: an opening volume is always in view. Accepted so existing look definitions still apply. */
+  swap?: boolean;
 }
 
 /**
@@ -150,8 +153,6 @@ export interface ShelfHandle {
   setItems(items: ShelfItem[]): void;
   /** Draws one frame. Cheap enough to call on every animation frame. */
   setPose(pose: Pose): void;
-  /** Viewport box the centred cover flies to while opening. Null clears it. */
-  setStage(box: Box | null): void;
   setVariant(variant: string | Variant): void;
   readonly variant: Variant;
   readonly loop: boolean;

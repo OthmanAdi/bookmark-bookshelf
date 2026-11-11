@@ -4,14 +4,18 @@ import './variants.css';
 import { createBook, dropCover, ensureCover, setReal, type BookNode } from './book';
 import { computeRow, restPitch, scaleGeometry, visibleRange } from './layout';
 import { resolveVariant } from './variants';
-import type { Box, Geometry, Pose, ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions, Variant } from './types';
+import type { Geometry, Pose, ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions, Variant } from './types';
 
 const DEG = Math.PI / 180;
 /** Room kept above the books for a leaning or lifted volume, and below for the contact shadow. */
 const HEADROOM = 26;
 const FLOOR_ROOM = 30;
-/** Share of the opening move during which a swapping volume stays hidden. */
-const SWAP_UNTIL = 0.3;
+/**
+ * While a volume is out of the row its neighbours stand aside, the nearest by this many px at scale 1,
+ * each further one by less, up to `PART_REACH` slots away. Nothing leaves the scene.
+ */
+const PART = 28;
+const PART_REACH = 4;
 /** A touch that moves less than this many px and lifts within this many ms is a tap. */
 const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
@@ -34,7 +38,6 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let variant: Variant = resolveVariant(options.variant);
   let loop = options.loop ?? variant.loop;
   let pose: Pose = options.pose ?? { position: 0, open: 0 };
-  let stage: Box | null = null;
   let geometry: Geometry = variant.geometry;
   let sceneWidth = 0;
   let centre = Number.NaN;
@@ -151,45 +154,6 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     }
   }
 
-  function flightTransform(e: number, x: number, lift: number, z: number, lean: number): string {
-    if (!stage) return '';
-    const sceneBox = scene.getBoundingClientRect();
-    const originX = sceneBox.left + sceneBox.width / 2;
-    const floorY = sceneBox.bottom - FLOOR_ROOM;
-    // At a full turn the cover's left edge is on the pivot and its plane sits half a spine in front of it.
-    // Pulling the pivot back by that much puts the cover exactly on the z = 0 plane, where perspective does not resize it.
-    const targetX = stage.x - originX;
-    const targetY = stage.y + stage.height - floorY;
-    const targetZ = -(geometry.spineWidth / 2);
-    const mix = (from: number, to: number): number => from + (to - from) * e;
-    return (
-      `translate3d(${mix(x, targetX)}px, ${mix(-lift, targetY)}px, ${mix(z, targetZ)}px) ` +
-      `rotateZ(${mix(lean, 0)}deg) rotateY(${-geometry.focusAngle}deg)`
-    );
-  }
-
-  /**
-   * The flying cover grows by layout, not by a scale transform: its box takes the size of the stage step by
-   * step, so its type and drawing are laid out at every size exactly as the cover beside the reader will be.
-   * When it lands, the two are the same pixels and the swap cannot be seen. `--bb-cover-k` keeps shadow,
-   * corners and hairlines in proportion on the way.
-   */
-  function sizeFlyingCover(face: HTMLElement, e: number): void {
-    if (!stage) return;
-    const width = geometry.coverWidth + (stage.width - geometry.coverWidth) * e;
-    const height = geometry.bookHeight + (stage.height - geometry.bookHeight) * e;
-    face.style.width = `${width}px`;
-    face.style.height = `${height}px`;
-    face.style.setProperty('--bb-cover-k', String(width / geometry.coverWidth));
-  }
-
-  function restFlyingCover(face: HTMLElement): void {
-    if (!face.style.width) return;
-    face.style.width = '';
-    face.style.height = '';
-    face.style.removeProperty('--bb-cover-k');
-  }
-
   function render(): void {
     const count = items.length;
     empty.hidden = count > 0;
@@ -222,8 +186,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const opening = pose.open > 0;
     if (opening && openSlot === null) openSlot = centre;
     if (!opening) openSlot = null;
-    const flying = opening && !pose.reduced && stage !== null;
-    const slide = sceneWidth / 2 + geometry.coverWidth * 1.4;
+    // The host carries a copy of the cover to the page. The shelf only leaves its place empty and makes
+    // room around it. Under reduced motion nothing in the row moves; the page simply fades in over it.
+    const parting = opening && !pose.reduced && openSlot !== null;
+    const scale = geometry.spineWidth / variant.geometry.spineWidth;
 
     for (const slotPose of computeRow(position, geometry, range.from, range.to)) {
       const node = nodes.get(slotPose.slot);
@@ -232,22 +198,15 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       if (distance < 2.4 || slotPose.slot === openSlot) ensureCover(node);
       else if (distance > 4) dropCover(node);
 
+      const offset = parting && openSlot !== null ? slotPose.slot - openSlot : Number.NaN;
+      const reach = Math.abs(offset);
+      const away = reach > 0 && reach <= PART_REACH ? Math.sign(offset) * PART * scale * (1 - reach / 5) * pose.open : 0;
       const style = node.element.style;
-      if (flying && slotPose.slot === openSlot) {
-        style.transform = flightTransform(pose.open, slotPose.x, slotPose.lift, slotPose.z, slotPose.lean);
-        style.zIndex = '3';
-        if (node.cover) sizeFlyingCover(node.cover, pose.open);
-        // With `swap` the volume gives way to the page first and comes back into view already in flight.
-        style.visibility = variant.motion.swap && pose.open < SWAP_UNTIL ? 'hidden' : '';
-      } else {
-        style.visibility = '';
-        if (node.cover) restFlyingCover(node.cover);
-        const away = flying && openSlot !== null ? Math.sign(slotPose.slot - openSlot) * pose.open * slide : 0;
-        style.transform =
-          `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ` +
-          `rotateZ(${slotPose.lean}deg) rotateY(${-slotPose.angle}deg)`;
-        style.zIndex = slotPose.weight > 0 ? '2' : '';
-      }
+      style.visibility = reach === 0 ? 'hidden' : '';
+      style.transform =
+        `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ` +
+        `rotateZ(${slotPose.lean}deg) rotateY(${-slotPose.angle}deg)`;
+      style.zIndex = slotPose.weight > 0 ? '2' : '';
 
       const turn = Math.sin(slotPose.angle * DEG);
       node.spineShade.style.opacity = String(Math.min(0.6, turn * 0.6));
@@ -256,7 +215,6 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     }
 
     root.dataset.open = pose.open <= 0 ? '0' : pose.open >= 1 ? '1' : 'moving';
-    scene.style.opacity = pose.reduced && opening ? String(1 - pose.open) : '';
   }
 
   function activate(book: HTMLElement): void {
@@ -380,9 +338,6 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     setPose(nextPose) {
       pose = nextPose;
       render();
-    },
-    setStage(box) {
-      stage = box;
     },
     setVariant(nextVariant) {
       variant = resolveVariant(nextVariant);

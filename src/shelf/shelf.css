@@ -23,15 +23,6 @@
   color: var(--bb-ink);
 }
 
-/* Only the scene rises above the reader while a volume is in the air; caption and arrows stay underneath the sheet. */
-.bb-shelf[data-open='moving'] .bb-shelf__scene {
-  z-index: var(--bb-z-flight);
-}
-
-.bb-shelf[data-open='1'] .bb-shelf__scene {
-  visibility: hidden;
-}
-
 .bb-shelf__scene {
   grid-area: scene;
   position: relative;
@@ -201,7 +192,6 @@
 
 .bb-book__cover {
   position: absolute;
-  /* Anchored at the foot: while flying open the face may grow taller than the volume. */
   bottom: 0;
   left: 100%;
   display: block;
@@ -382,6 +372,11 @@
 
   .bb-shelf[data-open='0'] .bb-book:not(.is-centre):hover .bb-book__body {
     transform: none;
+  }
+
+  /* With motion the row stays painted under the page so closing finds it in place; here the page simply covers it. */
+  .bb-shelf[data-open='1'] .bb-shelf__scene {
+    visibility: hidden;
   }
 }
 
