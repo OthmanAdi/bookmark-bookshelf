@@ -44,7 +44,14 @@ export function checkOptionalText(raw: string, field: 'author' | 'note'): Result
 
 export function checkReadingText(raw: string): Result<string | undefined> {
   const text = cleanText(raw);
-  if (text.length > LIMITS.readingText) return tooLong('readingText', LIMITS.readingText);
+  if (text.length > LIMITS.readingText) {
+    const limit = LIMITS.readingText.toLocaleString('en-US');
+    return fail(
+      'too-long',
+      `That text is ${text.length.toLocaleString('en-US')} characters. The limit is ${limit}. Remove some, or save it as two links.`,
+      'readingText',
+    );
+  }
   return ok(text.trim() === '' ? undefined : text);
 }
 

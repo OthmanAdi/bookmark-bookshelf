@@ -167,7 +167,11 @@ describe('importLibrary merge', () => {
       { title: 'No address', url: '', reason: 'It has no web address.' },
       { title: '', url: '', reason: 'It is not a link.' },
       { title: 't'.repeat(300), url: 'long.example.org', reason: 'The title can have at most 300 characters.' },
-      { title: 'Big text', url: 'text.example.org', reason: 'The readingText can have at most 500000 characters.' },
+      {
+        title: 'Big text',
+        url: 'text.example.org',
+        reason: 'That text is 500,001 characters. The limit is 500,000. Remove some, or save it as two links.',
+      },
     ]);
   });
 
