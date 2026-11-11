@@ -16,6 +16,20 @@ body.bb-home {
   --home-row: 6.5rem;
 }
 
+.bb-home .bb-skip {
+  position: absolute;
+  left: var(--bb-s-4);
+  top: -4rem;
+  z-index: var(--bb-z-toast);
+  padding: var(--bb-s-2) var(--bb-s-4);
+  background: var(--bb-ink);
+  color: var(--bb-paper);
+}
+
+.bb-home .bb-skip:focus {
+  top: var(--bb-s-4);
+}
+
 /* ---------- bar ---------- */
 
 .bb-home__bar {
@@ -215,28 +229,89 @@ body.bb-home {
 /* ---------- looks ---------- */
 
 .bb-looks-band {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--bb-s-3) var(--bb-s-5);
-  padding: var(--bb-s-5) var(--home-gutter);
+  display: grid;
+  gap: var(--bb-s-4);
+  padding: var(--bb-s-5) var(--home-gutter) var(--bb-s-6);
   border-top: var(--bb-hairline) solid var(--bb-rule);
 }
 
 .bb-looks-band__note {
   color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
   font-style: italic;
+  line-height: var(--bb-line-small);
 }
 
 .bb-looks {
-  display: flex;
-  min-width: 0;
-  max-width: 100%;
-  border: var(--bb-hairline) solid var(--bb-rule-strong);
-  border-radius: var(--bb-r-1);
-  overflow-x: auto;
-  scrollbar-width: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--bb-s-2);
+}
+
+.bb-look {
+  display: grid;
+  align-content: start;
+  gap: var(--bb-s-1);
+  min-height: var(--bb-target-min);
+  padding: var(--bb-s-3) var(--bb-s-4) var(--bb-s-4);
+  border: 0;
+  border-top: 2px solid var(--bb-rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--bb-ink-soft);
+  text-align: left;
+  transition-property: background-color, border-color, scale;
+  transition-duration: var(--bb-dur-1);
+  transition-timing-function: var(--bb-ease-out);
+}
+
+.bb-look__name {
+  color: var(--bb-ink);
+  font-size: var(--bb-text-ui);
+  font-weight: var(--bb-weight-title);
+  line-height: var(--bb-line-ui);
+}
+
+.bb-look__summary {
+  font-size: var(--bb-text-small);
+  line-height: var(--bb-line-small);
+}
+
+.bb-look[aria-pressed='true'] {
+  border-top-color: var(--bb-accent);
+}
+
+@media (hover: hover) {
+  .bb-look:hover {
+    background: color-mix(in srgb, var(--bb-ink) 5%, transparent);
+  }
+}
+
+.bb-look:active {
+  scale: 0.985;
+}
+
+@media (forced-colors: active) {
+  .bb-look[aria-pressed='true'] {
+    border-top-color: Highlight;
+  }
+}
+
+/* A change of look cross-fades the whole page instead of cutting. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--bb-dur-2);
+  animation-timing-function: var(--bb-ease-in-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-look {
+    transition: none;
+  }
+
+  .bb-look:active {
+    scale: none;
+  }
 }
 
 /* ---------- passages ---------- */

@@ -1,8 +1,7 @@
 import '../styles/base.css';
-import '../app/app.css';
 import './home.css';
 import { createBookshelf, hostnameOf } from '../app/bookshelf';
-import { button, must } from '../app/dom';
+import { make, must } from '../app/dom';
 import { sampleLibrary } from '../data/sample-library';
 import { listVariants } from '../shelf';
 import { createMemoryStorage, createStore, type Bookmark } from '../store';
@@ -63,24 +62,38 @@ read.addEventListener('click', () => {
 prev.hidden = false;
 next.hidden = false;
 
-function renderLooks(): void {
+/** Each look shows its name and what it looks like, built once so focus stays put while switching. */
+const lookButtons = listVariants().map((variant) => {
+  const choice = make('button', 'bb-look');
+  choice.type = 'button';
+  choice.dataset.look = variant.name;
+  choice.append(make('span', 'bb-look__name', variant.label), make('span', 'bb-look__summary', variant.summary));
+  choice.addEventListener('click', () => chooseLook(variant.name));
+  return choice;
+});
+looks.replaceChildren(...lookButtons);
+
+function syncLooks(): void {
   const active = bookshelf.shelf.variant.name;
-  looks.replaceChildren(
-    ...listVariants().map((variant) => {
-      const choice = button(variant.label, 'bb-tab', () => {
-        bookshelf.setVariant(variant.name);
-        renderLooks();
-      });
-      choice.setAttribute('aria-pressed', String(variant.name === active));
-      choice.title = variant.summary;
-      return choice;
-    }),
-  );
+  for (const choice of lookButtons) choice.setAttribute('aria-pressed', String(choice.dataset.look === active));
+}
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+/** The whole page cross-fades from one look to the next, so nothing is seen being rebuilt. */
+function chooseLook(name: string): void {
+  if (name === bookshelf.shelf.variant.name) return;
+  const apply = (): void => {
+    bookshelf.setVariant(name);
+    syncLooks();
+  };
+  if (reducedMotion.matches || typeof document.startViewTransition !== 'function') apply();
+  else document.startViewTransition(apply);
 }
 
 store.subscribe((event) => {
   if (event.reason === 'progress' && !bookshelf.isOpen()) renderCaption(bookshelf.current());
 });
 
-renderLooks();
+syncLooks();
 renderCaption(bookshelf.current());
