@@ -102,7 +102,8 @@ export const VARIANTS: Record<string, Variant> = {
       spineWidth: 36,
       bookHeight: 300,
       coverWidth: 190,
-      gap: 4,
+      // Paperbacks stand packed tight, nearly touching.
+      gap: 2,
       focusGap: 12,
       focusLean: 3,
       perspective: 2400,

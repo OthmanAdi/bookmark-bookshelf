@@ -459,17 +459,27 @@
     0 calc(2px * var(--bb-cover-k, 1)) calc(4px * var(--bb-cover-k, 1)) rgba(0, 0, 0, 0.35);
 }
 
-/* ---------- Pocket Paperbacks: thin, flat, bright ---------- */
+/* ---------- Pocket Paperbacks: card covers in bright print, numbered as a series ---------- */
 
 :root[data-variant='pocket'],
 .bb-shelf[data-variant='pocket'] {
   --bb-paper: #f3f1ea;
+  /* The page a paperback opens to: pulp cream (faint text 5.42:1, secondary 7.42:1, body 15.9:1). */
+  --bb-sheet: #f6f1e4;
   --bb-accent: #1d4ed8;
   --bb-accent-strong: #173fae;
   --bb-accent-ink: #f8fafc;
   /* Focus in the look's blue, never a red that could pass for an error: 5.93:1 on the page, 6.37:1 on the sheet. */
   --bb-focus: #1d4ed8;
   --bb-focus-ring: #1d4ed8;
+  --bb-bookend: #23252b;
+  /* Paper, not cloth: a finer, even grain on spines, boards and covers. */
+  --bb-weave: var(--bb-grain);
+  /* A series: every volume carries its number on the spine and on the cover. */
+  --bb-spine-mark: 1;
+  --bb-cover-mark: 1;
+  /* Uncoated card catches less light than cloth. */
+  --bb-light-sheen: rgba(255, 252, 245, 0.6);
 }
 
 :root[data-variant='pocket'] .bb-cloth--ink,
@@ -528,35 +538,83 @@
   --cloth-art: #ffc531;
 }
 
+/* A card spine: flat, square-cornered, with the fold where it turns onto the front. */
 .bb-shelf[data-variant='pocket'] .bb-book__spine {
   border-radius: 1px;
   background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0) 12%);
+  box-shadow: none;
   gap: calc(var(--bb-spine-w) * 0.2);
 }
 
+/* Paperbacks have no raised bands. The space stays, so titles keep one length across the series. */
 .bb-shelf[data-variant='pocket'] .bb-spine__rule {
-  display: none;
+  visibility: hidden;
 }
 
 .bb-shelf[data-variant='pocket'] .bb-spine__title {
   font-family: var(--bb-font-mono);
-  font-size: max(10px, calc(var(--bb-spine-w) * 0.31));
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.bb-shelf[data-variant='pocket'] .bb-spine__sigil {
-  width: 100%;
-  height: calc(var(--bb-spine-w) * 0.5);
-  margin-bottom: calc(var(--bb-spine-w) * -0.2);
-  rotate: none;
+/* The series number printed reversed out of a small block at the head, the way a numbered list prints it. */
+.bb-shelf[data-variant='pocket'] .bb-spine__mark {
+  padding: 0.25em 0.3em 0.2em;
+  border-radius: 1px;
+  background: var(--cloth-ink);
+  color: var(--cloth);
+  opacity: 1;
 }
 
+/* Set in mono at 9 px, three figures and their block take about 22 px, inside the narrowest spine there is. */
+.bb-shelf[data-variant='pocket'] .bb-book[data-narrow] .bb-spine__mark {
+  visibility: visible;
+}
+
+/*
+ * The cover: printed card. No joint groove, a scored crease instead; thin card edges; square corners;
+ * a short shadow, since the light is nearly in front.
+ */
 :root[data-variant='pocket'] .bb-cover,
 .bb-shelf[data-variant='pocket'] .bb-cover {
-  border-radius: 1px 2px 2px 1px;
-  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0) 4%);
+  --bb-cover-joint: linear-gradient(
+    90deg,
+    transparent 5.2%,
+    rgba(0, 0, 0, 0.18) 5.2% 5.5%,
+    rgba(255, 255, 255, 0.14) 5.5% 5.8%,
+    transparent 5.8%
+  );
+  --bb-cover-edge:
+    inset 0 calc(1px * var(--bb-cover-k, 1)) 0 rgba(255, 255, 255, 0.1),
+    inset calc(-1px * var(--bb-cover-k, 1)) 0 0 rgba(0, 0, 0, 0.1);
+  --bb-cover-shadow:
+    calc(3px * var(--bb-cover-k, 1)) calc(6px * var(--bb-cover-k, 1)) calc(14px * var(--bb-cover-k, 1)) calc(-8px * var(--bb-cover-k, 1)) rgba(26, 24, 21, 0.42),
+    0 calc(1px * var(--bb-cover-k, 1)) calc(2px * var(--bb-cover-k, 1)) rgba(26, 24, 21, 0.14);
+  border-radius: calc(1px * var(--bb-cover-k, 1)) calc(2px * var(--bb-cover-k, 1)) calc(2px * var(--bb-cover-k, 1))
+    calc(1px * var(--bb-cover-k, 1));
+}
+
+/*
+ * The plate runs off both edges as a printed panel in the second colour, the drawing on it in the colour
+ * of the card, and stops above the foot so the imprint and the number stay on plain card.
+ */
+:root[data-variant='pocket'] .bb-cover[data-layout='plate'] .bb-cover__plate,
+.bb-shelf[data-variant='pocket'] .bb-cover[data-layout='plate'] .bb-cover__plate {
+  --bb-cover-ink-1: var(--cloth);
+  --bb-cover-ink-2: color-mix(in srgb, var(--cloth) 55%, var(--cloth-art));
+  right: 0;
+  bottom: 13cqw;
+  left: 0;
+  border-top: 0;
+  background: var(--cloth-art);
+}
+
+:root[data-variant='pocket'] .bb-cover[data-layout='plate'] .bb-cover__art,
+.bb-shelf[data-variant='pocket'] .bb-cover[data-layout='plate'] .bb-cover__art {
+  inset: 5cqw auto auto 12cqw;
+  width: calc(100% - 21cqw);
+  height: calc(100% - 10cqw);
 }
 
 .bb-shelf[data-variant='pocket'] .bb-shelf__floor {
