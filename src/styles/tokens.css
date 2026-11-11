@@ -10,7 +10,8 @@
   --bb-sheet: #fbf9f4;
   --bb-ink: #1a1815;
   --bb-ink-soft: #524d46;
-  --bb-ink-faint: #7b756c;
+  /* Faint is the smallest text on the page, so it still reaches 4.5:1 on every light ground. */
+  --bb-ink-faint: #67615a;
   --bb-rule: rgba(26, 24, 21, 0.16);
   --bb-rule-strong: rgba(26, 24, 21, 0.62);
 
@@ -19,6 +20,24 @@
   --bb-accent-strong: #8f2412;
   --bb-accent-ink: #fff8f1;
   --bb-focus: #1c5fd4;
+
+  /*
+   * Roles a look overrides as a set. The toast is the page inverted, so it follows the look
+   * without its own values; the focus ring follows the look's focus colour unless the look
+   * names a ring that holds 3:1 on more of its grounds. The halo is a second band for a ring
+   * that crosses dark and light grounds at once.
+   */
+  --bb-focus-ring: var(--bb-focus);
+  --bb-focus-halo: var(--bb-sheet);
+  --bb-focus-width: 2px;
+  --bb-focus-width-wide: 3px;
+  --bb-focus-offset: 2px;
+  --bb-danger: #a3261a;
+  --bb-danger-ink: #fff8f1;
+  --bb-danger-wash: #f7e6e1;
+  --bb-toast-bg: var(--bb-ink);
+  --bb-toast-ink: var(--bb-paper-raised);
+  --bb-backdrop: rgba(26, 24, 21, 0.42);
 
   /* type */
   --bb-font-serif: 'Newsreader Variable', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
