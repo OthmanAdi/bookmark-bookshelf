@@ -474,7 +474,29 @@
 }
 
 .bb-field input[type='file'] {
-  padding: var(--bb-s-2) var(--bb-s-3);
+  padding: var(--bb-s-2);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+}
+
+/* The browser's own file button, dressed as one of ours. */
+.bb-field input[type='file']::file-selector-button {
+  min-height: 2rem;
+  margin-right: var(--bb-s-3);
+  padding: 0 var(--bb-s-3);
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: var(--bb-r-1);
+  background: transparent;
+  color: var(--bb-ink);
+  font: inherit;
+  font-size: var(--bb-text-ui, 0.9375rem);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.bb-field input[type='file']::file-selector-button:hover {
+  border-color: var(--bb-ink);
+  background: color-mix(in srgb, var(--bb-ink) 7%, transparent);
 }
 
 .bb-intake__tabs {
