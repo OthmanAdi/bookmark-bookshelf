@@ -81,7 +81,9 @@ export function createShelfTabs(
     const left = tab.offsetLeft;
     const right = left + tab.offsetWidth;
     let target = strip.scrollLeft;
-    if (left - room < strip.scrollLeft) target = left - room;
+    // A tab wider than the strip shows where its name begins: the end of a long name can wait.
+    const wider = tab.offsetWidth + 2 * room > strip.clientWidth;
+    if (wider || left - room < strip.scrollLeft) target = left - (wider ? 0 : room);
     else if (right + room > strip.scrollLeft + strip.clientWidth) target = right + room - strip.clientWidth;
     target = Math.max(0, target);
     if (Math.abs(target - strip.scrollLeft) < 1) return;
