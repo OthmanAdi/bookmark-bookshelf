@@ -49,7 +49,7 @@ export const FOIL_BODY: Record<'gold' | 'silver' | 'copper' | 'holo', string> = 
 };
 
 /** Least contrast a foil keeps against its cloth under flat light, so a title still reads before it shines. */
-export const FOIL_CONTRAST = 2.6;
+export const FOIL_CONTRAST = 3;
 /** How much darker than its cloth a blind stamp prints. */
 export const BLIND_DEPTH = 0.2;
 /** Below this luminance a cloth cannot go darker; there a blind stamp shows a trace of the lettering colour. */
@@ -72,7 +72,8 @@ export function foilInk(stamp: 'gold' | 'silver' | 'copper' | 'holo', cloth: Rgb
   // On a dark cloth the foil reads by being lighter; darkening it would only lose what contrast it has.
   if (contrast(body, cloth) >= FOIL_CONTRAST || luminance(cloth) < DARK_CLOTH) return body;
   for (let step = 1; step <= 16; step++) {
-    const deeper = mix(body, BLACK, 1 - step * 0.05);
+    // Rounded as the canvas will print it, so the contrast holds for the colour actually painted.
+    const deeper = parseColour(css(mix(body, BLACK, 1 - step * 0.05)))!;
     if (contrast(deeper, cloth) >= FOIL_CONTRAST) return deeper;
   }
   return mix(body, BLACK, 0.2);
