@@ -4,6 +4,7 @@ import './flows.css';
 import { isExampleId, sampleLibrary } from '../data/sample-library';
 import { listVariants } from '../shelf';
 import { createStore, DEFAULT_STORAGE_KEY, type Bookmark, type SortMode } from '../store';
+import { isPaint, type Paint } from '../studio/types';
 import { minutesOf } from '../store/reading-time';
 import { SORT_MODES } from '../store/sort';
 import type { StatsVolume } from '../store/stats';
@@ -14,6 +15,7 @@ import { carriesAddress } from './flow-address';
 import { createFlows } from './flows';
 import { renderList } from './list-view';
 import { createMenu } from './menu';
+import { canUseStudio, PAINT_CHOICES, STUDIO_UNAVAILABLE } from './paint-support';
 import { createSearch, findLinks } from './search';
 import { attachDrop } from './shell-drop';
 import { emptyState, READING_NOTE } from './shell-empty';
@@ -566,11 +568,37 @@ function setView(view: ViewMode): void {
   applyView();
 }
 
-const viewMenu = renderViewMenu({ panel: must<HTMLElement>('#view-menu'), looks: listVariants(), onView: setView, onLook: changeLook });
+/** How the shelf is drawn right now. A stored Studio is drawn as Classic in a browser without WebGL2. */
+function currentPaint(): Paint {
+  const stored = store.session().paint ?? 'classic';
+  return stored === 'studio' && !canUseStudio() ? 'classic' : stored;
+}
+
+function setPaint(name: string): void {
+  if (!isPaint(name) || name === currentPaint()) return;
+  if (name === 'studio' && !canUseStudio()) return;
+  bookshelf.setPaint(name);
+  store.setSession({ paint: name });
+}
+
+const viewMenu = renderViewMenu({
+  panel: must<HTMLElement>('#view-menu'),
+  looks: listVariants(),
+  onView: setView,
+  onLook: changeLook,
+  paints: PAINT_CHOICES,
+  onPaint: setPaint,
+});
 createMenu({
   button: must<HTMLButtonElement>('#view-button'),
   panel: must<HTMLElement>('#view-menu'),
-  onOpen: () => viewMenu.update({ view: store.session().view, look: bookshelf.shelf.variant.name }),
+  onOpen: () =>
+    viewMenu.update({
+      view: store.session().view,
+      look: bookshelf.shelf.variant.name,
+      paint: currentPaint(),
+      unavailable: canUseStudio() ? undefined : { studio: STUDIO_UNAVAILABLE },
+    }),
 });
 
 must<HTMLButtonElement>('#add').addEventListener('click', () => flows.addLink());
@@ -690,6 +718,8 @@ document.addEventListener('visibilitychange', () => {
 
 ready = true;
 syncThemeColor();
+// The bookshelf starts in Classic, so only a stored Studio needs the WebGL2 check before anything is drawn.
+if (store.session().paint === 'studio' && canUseStudio()) bookshelf.setPaint('studio');
 readerHistory = createReaderHistory({
   isOpen: () => bookshelf.isOpen(),
   open: (id) => void bookshelf.open(id),
