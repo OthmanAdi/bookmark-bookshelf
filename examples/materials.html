@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en" data-variant="paper">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'sha256-sEPyJT05LkZGU7u7phyfvkISZabtu9H4Q8+OlaEFUDM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Material lab: a Bookmark Bookshelf example</title>
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <style>
+      .bb-lab {
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        min-height: 100dvh;
+      }
+      .bb-lab__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: var(--bb-s-2) var(--bb-s-5);
+        padding: var(--bb-s-3) var(--example-gutter);
+      }
+      .bb-lab__head h1 {
+        font-size: var(--bb-text-read);
+        margin: 0;
+      }
+      .bb-lab__head p {
+        margin: 0;
+        color: var(--bb-ink-soft);
+        font-size: var(--bb-text-small);
+        line-height: var(--bb-line-small);
+        max-width: 46rem;
+      }
+      .bb-lab__controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--bb-s-3);
+        margin-left: auto;
+        font-size: var(--bb-text-small);
+      }
+      .bb-lab__stage {
+        position: relative;
+        min-height: 34rem;
+        overflow: hidden;
+        touch-action: pan-y;
+      }
+      .bb-lab__stage[data-ground='night'] {
+        background: #14110f;
+        color: #efe9dc;
+      }
+      .bb-lab__stage canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .bb-lab__label {
+        position: absolute;
+        transform: translate(-50%, 0);
+        margin: 0;
+        text-align: center;
+        font-size: var(--bb-text-small);
+        line-height: 1.25;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+      .bb-lab__label small {
+        display: block;
+        opacity: 0.66;
+        font-family: var(--bb-font-mono);
+        font-size: 0.6875rem;
+      }
+      .bb-lab__note {
+        position: absolute;
+        inset: auto 0 var(--bb-s-3) 0;
+        margin: 0;
+        text-align: center;
+        font-size: var(--bb-text-small);
+      }
+    </style>
+  </head>
+  <body class="bb-example bb-lab">
+    <header class="bb-example__bar">
+      <a class="bb-brand" href="../index.html"><span class="bb-mark" aria-hidden="true"></span>Bookmark Bookshelf</a>
+    </header>
+    <div class="bb-lab__head">
+      <h1>Material lab</h1>
+      <p>
+        Every binding the Studio renderer can paint, each with a stamped title, turning under a light that follows the
+        pointer. Moving the pointer sideways also turns the room, so the reflections sweep across the boards.
+      </p>
+      <div class="bb-lab__controls">
+        <label class="bb-example__row">Stamp <select id="stamp" class="bb-select"></select></label>
+        <label class="bb-example__row">Show <select id="only" class="bb-select"></select></label>
+        <label class="bb-example__row">Ground <select id="ground" class="bb-select"></select></label>
+      </div>
+    </div>
+    <main id="stage" class="bb-lab__stage" aria-label="Eight bound volumes, one for each binding, turning under a moving light">
+      <p id="note" class="bb-lab__note" role="status"></p>
+    </main>
+    <script type="module" src="./materials.ts"></script>
+  </body>
+</html>
