@@ -111,6 +111,10 @@ const bookshelf = createBookshelf({
   },
 });
 
+// A link can ask for a drawing, so a Studio shelf can be shared as it looks: `app.html?paint=studio`.
+const askedPaint = new URLSearchParams(location.search).get('paint');
+if (askedPaint === 'studio' || askedPaint === 'classic') bookshelf.setPaint(askedPaint);
+
 const flows = createFlows({ store, bookshelf, refresh: () => renderAll() });
 
 /* ---------- the caption and actions under the row ---------- */
