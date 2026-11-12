@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Bookmark, Store } from '../store';
+import { BINDING_LABELS, BINDINGS, STAMP_LABELS, STAMPS } from '../studio/types';
 import { createEditor } from './editor';
 import { makeStore, mountPage, tick } from './flow-test-helpers';
 
@@ -244,3 +245,92 @@ describe('closing', () => {
   });
 });
 
+describe('binding and title stamp', () => {
+  const radios = (name: string): HTMLInputElement[] => [...document.querySelectorAll<HTMLInputElement>(`#editor input[type="radio"][name="${name}"]`)];
+  const radio = (name: string, value: string): HTMLInputElement => {
+    const found = radios(name).find((entry) => entry.value === value);
+    if (!found) throw new Error(`no ${name} radio for ${value}`);
+    return found;
+  };
+  const choose = (name: string, value: string): void => {
+    radio(name, value).click();
+  };
+  const save = (): void => (document.getElementById('editor-save') as HTMLButtonElement).click();
+
+  it('offers Automatic and every binding, each named by its visible label, in a group named Binding', () => {
+    editor().add();
+    const group = radio('binding', '').closest('fieldset');
+    expect(group?.querySelector('legend')?.textContent).toBe('Binding');
+    expect(radios('binding').map((entry) => entry.value)).toEqual(['', ...BINDINGS]);
+    const names = radios('binding').map((entry) => entry.closest('label')?.textContent?.trim());
+    expect(names).toEqual(['Automatic', ...BINDINGS.map((value) => BINDING_LABELS[value])]);
+    for (const entry of radios('binding')) {
+      expect(entry.closest('label')?.querySelector('.bb-swatch__chip')?.getAttribute('aria-hidden')).toBe('true');
+    }
+  });
+
+  it('offers Automatic and every stamp in a group named Title stamp', () => {
+    editor().add();
+    expect(radio('stamp', '').closest('fieldset')?.querySelector('legend')?.textContent).toBe('Title stamp');
+    expect(radios('stamp').map((entry) => entry.value)).toEqual(['', ...STAMPS]);
+    const names = radios('stamp').map((entry) => entry.closest('label')?.textContent?.trim());
+    expect(names).toEqual(['Automatic', ...STAMPS.map((value) => STAMP_LABELS[value])]);
+  });
+
+  it('says where the choice shows', () => {
+    editor().add();
+    const group = radio('binding', '').closest('fieldset') as HTMLElement;
+    const hint = document.getElementById(group.getAttribute('aria-describedby') ?? '');
+    expect(hint?.textContent).toContain('Studio');
+  });
+
+  it('starts a new link on Automatic and saves no choice', () => {
+    editor().add();
+    expect(radio('binding', '').checked).toBe(true);
+    expect(radio('stamp', '').checked).toBe(true);
+    input('url').value = 'https://example.org/plain';
+    save();
+    expect(saved[0]?.bookmark.cover).not.toHaveProperty('binding');
+    expect(saved[0]?.bookmark.cover).not.toHaveProperty('stamp');
+  });
+
+  it('saves the binding and stamp chosen for a new link', () => {
+    editor().add();
+    input('url').value = 'https://example.org/bound';
+    choose('binding', 'leather');
+    choose('stamp', 'gold');
+    save();
+    expect(saved[0]?.bookmark.cover).toMatchObject({ binding: 'leather', stamp: 'gold' });
+  });
+
+  it('opens a link with its choices checked, and Automatic removes them', () => {
+    const target = store.bookmarks()[0] as Bookmark;
+    store.updateBookmark(target.id, { cover: { binding: 'velvet', stamp: 'copper' } });
+    editor().edit(target.id);
+    expect(radio('binding', 'velvet').checked).toBe(true);
+    expect(radio('stamp', 'copper').checked).toBe(true);
+    choose('binding', '');
+    save();
+    expect(store.get(target.id)?.cover).not.toHaveProperty('binding');
+    expect(store.get(target.id)?.cover.stamp).toBe('copper');
+  });
+
+  it('keeps a name this version does not offer when the person leaves it alone', () => {
+    const target = store.bookmarks()[0] as Bookmark;
+    store.updateBookmark(target.id, { cover: { binding: 'marble' } });
+    editor().edit(target.id);
+    expect(radios('binding').some((entry) => entry.checked)).toBe(false);
+    input('title').value = 'Renamed';
+    save();
+    expect(store.get(target.id)?.cover.binding).toBe('marble');
+  });
+
+  it('counts a changed choice as something to keep when the backdrop is pressed', async () => {
+    editor().add();
+    choose('stamp', 'blind');
+    dialog().dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    dialog().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await tick();
+    expect(document.querySelector('dialog[open].bb-dialog--small')).not.toBeNull();
+  });
+});
