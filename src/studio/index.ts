@@ -4,7 +4,9 @@ import type { FrameVolume, ShelfFrame, ShelfHandle } from '../shelf/types';
 import { fromCssMatrix, volumeMatrix } from './camera';
 import { type DressKit, Dresser } from './dress';
 import { Stage, webglAvailable } from './stage';
-import { LEAVES, type Opening, VolumeMesh } from './volume';
+import { leafTangent } from './leaf';
+import { arrivalAt, ARRIVE_MS, isShut, layer, PEEK_COVER, PEEK_REST_MS, peekAt, shut } from './riffle';
+import { type Opening, VolumeMesh } from './volume';
 
 export type { Binding, Paint, PaintedFace, PaintedVolume, Stamp } from './types';
 export { webglAvailable } from './stage';
@@ -32,21 +34,17 @@ export interface StudioHandle {
 /** How long a volume keeps being read from the DOM after a pointer touched it: its CSS reaction runs this long. */
 const LIVELY_MS = 900;
 
-/** Seconds the presented volume takes to breathe open under the hand, and to close again. */
-const PEEK_OPEN_S = 0.22;
-const PEEK_CLOSE_S = 0.16;
+/** Nearer the centre than this, a volume counts as presented: it has arrived. */
+const PRESENTED = 0.98;
 
-/**
- * The presented volume opens a little under the pointer or keyboard focus: the board lifts and the first
- * leaves follow it, each a little less and a little later, their free edges trailing.
- */
-export function peekOpening(amount: number): Opening {
-  const leaves = Array.from({ length: LEAVES }, (_, index) => {
-    const share = Math.max(0, 1 - index / LEAVES);
-    const lag = Math.min(1, Math.max(0, amount * (1 + index * 0.18) - index * 0.18 * amount * amount));
-    return { angle: 0.34 * share * share * lag, curl: -0.22 * share * lag };
-  });
-  return { cover: 0.42 * amount, leaves };
+/** How far an open volume turns its fore-edge toward the viewer, in radians, when its board stands fully open. */
+const SHOW_TURN = 0.3;
+
+/** A volume opening or closing under the hand: which way, since when, and how it stood at that moment. */
+interface Peek {
+  open: boolean;
+  since: number;
+  from: Opening;
 }
 
 const reducedMotion = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -82,9 +80,12 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   let alive = true;
   let drawn = 0;
   const lively = new Map<Element, number>();
-  /** How far each slot's volume stands open under the hand, 0 to 1, and when that was last stepped. */
-  const peeks = new Map<number, number>();
-  let peekAt = performance.now();
+  /** Volumes that stand open under the hand or are closing again, by slot. The page motion itself is in riffle.ts. */
+  const peeks = new Map<number, Peek>();
+  /** Volumes whose pages flutter because they have just arrived at the centre, by slot. */
+  const arrivals = new Map<number, { since: number; steps: number }>();
+  /** The volume that was last presented, to tell an arrival from a volume that simply stands there. */
+  let home: { id: string; slot: number } | null = null;
   let hovered: Element | null = null;
   const matrix = new Matrix4();
   const body = new Matrix4();
@@ -126,8 +127,6 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
     stage.fit(current, deepest);
     const origin = { x: current.rowGive, y: current.floorY - current.height / 2 };
     const now = performance.now();
-    const elapsed = Math.min(0.05, Math.max(0, (now - peekAt) / 1000));
-    peekAt = now;
     const still = reducedMotion();
     let moving = false;
     const seen = new Set<number>();
@@ -154,19 +153,51 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
         if (transform && transform !== 'none') matrix.multiply(fromCssMatrix(new DOMMatrixReadOnly(transform), body));
         moving = true;
       } else if (until !== undefined) lively.delete(volume.element);
-      // The presented volume breathes open while the hand rests on it, as the CSS one lifts.
-      const wanted =
-        !still && current.open === 0 && volume.centre && volume.weight > 0.98 && (hovered === volume.element || ringed(volume.element)) ? 1 : 0;
-      const was = peeks.get(volume.slot) ?? 0;
-      if (wanted !== was) {
-        const pace = wanted > was ? PEEK_OPEN_S : PEEK_CLOSE_S;
-        let next = was + (wanted - was) * (1 - Math.exp(-elapsed / (pace / 3)));
-        if (Math.abs(wanted - next) < 0.002) next = wanted;
-        if (next === 0) peeks.delete(volume.slot);
-        else peeks.set(volume.slot, next);
-        moving = true;
+      const presented = current.open === 0 && volume.centre && volume.weight > PRESENTED && !volume.hidden;
+      // A volume that reaches the centre from another place lets its pages run on for a moment.
+      if (presented && (home?.id !== volume.id || home.slot !== volume.slot)) {
+        const moved = home !== null && current.volumes.some((other) => other.id === home?.id);
+        if (moved && !still && home) arrivals.set(volume.slot, { since: now, steps: Math.max(1, Math.abs(volume.slot - home.slot)) });
+        home = { id: volume.id, slot: volume.slot };
       }
-      mesh.setOpening(was > 0 || wanted > 0 ? peekOpening(peeks.get(volume.slot) ?? 0) : null);
+      const arrival = arrivals.get(volume.slot);
+      let flutter: Opening | null = null;
+      if (arrival) {
+        if (!presented || still || now - arrival.since >= ARRIVE_MS) arrivals.delete(volume.slot);
+        else {
+          flutter = arrivalAt(now - arrival.since, arrival.steps);
+          moving = true;
+        }
+      }
+      // The presented volume opens while the hand rests on it, as the CSS one lifts, and closes when it leaves.
+      const wanted = !still && presented && (hovered === volume.element || ringed(volume.element));
+      let peek = peeks.get(volume.slot);
+      if (!peek && wanted) {
+        peek = { open: true, since: now, from: shut() };
+        peeks.set(volume.slot, peek);
+      } else if (peek && peek.open !== wanted) {
+        peek.from = peekAt(now - peek.since, peek.open, peek.from);
+        peek.open = wanted;
+        peek.since = now;
+      }
+      let opening: Opening | null = null;
+      if (peek) {
+        const age = now - peek.since;
+        if (!peek.open && (age >= PEEK_REST_MS || still)) peeks.delete(volume.slot);
+        else {
+          opening = peekAt(age, peek.open, peek.from);
+          if (age < PEEK_REST_MS) moving = true;
+        }
+      }
+      if (flutter) opening = opening ? layer(opening, flutter) : flutter;
+      const shown = opening && !isShut(opening) ? opening : null;
+      mesh.setOpening(shown);
+      // An open volume turns its fore-edge a little toward the viewer, or the board would hide its own pages.
+      if (shown) matrix.multiply(body.makeRotationY(-SHOW_TURN * Math.min(1, shown.cover / PEEK_COVER)));
+      if (presented) {
+        canvas.dataset.cover = shown ? ((shown.cover * 180) / Math.PI).toFixed(2) : '0';
+        canvas.dataset.edge = shown ? ((leafTangent(shown.leaves[0]!, 1) * 180) / Math.PI).toFixed(2) : '0';
+      }
       mesh.group.matrix.copy(matrix);
       mesh.group.matrixWorldNeedsUpdate = true;
       mesh.group.visible = !volume.hidden;
