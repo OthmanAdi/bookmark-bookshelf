@@ -202,6 +202,11 @@ export class VolumeMesh {
     });
   }
 
+  /** How much of the spine's round stands out, 1 as bound and 0 drawn flat into the plane of its edges. */
+  setSpineRound(share: number): void {
+    this.spine.scale.z = Math.min(1, Math.max(0.001, share));
+  }
+
   /** Rebuilds the solid when the volume's size changed; cheap to call every frame. */
   setSize(size: VolumeSize): boolean {
     const same =

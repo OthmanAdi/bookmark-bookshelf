@@ -1,9 +1,11 @@
 import './studio.css';
 import { BoxGeometry, Matrix4, Mesh, MeshStandardMaterial } from 'three';
+import type { Flight, FlightOptions } from '../app/flight';
 import type { FrameVolume, ShelfFrame, ShelfHandle } from '../shelf/types';
 import { fromCssMatrix, volumeMatrix } from './camera';
 import { type DressKit, Dresser } from './dress';
 import { Stage, webglAvailable } from './stage';
+import { type FlightBook, FlightStage } from './flight';
 import { leafTangent } from './leaf';
 import { arrivalAt, ARRIVE_MS, isShut, layer, PEEK_COVER, PEEK_REST_MS, peekAt, shut } from './riffle';
 import { type Opening, VolumeMesh } from './volume';
@@ -28,6 +30,14 @@ export interface StudioHandle {
   readonly canvas: HTMLCanvasElement;
   /** Swaps the materials kit, for example once the full one has loaded. */
   setKit(kit: DressKit): void;
+  /**
+   * Carries the volume `id` from the row to its place beside the page as the lit volume itself, pages and
+   * all, in a canvas above everything. It takes what the CSS flight takes and gives back the same handle:
+   * `set(time)` with 0 on the shelf and 1 landed, and `destroy()`. It lands as the flat cover it was given,
+   * in the same box. Throws when it cannot fly (the volume is not drawn, WebGL is gone); the caller then
+   * flies the CSS cover.
+   */
+  createFlight(options: FlightOptions, id: string): Flight;
   destroy(): void;
 }
 
@@ -90,6 +100,46 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   const matrix = new Matrix4();
   const body = new Matrix4();
   const dresser = new Dresser(options.kit ?? plainKit, () => invalidate());
+  /** The canvas a volume flies in, made for the first flight and kept for the next. */
+  let flights: FlightStage | null = null;
+
+  function flightStage(): FlightStage {
+    if (flights && !flights.usable) {
+      flights.dispose();
+      flights = null;
+    }
+    flights ??= new FlightStage();
+    return flights;
+  }
+
+  /** A volume as the flight draws it: with the same materials as in the row, so nothing changes when it leaves. */
+  function bookOf(volume: FrameVolume): FlightBook {
+    const detail = density(volume);
+    const look = variant;
+    const id = volume.id;
+    return {
+      size: { spineWidth: volume.spineWidth, bookHeight: volume.bookHeight, coverWidth: volume.coverWidth },
+      variant: look,
+      environment: stage.scene.environment,
+      parts: () => dresser.partsFor(frame?.volumes.find((entry) => entry.id === id) ?? volume, look, detail),
+    };
+  }
+
+  /** When there is time, the presented volume is drawn once in the flight canvas, so a flight starts without a hitch. */
+  let warming: number | null = null;
+  function warmFlight(): void {
+    if (warming !== null || !alive) return;
+    warming = window.setTimeout(() => {
+      warming = null;
+      const presented = frame?.volumes.find((entry) => entry.centre && !entry.hidden);
+      if (!alive || !presented || frame?.open !== 0) return;
+      try {
+        flightStage().warm(bookOf(presented));
+      } catch {
+        // A flight that cannot be prepared falls back to the CSS cover when it is asked for.
+      }
+    }, 240);
+  }
 
   const fail = (reason: string) => {
     if (!alive) return;
@@ -159,6 +209,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
         const moved = home !== null && current.volumes.some((other) => other.id === home?.id);
         if (moved && !still && home) arrivals.set(volume.slot, { since: now, steps: Math.max(1, Math.abs(volume.slot - home.slot)) });
         home = { id: volume.id, slot: volume.slot };
+        warmFlight();
       }
       const arrival = arrivals.get(volume.slot);
       let flutter: Opening | null = null;
@@ -261,8 +312,16 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       dresser.setKit(kit);
       invalidate();
     },
+    createFlight(flightOptions, id) {
+      const volume = frame?.volumes.find((entry) => entry.id === id && entry.centre) ?? frame?.volumes.find((entry) => entry.id === id);
+      if (!alive || !volume) throw new Error('Studio has not drawn this volume.');
+      return flightStage().fly(flightOptions, bookOf(volume));
+    },
     destroy() {
       alive = false;
+      if (warming !== null) clearTimeout(warming);
+      flights?.dispose();
+      flights = null;
       if (queued !== null) cancelAnimationFrame(queued);
       stopFrames();
       window.removeEventListener('pointermove', onMove);

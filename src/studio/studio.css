@@ -32,3 +32,19 @@
 .bb-shelf[data-paint='studio'] .bb-book::after {
   display: none;
 }
+
+/*
+ * A volume in the air between the row and the page is drawn in its own canvas, over the layer of the CSS
+ * flight. The flat cover of that flight is underneath and takes over as the volume lands; the spine edge
+ * and highlight the CSS flight paints beside and over a flat cover are not needed while the volume is lit.
+ */
+.bb-studio-flight {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.bb-flight[data-paint='studio'] .bb-flight__spine,
+.bb-flight[data-paint='studio'] .bb-book__sheen {
+  visibility: hidden;
+}
