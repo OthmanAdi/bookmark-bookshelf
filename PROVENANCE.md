@@ -36,15 +36,16 @@ During that work, other bookshelf and reading interfaces on the public web were 
 
 ## Bundled third-party material
 
-Three things in a production build come from other parties: two typefaces and one small helper script from the build tool.
+Four things in a production build come from other parties: two typefaces, the three.js library for the optional Studio drawing, and one small helper script from the build tool.
 
 | Material | Source package | Version | Licence | Shipped as |
 |---|---|---|---|---|
 | Newsreader (variable, roman and italic, Latin and Latin Extended) | `@fontsource-variable/newsreader` | 5.3.0 | SIL OFL 1.1 | four files, `assets/newsreader-*.woff2` |
 | IBM Plex Mono (400 and 500, Latin and Latin Extended) | `@fontsource/ibm-plex-mono` | 5.3.0 | SIL OFL 1.1 | four files, `assets/ibm-plex-mono-*.woff2` |
+| three.js, loaded only when Studio is chosen | `three` | 0.187.0 | MIT | one lazily loaded chunk in `assets/` |
 | Module preload helper added to the generated JavaScript | `vite` | 8.3.7 | MIT | `assets/base-*.js`, about 0.7 kB |
 
-The font licence texts are copied byte for byte from the packages into `public/licenses/`. The MIT notice for the helper is the "Vite core license" section of that package's `LICENSE.md`, copied exactly into `public/licenses/Vite-MIT.txt`. All three are served with every build in `licenses/`, and the build also copies `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md` and this file into its root. See `THIRD_PARTY_NOTICES.md`.
+The font licence texts and the three.js licence are copied byte for byte from the packages into `public/licenses/`. The MIT notice for the helper is the "Vite core license" section of that package's `LICENSE.md`, copied exactly into `public/licenses/Vite-MIT.txt`. All three are served with every build in `licenses/`, and the build also copies `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md` and this file into its root. See `THIRD_PARTY_NOTICES.md`.
 
 ## Development tools
 
@@ -52,4 +53,6 @@ Used to build and test, not shipped: Vite 8.3.7 (MIT), TypeScript 7.0.2 (Apache-
 
 ## Runtime dependencies
 
-None.
+One, and only for Studio: `three` 0.187.0 (MIT). The CSS shelf, the motion engine, the store and the reader still depend on nothing, and a page that never turns Studio on never downloads three.js.
+
+Studio's materials and textures (cloth weave, leather grain, paper fibre, foil, holographic film, the studio light) are generated in code at run time. No image, model or shader from any other site is used. The two sites studied for 0.3 (Stripe Press book pages and trevornoah.com/books) were measured for motion and lighting behaviour only.

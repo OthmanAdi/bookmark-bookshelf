@@ -1,6 +1,6 @@
 # Third-party notices
 
-A production build of Bookmark Bookshelf contains three third-party works: two typefaces under the SIL Open Font License, Version 1.1, and one small helper script that the build tool adds to the JavaScript, under the MIT License. The font files are unmodified subsets as published by the Fontsource project.
+A production build of Bookmark Bookshelf contains four third-party works: two typefaces under the SIL Open Font License, Version 1.1, the three.js library under the MIT License, and one small helper script that the build tool adds to the JavaScript, also under the MIT License. The font files are unmodified subsets as published by the Fontsource project.
 
 ## Newsreader
 
@@ -19,6 +19,14 @@ A production build of Bookmark Bookshelf contains three third-party works: two t
 - Full licence text: [`public/licenses/IBM-Plex-Mono-OFL-1.1.txt`](public/licenses/IBM-Plex-Mono-OFL-1.1.txt), served with every build at `licenses/IBM-Plex-Mono-OFL-1.1.txt`
 
 The two font licence files are byte-for-byte copies of the `LICENSE` files in those packages. Under the OFL the fonts may be bundled and redistributed with software, provided the copyright notice and licence travel with them, which this build does. The font names are not used to promote this product.
+
+## three.js
+
+- Copyright © 2010-2026 three.js authors
+- Licence: MIT
+- Obtained from the npm package `three` 0.187.0
+- Used by Studio, the optional WebGL drawing of the shelf. It is bundled into its own chunk in `assets/`, which the page loads only when someone chooses Studio; the CSS shelf never loads it.
+- Full licence text: [`public/licenses/three.js-MIT.txt`](public/licenses/three.js-MIT.txt), served with every build at `licenses/three.js-MIT.txt`. It is a byte-for-byte copy of `LICENSE` in that package.
 
 ## Vite module preload helper
 
