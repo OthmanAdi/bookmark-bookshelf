@@ -46,7 +46,7 @@ export interface Room {
 export const ROOMS: Record<string, Room> = {
   paper: { board: '#e9e3d6', lamp: false, key: 2.3, environment: 0.85, keyColor: '#fff6ea' },
   oak: { board: '#8a6440', lamp: false, key: 2.4, environment: 0.75, keyColor: '#ffe9cf' },
-  night: { board: '#2a211b', lamp: true, key: 5.5, environment: 0.28, keyColor: '#ffd29a' },
+  night: { board: '#2a211b', lamp: true, key: 5.5, environment: 0.32, keyColor: '#ffd9a8' },
   pocket: { board: '#d8c4a0', lamp: false, key: 2.2, environment: 0.9, keyColor: '#fff8ee' },
 };
 
@@ -62,7 +62,7 @@ export class Stage {
   /** Everything that stands on the board: volumes and bookends. */
   readonly row = new Group();
   private readonly key = new DirectionalLight('#fff6ea', 2.3);
-  private readonly lamp = new SpotLight('#ffd29a', 0, 0, Math.PI / 4.2, 0.65, 1.4);
+  private readonly lamp = new SpotLight('#ffd29a', 0, 0, Math.PI / 2.6, 0.95, 1.25);
   private readonly sky = new HemisphereLight('#f6f1ea', '#5d544a', 0.55);
   private readonly board: Mesh;
   private readonly boardMaterial: MeshStandardMaterial;
@@ -122,7 +122,7 @@ export class Stage {
     this.lamp.color.set(this.room.keyColor);
     this.scene.environmentIntensity = this.room.environment;
     this.renderer.toneMapping = this.room.lamp ? ACESFilmicToneMapping : NeutralToneMapping;
-    this.renderer.toneMappingExposure = this.room.lamp ? 1.15 : 1;
+    this.renderer.toneMappingExposure = 1;
     if (!this.boardOverride) this.board.material = this.boardMaterial;
   }
 
@@ -185,14 +185,16 @@ export class Stage {
     const depth = this.depth;
     const reach = Math.max(this.size.width, 600) * 1.4;
     if (this.room.lamp) {
-      this.key.intensity = 0.18;
-      this.lamp.intensity = this.room.key * 1.2e5;
-      this.lamp.distance = reach * 2.2;
+      this.key.intensity = 0.22;
+      // Candela for a lamp about half a metre of px away: the presented volume gets about three lux, the
+      // ends of a wide row about a third of that, as the CSS look's lamp falls off.
+      this.lamp.intensity = this.room.key * 1500;
+      this.lamp.distance = 0;
       this.lamp.decay = 1.25;
       // The lamp hangs over the presented volume, a little in front, and leans with the pointer.
       this.lamp.position.set(this.lampX + this.pointer.x * 90, y + this.size.height * 0.95, depth * 1.6);
       this.lamp.target.position.set(this.lampX, y, -depth * 0.4);
-      this.sky.intensity = 0.12;
+      this.sky.intensity = 0.2;
     } else {
       this.lamp.intensity = 0;
       this.key.intensity = this.room.key;
