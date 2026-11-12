@@ -6,8 +6,11 @@ import {
   type Material,
   Mesh,
   MeshBasicMaterial,
+  DoubleSide,
+  MeshStandardMaterial,
   PlaneGeometry,
 } from 'three';
+import { bendLeaf, leafGeometry, type LeafShape } from './leaf';
 
 /**
  * One bound volume as solid parts, in the volume's own space: the foot of the spine's middle at the
@@ -118,6 +121,22 @@ function pagesGeometry(size: VolumeSize, thickness: number, square: number): Box
 
 const hiddenMaterial: Material = new MeshBasicMaterial({ visible: false });
 
+/** Loose leaves a volume can lift when it opens or riffles; the rest of the block stays a solid. */
+export const LEAVES = 7;
+
+/** Paper of the loose leaves: both sides lit, a warm white a little brighter than the block's edge. */
+let leafPaper: MeshStandardMaterial | null = null;
+function leafMaterial(): MeshStandardMaterial {
+  leafPaper ??= new MeshStandardMaterial({ color: '#f4ecdb', roughness: 0.93, side: DoubleSide });
+  return leafPaper;
+}
+
+/** How a volume stands open: the front board's turn in radians (0 shut) and the shape of each leaf. */
+export interface Opening {
+  cover: number;
+  leaves: LeafShape[];
+}
+
 export class VolumeMesh {
   readonly group = new Group();
   private size: VolumeSize = { spineWidth: 0, bookHeight: 0, coverWidth: 0 };
@@ -127,16 +146,56 @@ export class VolumeMesh {
   private readonly pages = new Mesh<BufferGeometry, Material | Material[]>(new BufferGeometry(), hiddenMaterial);
   /** A slip of card standing in the pages, as far from the front board as the reading has got. */
   readonly slip = new Mesh<BufferGeometry, Material | Material[]>(new PlaneGeometry(1, 1), hiddenMaterial);
+  /** The front board turns about this line: the edge where it meets the spine. */
+  private readonly hinge = new Group();
+  private readonly leaves: Array<Mesh<BufferGeometry, Material>> = [];
+  private opened = false;
 
   constructor() {
     this.group.matrixAutoUpdate = false;
     for (const part of [this.front, this.back, this.spine, this.pages]) {
       part.castShadow = true;
       part.receiveShadow = true;
-      this.group.add(part);
+    }
+    this.hinge.add(this.front);
+    this.group.add(this.hinge, this.back, this.spine, this.pages);
+    for (let i = 0; i < LEAVES; i++) {
+      const leaf = new Mesh(leafGeometry(), leafMaterial());
+      leaf.castShadow = true;
+      leaf.receiveShadow = true;
+      leaf.visible = false;
+      this.leaves.push(leaf);
+      this.group.add(leaf);
     }
     this.slip.visible = false;
     this.group.add(this.slip);
+  }
+
+  /**
+   * Opens the volume: the front board swings out about its hinge and the loose leaves lift and bend.
+   * A cover of 0 with no lifted leaf shows the closed solid.
+   */
+  setOpening(opening: Opening | null): void {
+    const { spineWidth: w, bookHeight: h, coverWidth: d } = this.size;
+    const cover = opening?.cover ?? 0;
+    // The board turns outward, away from the pages: a negative turn about y at the hinge.
+    this.hinge.rotation.y = -cover;
+    const lifted = opening !== null && opening.leaves.some((leaf) => leaf.angle > 0.002 || Math.abs(leaf.curl) > 0.002);
+    if (!lifted && !this.opened) return;
+    this.opened = lifted;
+    const thickness = boardThickness(this.size);
+    const square = squareOf(this.size);
+    const length = Math.max(1, d - square * 1.5);
+    const height = Math.max(1, h - square * 2);
+    this.leaves.forEach((leaf, index) => {
+      const shape = opening?.leaves[index];
+      const show = lifted && shape !== undefined;
+      leaf.visible = show;
+      if (!show) return;
+      // Leaves are taken from the front of the block, the first nearest the board.
+      leaf.position.set(w / 2 - thickness - 0.35 - index * Math.min(0.9, (w - thickness * 2) / (LEAVES * 3)), square, -0.4);
+      bendLeaf(leaf.geometry, length, height, shape);
+    });
   }
 
   /** Rebuilds the solid when the volume's size changed; cheap to call every frame. */
@@ -150,7 +209,9 @@ export class VolumeMesh {
     const thickness = boardThickness(size);
     const square = squareOf(size);
     const front = boardGeometry(size, thickness, 'front');
-    front.translate(size.spineWidth / 2 - thickness / 2, 0, 0);
+    // The front board hangs from its hinge, at the spine's front edge.
+    front.translate(-thickness / 2, 0, 0);
+    this.hinge.position.set(size.spineWidth / 2, 0, 0);
     const back = boardGeometry(size, thickness, 'back');
     back.translate(-size.spineWidth / 2 + thickness / 2, 0, 0);
     this.swap(this.front, front);
@@ -185,7 +246,7 @@ export class VolumeMesh {
   }
 
   dispose(): void {
-    for (const part of [this.front, this.back, this.spine, this.pages, this.slip]) part.geometry.dispose();
+    for (const part of [this.front, this.back, this.spine, this.pages, this.slip, ...this.leaves]) part.geometry.dispose();
   }
 
   private swap(mesh: Mesh<BufferGeometry, Material | Material[]>, geometry: BufferGeometry): void {
