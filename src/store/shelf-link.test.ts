@@ -263,3 +263,47 @@ describe('a file written by hand', () => {
     expect(result.ok && result.value.file).toEqual(file);
   });
 });
+
+describe('binding and stamp in a link', () => {
+  /** Made by version 0.2.0, before covers could name a binding or a stamp. */
+  const OLD_LINK =
+    'shelf=1.d.fY2xbsMwDER_JbiZqZF2Kn-iS4AMQQcloWPBkuhQstsi0L8XcjJ06nLgHXj37ujVoitgnFTH6GzctiMPEvrtqiAsYtlrAu8Ij4zv8Bcw8g6E5KKAcRAZN28gmCz-8f9KCC5dwZCESlg0zFEy-PjsOxBmC2AMpUyZu06-XZyCvKhdO00CQvEltP2P1Z11EWv8c9AygBE1ZxAmV4pYAsPcTwuyyAX8Xis9Wad_WeVL_7D2qzO5zd7aTO9ClvpZfwE';
+
+  function shelfOf(cover: Record<string, unknown>): ShelfFile {
+    return toShelfFile({
+      shelf: { id: 's1', name: 'Week 3', lang: 'en' },
+      bookmarks: [
+        { id: 'a', url: 'https://example.org/one', title: 'One', cover: { cloth: 'moss', pattern: 'rays', seed: 9, ...cover } },
+        { id: 'b', url: 'https://example.org/two', title: 'Two', required: false },
+      ],
+      includeTexts: false,
+      revision: 2,
+    });
+  }
+
+  it('still opens a link made before covers had them', async () => {
+    const result = await decodeShelfLink(OLD_LINK);
+    expect(result.ok && result.value.file).toEqual(shelfOf({}));
+    expect(result.ok && result.value.file.volumes[0]?.cover).not.toHaveProperty('binding');
+  });
+
+  it('writes a shelf without them exactly as before', () => {
+    expect(JSON.stringify(shelfOf({}))).toBe(
+      '{"format":"bookmark-bookshelf-shelf","version":1,"shelf":{"id":"s1","name":"Week 3","revision":2,"lang":"en"},' +
+        '"volumes":[{"id":"a","url":"https://example.org/one","title":"One","cover":{"cloth":"moss","pattern":"rays","seed":9}},' +
+        '{"id":"b","url":"https://example.org/two","title":"Two","required":false}]}',
+    );
+  });
+
+  it('round-trips them', async () => {
+    const file = shelfOf({ binding: 'leather', stamp: 'gold' });
+    const result = await decodeShelfLink((await encodeShelfLink(file)).fragment);
+    expect(result.ok && result.value.file.volumes[0]?.cover).toEqual({ cloth: 'moss', pattern: 'rays', seed: 9, binding: 'leather', stamp: 'gold' });
+  });
+
+  it('adds only a few characters to a link for each volume that has them', async () => {
+    const plain = await encodeShelfLink(shelfOf({}));
+    const bound = await encodeShelfLink(shelfOf({ binding: 'leather', stamp: 'gold' }));
+    expect(bound.length - plain.length).toBeLessThanOrEqual(48);
+  });
+});
