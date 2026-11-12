@@ -48,4 +48,30 @@ test.describe('Studio drawing', () => {
     await expect(shelfOf(page)).not.toHaveAttribute('data-paint', 'studio');
     await expect(page.locator('canvas.bb-studio')).toHaveCount(0);
   });
+
+  test('the example page mounts Studio over a bare shelf, re-dresses it and takes it away again', async ({ page }) => {
+    await page.goto('/examples/studio-shelf.html');
+    await expect(shelfOf(page)).toBeVisible();
+    test.skip(!(await canDraw(page)), 'This browser has no WebGL 2.');
+    const canvas = page.locator('canvas.bb-studio');
+    await expect(canvas).toHaveCount(1);
+    await expect.poll(async () => Number(await canvas.getAttribute('data-drawn'))).toBeGreaterThan(0);
+
+    // A binding for the whole row: the shelf keeps its volumes and Studio draws again.
+    const before = Number(await canvas.getAttribute('data-drawn'));
+    await page.getByRole('combobox', { name: 'Binding' }).selectOption('leather');
+    await page.getByRole('combobox', { name: 'Title stamp' }).selectOption('gold');
+    await expect.poll(async () => Number(await canvas.getAttribute('data-drawn'))).toBeGreaterThan(before);
+    await expect(page.locator('.bb-book__control')).toHaveCount(12);
+
+    // The shelf underneath still answers the keyboard.
+    await page.locator('.bb-book.is-centre .bb-book__control').focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(shelfOf(page)).toHaveAttribute('data-focus', '1');
+
+    // Switched off, the canvas is gone and the CSS shelf shows itself again.
+    await page.getByRole('checkbox', { name: 'Studio' }).uncheck();
+    await expect(canvas).toHaveCount(0);
+    await expect(shelfOf(page)).not.toHaveAttribute('data-paint', 'studio');
+  });
 });

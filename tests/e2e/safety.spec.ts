@@ -23,7 +23,15 @@ const SCRIPT_PAYLOAD = '<script>window.__xss=1</script>';
 const ranScript = (page: Page): Promise<unknown> => page.evaluate(() => Reflect.get(window, '__xss'));
 
 /** The pages of the site. Only the first is the app; the rest are the homepage and the small examples. */
-const PAGES = ['/app.html', '/index.html', '/examples/shelf-only.html', '/examples/reader-only.html', '/examples/store-only.html'];
+const PAGES = [
+  '/app.html',
+  '/index.html',
+  '/examples/shelf-only.html',
+  '/examples/reader-only.html',
+  '/examples/store-only.html',
+  '/examples/studio-shelf.html',
+  '/examples/materials.html',
+];
 
 test.describe('safety', () => {
   test('markup in a title and a text is shown as text and never runs', async ({ page }) => {
