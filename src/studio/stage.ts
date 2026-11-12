@@ -11,12 +11,14 @@ import {
   NeutralToneMapping,
   PCFShadowMap,
   PerspectiveCamera,
+  PMREMGenerator,
   Scene,
   SpotLight,
   SRGBColorSpace,
   type Texture,
   WebGLRenderer,
 } from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { ShelfFrame } from '../shelf/types';
 import { canvasBox, type CanvasBox, fitCamera, rowOrigin } from './camera';
 
@@ -44,10 +46,10 @@ export interface Room {
 }
 
 export const ROOMS: Record<string, Room> = {
-  paper: { board: '#e9e3d6', lamp: false, key: 2.3, environment: 0.85, keyColor: '#fff6ea' },
-  oak: { board: '#8a6440', lamp: false, key: 2.4, environment: 0.75, keyColor: '#ffe9cf' },
-  night: { board: '#2a211b', lamp: true, key: 5.5, environment: 0.32, keyColor: '#ffd9a8' },
-  pocket: { board: '#d8c4a0', lamp: false, key: 2.2, environment: 0.9, keyColor: '#fff8ee' },
+  paper: { board: '#e2dccd', lamp: false, key: 1.7, environment: 0.42, keyColor: '#fff6ea' },
+  oak: { board: '#7a5636', lamp: false, key: 1.8, environment: 0.38, keyColor: '#ffe9cf' },
+  night: { board: '#2a211b', lamp: true, key: 5.5, environment: 0.16, keyColor: '#ffd9a8' },
+  pocket: { board: '#d2bd98', lamp: false, key: 1.6, environment: 0.45, keyColor: '#fff8ee' },
 };
 
 export function roomOf(variant: string): Room {
@@ -76,6 +78,8 @@ export class Stage {
   private span = 1000;
   private depth = 300;
   private lampX = 0;
+  /** A room with bright panels, filtered for reflections, until a kit supplies its own studio. */
+  private fallbackEnvironment: Texture | null = null;
 
   constructor(canvas = document.createElement('canvas')) {
     this.canvas = canvas;
@@ -103,10 +107,15 @@ export class Stage {
     this.board = new Mesh(new BoxGeometry(1, 1, 1), this.boardMaterial);
     this.board.receiveShadow = true;
     this.scene.add(this.board);
+    // Metal foil and gloss need something bright to reflect, or they read as dark paint.
+    const pmrem = new PMREMGenerator(this.renderer);
+    this.fallbackEnvironment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+    this.scene.environment = this.fallbackEnvironment;
   }
 
   setEnvironment(texture: Texture | null): void {
-    this.scene.environment = texture;
+    this.scene.environment = texture ?? this.fallbackEnvironment;
   }
 
   /** A material for the board from a material kit; null keeps the plain one. */
@@ -168,6 +177,7 @@ export class Stage {
   dispose(): void {
     this.board.geometry.dispose();
     this.boardMaterial.dispose();
+    this.fallbackEnvironment?.dispose();
     this.renderer.dispose();
     this.canvas.remove();
   }
@@ -204,7 +214,7 @@ export class Stage {
       const lz = 0.91;
       this.key.position.set(lx * reach, y + reach * (0.62 - this.pointer.y * 0.12), lz * reach);
       this.key.target.position.set(0, y, -depth * 0.3);
-      this.sky.intensity = 0.55;
+      this.sky.intensity = 0.3;
       const camera = this.key.shadow.camera;
       camera.left = -this.span / 2;
       camera.right = this.span / 2;
