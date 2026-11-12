@@ -170,6 +170,12 @@ export class Stage {
     return this.box;
   }
 
+  /** Size of the board's top in px, in steps of 200 px so a resize does not ask for a new floor every frame. */
+  boardSize(): { width: number; depth: number } {
+    const step = (value: number) => Math.max(200, Math.round(value / 200) * 200);
+    return { width: step(this.span), depth: step(Math.max(14, this.depth * 0.14) + this.depth * 1.25) };
+  }
+
   render(): void {
     this.renderer.render(this.scene, this.camera);
   }

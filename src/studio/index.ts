@@ -1,8 +1,9 @@
 import './studio.css';
-import { BoxGeometry, Matrix4, Mesh, MeshStandardMaterial } from 'three';
+import { BoxGeometry, Matrix4, Mesh, MeshStandardMaterial, type WebGLRenderer } from 'three';
 import type { FrameVolume, ShelfFrame, ShelfHandle } from '../shelf/types';
 import { fromCssMatrix, volumeMatrix } from './camera';
 import { type DressKit, Dresser } from './dress';
+import { ContactShadows } from './ground';
 import { Stage, webglAvailable } from './stage';
 import { LEAVES, type Opening, VolumeMesh } from './volume';
 
@@ -16,8 +17,8 @@ export { webglAvailable } from './stage';
  */
 
 export interface StudioOptions {
-  /** Materials and painting. Left out, volumes are drawn in plain lit cloth. */
-  kit?: DressKit;
+  /** Materials and painting, or a function that makes them for Studio's renderer. Left out, volumes are drawn in plain lit cloth. */
+  kit?: DressKit | ((renderer: WebGLRenderer) => DressKit);
   /** Called when WebGL is lost or cannot start; the host should go back to the CSS shelf. */
   onFailure?: (reason: string) => void;
 }
@@ -88,7 +89,12 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   let hovered: Element | null = null;
   const matrix = new Matrix4();
   const body = new Matrix4();
-  const dresser = new Dresser(options.kit ?? plainKit, () => invalidate());
+  let kit: DressKit = typeof options.kit === 'function' ? options.kit(stage.renderer) : (options.kit ?? plainKit);
+  const dresser = new Dresser(kit, () => invalidate());
+  stage.setEnvironment(kit.environment ?? null);
+  const ground = new ContactShadows();
+  stage.row.add(ground.mesh);
+  let floorKey = '';
 
   const fail = (reason: string) => {
     if (!alive) return;
@@ -120,11 +126,19 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       variant = current.variant;
       stage.setRoom(variant);
       dresser.clear();
+      ground.setStrength(variant === 'night' ? 0.34 : 0.5);
+      floorKey = '';
     }
     let deepest = 0;
     for (const volume of current.volumes) deepest = Math.max(deepest, volume.coverWidth);
     stage.fit(current, deepest);
     const origin = { x: current.rowGive, y: current.floorY - current.height / 2 };
+    const board = stage.boardSize();
+    if (floorKey !== `${variant}:${board.width}:${board.depth}`) {
+      floorKey = `${variant}:${board.width}:${board.depth}`;
+      stage.setBoardMaterial(kit.floor?.(variant, board) ?? null);
+    }
+    ground.update(current, origin, current.gap);
     const now = performance.now();
     const elapsed = Math.min(0.05, Math.max(0, (now - peekAt) / 1000));
     peekAt = now;
@@ -226,8 +240,12 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
 
   return {
     canvas,
-    setKit(kit) {
+    setKit(next) {
+      kit.dispose?.();
+      kit = next;
       dresser.setKit(kit);
+      stage.setEnvironment(kit.environment ?? null);
+      floorKey = '';
       invalidate();
     },
     destroy() {
@@ -242,6 +260,8 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       bookendGeometry.dispose();
       bookendMaterial.dispose();
       dresser.dispose();
+      ground.dispose();
+      kit.dispose?.();
       stage.dispose();
       delete root.dataset.paint;
     },

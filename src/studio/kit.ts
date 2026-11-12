@@ -1,140 +1,109 @@
-import { CanvasTexture, type Material, MeshPhysicalMaterial, MeshStandardMaterial, SRGBColorSpace, type Texture } from 'three';
+import type { WebGLRenderer } from 'three';
 import type { FrameVolume } from '../shelf/types';
-import type { DressKit, DressStyle } from './dress';
+import { type DressKit, styleOf } from './dress';
+import { createMaterialKit, resolveBinding, resolveStamp } from './materials';
 import { paintVolume } from './paint';
-import { type Binding, isBinding, isStamp, type PaintedFace, type PaintedVolume, type Stamp } from './types';
-import type { VolumeParts } from './volume';
+import { isStamp, type Binding, type Stamp } from './types';
 
 /**
- * The kit Studio dresses volumes with: faces painted by the painter, lit by materials made from them.
- * The binding and stamp of an item are its own when it names known ones, else they follow from its seed.
+ * The kit Studio dresses volumes with: faces painted by the painter, lit by the generated materials.
+ * The binding and stamp of an item are its own when it names known ones, else they follow from its
+ * seed, so a shelf is mixed but the same on every visit.
  */
 
-/** Default bindings, most of them cloth. A seed picks one, so a shelf is mixed but never random between visits. */
-const MIX: Binding[] = ['cloth', 'cloth', 'cloth', 'linen', 'linen', 'leather', 'paper', 'cloth', 'gloss', 'linen', 'leather', 'cloth'];
-
-export function bindingFor(item: FrameVolume['item']): { binding: Binding; stamp: Stamp } {
-  const seed = Math.abs(Math.floor(item.seed ?? 0));
-  const binding = isBinding(item.binding) ? item.binding : (MIX[seed % MIX.length] ?? 'cloth');
-  const fallback: Stamp = binding === 'paper' || binding === 'gloss' ? 'ink' : binding === 'leather' ? 'gold' : seed % 3 === 0 ? 'silver' : 'gold';
-  const stamp = isStamp(item.stamp) ? item.stamp : fallback;
-  return { binding, stamp };
+/** Relative luminance of a `#rgb` or `#rrggbb` colour, 0 to 1. Anything else counts as mid grey. */
+export function luminance(color: string): number {
+  const hex = color.trim().replace('#', '');
+  const full = hex.length === 3 ? [...hex].map((digit) => digit + digit).join('') : hex;
+  if (!/^[0-9a-f]{6}$/i.test(full)) return 0.2;
+  const channel = (at: number): number => {
+    const value = parseInt(full.slice(at, at + 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
 }
 
-/** Lit materials from painted faces. The materials kit replaces this with its own generated surfaces. */
-export type MaterialMaker = (volume: FrameVolume, style: DressStyle, binding: Binding, stamp: Stamp, faces: PaintedVolume) => VolumeParts & { dispose(): void };
+export function contrast(a: string, b: string): number {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+  return (light + 0.05) / (dark + 0.05);
+}
 
-export function createKit(materials: MaterialMaker = simpleMaterials): DressKit {
+/** How each foil reads on a shelf, on average over what it mirrors: the colour to test its legibility with. */
+const FOIL_READS: Partial<Record<Stamp, string>> = { gold: '#d9b45a', silver: '#d8d6cf', copper: '#c98a5e', holo: '#d8d6cf' };
+/** A spine title is how a link is found, so a stamp chosen for the person must stand at least this far off its cloth. */
+const LEGIBLE = 3;
+
+/**
+ * The stamp a volume gets when its item names none: the binder's first choice if its title can be read
+ * on this cloth, else the first foil that can, else printed ink, which every look pairs with its cloth.
+ * Blind stamping is never chosen for anyone: a title pressed without colour cannot be read from a spine.
+ */
+export function legibleStamp(first: Stamp, cloth: string): Stamp {
+  const reads = (stamp: Stamp): boolean => {
+    const foil = FOIL_READS[stamp];
+    return foil !== undefined && contrast(foil, cloth) >= LEGIBLE;
+  };
+  if (first === 'ink' || reads(first)) return first;
+  for (const stamp of ['gold', 'silver', 'copper'] as const) if (reads(stamp)) return stamp;
+  return 'ink';
+}
+
+export function bindingFor(item: FrameVolume['item'], cloth?: string): { binding: Binding; stamp: Stamp } {
+  const seed = Math.abs(Math.floor(item.seed ?? 0));
+  const binding = resolveBinding(item.binding, seed);
+  const stamp = resolveStamp(item.stamp, binding, seed);
+  // What the person chose stands as chosen, readable or not.
+  return { binding, stamp: isStamp(item.stamp) || cloth === undefined ? stamp : legibleStamp(stamp, cloth) };
+}
+
+/** Half-size textures where memory is short or the screen is small: a phone shows no more detail anyway. */
+export function qualityFor(): 'high' | 'low' {
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  const small = Math.min(window.innerWidth, window.innerHeight) < 500;
+  return small || (memory !== undefined && memory <= 4) ? 'low' : 'high';
+}
+
+/**
+ * The real spine is bowed a little in the mesh already; the material adds the rest of the roundness
+ * to its normals, so the highlight runs down the spine as a soft line.
+ */
+const SPINE_ROUND = 0.22;
+
+export function createKit(renderer: WebGLRenderer, quality: 'high' | 'low' = qualityFor()): DressKit {
+  const materials = createMaterialKit(renderer, { quality });
+  // Asked for every volume in every frame, so the cloth is read from the page once per volume and look.
+  const chosen = new Map<string, { binding: Binding; stamp: Stamp }>();
   return {
-    bindingOf: (volume) => bindingFor(volume.item),
+    bindingOf(volume, variant = '') {
+      const item = volume.item;
+      const key = `${item.id}|${variant}|${item.cloth ?? ''}|${item.binding ?? ''}|${item.stamp ?? ''}|${item.seed ?? 0}`;
+      let choice = chosen.get(key);
+      if (!choice) {
+        if (chosen.size > 600) chosen.clear();
+        choice = bindingFor(item, styleOf(volume.element).cloth);
+        chosen.set(key, choice);
+      }
+      return choice;
+    },
     paint: ({ volume, size, binding, stamp, density }) =>
       paintVolume({ item: volume.item, source: volume.element, size, binding, stamp, density }),
-    materials,
-  };
-}
-
-/** How rough and how metallic each binding is, before any stamp. */
-const SURFACE: Record<Binding, { roughness: number; metalness: number; sheen: number; clearcoat: number }> = {
-  cloth: { roughness: 0.82, metalness: 0, sheen: 0.7, clearcoat: 0 },
-  linen: { roughness: 0.86, metalness: 0, sheen: 0.5, clearcoat: 0 },
-  leather: { roughness: 0.5, metalness: 0, sheen: 0, clearcoat: 0.3 },
-  paper: { roughness: 0.9, metalness: 0, sheen: 0, clearcoat: 0 },
-  gloss: { roughness: 0.6, metalness: 0, sheen: 0, clearcoat: 1 },
-  velvet: { roughness: 1, metalness: 0, sheen: 1, clearcoat: 0 },
-  foil: { roughness: 0.25, metalness: 1, sheen: 0, clearcoat: 0 },
-  holo: { roughness: 0.2, metalness: 0.9, sheen: 0, clearcoat: 0 },
-};
-
-/** A texture whose green says how rough and blue how metallic each pixel is: stamped parts are smooth metal. */
-function surfaceMap(mask: HTMLCanvasElement, base: { roughness: number; metalness: number }, stamp: Stamp): Texture | null {
-  const context = mask.getContext('2d', { willReadFrequently: true });
-  if (!context) return null;
-  const { width, height } = mask;
-  const pixels = context.getImageData(0, 0, width, height);
-  const out = document.createElement('canvas');
-  out.width = width;
-  out.height = height;
-  const target = out.getContext('2d');
-  if (!target) return null;
-  const metal = stamp !== 'blind' && stamp !== 'ink';
-  const data = pixels.data;
-  const result = target.createImageData(width, height);
-  const write = result.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const m = (data[i] ?? 0) / 255;
-    const roughness = metal ? base.roughness + (0.2 - base.roughness) * m : base.roughness;
-    const metalness = metal ? base.metalness + (1 - base.metalness) * m : base.metalness;
-    write[i] = 255;
-    write[i + 1] = Math.round(roughness * 255);
-    write[i + 2] = Math.round(metalness * 255);
-    write[i + 3] = 255;
-  }
-  target.putImageData(result, 0, 0);
-  return new CanvasTexture(out);
-}
-
-function colorMap(face: PaintedFace): Texture {
-  const texture = new CanvasTexture(face.color);
-  texture.colorSpace = SRGBColorSpace;
-  texture.anisotropy = 8;
-  return texture;
-}
-
-export const simpleMaterials: MaterialMaker = (_volume, style, binding, stamp, faces) => {
-  const surface = SURFACE[binding];
-  const textures: Texture[] = [];
-  const materials: Material[] = [];
-  const face = (painted: PaintedFace): MeshPhysicalMaterial => {
-    const map = colorMap(painted);
-    const mixed = surfaceMap(painted.mask, surface, stamp);
-    textures.push(map);
-    if (mixed) textures.push(mixed);
-    const material = new MeshPhysicalMaterial({
-      map,
-      roughness: 1,
-      metalness: 1,
-      roughnessMap: mixed,
-      metalnessMap: mixed,
-      sheen: surface.sheen,
-      sheenRoughness: 0.55,
-      sheenColor: style.cloth,
-      clearcoat: surface.clearcoat,
-      clearcoatRoughness: 0.08,
-      iridescence: binding === 'holo' || stamp === 'holo' ? 1 : 0,
-      iridescenceIOR: 1.6,
-      iridescenceThicknessMinimum: 180,
-      iridescenceThicknessMaximum: 620,
-    });
-    if (!mixed) {
-      material.roughness = surface.roughness;
-      material.metalness = surface.metalness;
-    }
-    materials.push(material);
-    return material;
-  };
-  const front = face(faces.front);
-  const spine = face(faces.spine);
-  const back = face(faces.back);
-  const boardEdge = new MeshPhysicalMaterial({
-    color: style.cloth,
-    roughness: surface.roughness,
-    metalness: surface.metalness,
-    sheen: surface.sheen,
-    sheenColor: style.cloth,
-  });
-  const pages = new MeshStandardMaterial({ color: '#efe6d2', roughness: 0.92 });
-  const endpaper = new MeshStandardMaterial({ color: '#e8dfcc', roughness: 0.9 });
-  materials.push(boardEdge, pages, endpaper);
-  return {
-    front,
-    back,
-    spine,
-    boardEdge,
-    pages,
-    endpaper,
-    dispose() {
-      for (const material of materials) material.dispose();
-      for (const texture of textures) texture.dispose();
+    materials: (volume, style, binding, stamp, faces) =>
+      materials.volume(
+        {
+          binding,
+          stamp,
+          cloth: style.cloth,
+          ink: style.ink,
+          seed: Math.abs(Math.floor(volume.item.seed ?? 0)),
+          size: { spineWidth: volume.spineWidth, bookHeight: volume.bookHeight, coverWidth: volume.coverWidth },
+          spineRound: SPINE_ROUND,
+        },
+        faces,
+      ),
+    get environment() {
+      return materials.environment;
     },
+    floor: (variant, size) => materials.floor(variant, size),
+    dispose: () => materials.dispose(),
   };
-};
+}

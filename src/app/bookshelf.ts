@@ -563,7 +563,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     try {
       const [module, kits] = await Promise.all([import('../studio'), import('../studio/kit')]);
       if (ticket !== studioTicket || destroyed || paint !== 'studio') return;
-      studio = module.mountStudio(shelf, { onFailure: failed, kit: kits.createKit() });
+      studio = module.mountStudio(shelf, { onFailure: failed, kit: (renderer) => kits.createKit(renderer) });
     } catch (error) {
       if (ticket === studioTicket) failed(error instanceof Error ? error.message : String(error));
     }
