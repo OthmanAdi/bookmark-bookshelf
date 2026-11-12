@@ -38,6 +38,14 @@ export interface ShelfItem {
   note?: string;
   /** True when the person has marked the volume as read. */
   done?: boolean;
+  /**
+   * What the volume is bound in, for a renderer that draws materials (Studio): `cloth`, `linen`,
+   * `leather`, `paper`, `gloss`, `velvet`, `foil` or `holo`. Left out, the renderer chooses from the seed.
+   * The CSS shelf ignores it.
+   */
+  binding?: string;
+  /** How the title is put on: `gold`, `silver`, `copper`, `holo`, `blind` or `ink`. Left out, chosen from the binding. */
+  stamp?: string;
 }
 
 /** One frame of the shelf. */
