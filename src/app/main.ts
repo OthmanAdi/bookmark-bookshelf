@@ -24,6 +24,7 @@ import { createPhoneLayout, PHONE_QUERY } from './shell-phone';
 import { createStageCaption, type LinkView } from './shell-stage';
 import { createAnnouncer, examplesSentence, firstToRead, positionSentence, renderStatus, statusLine } from './status';
 import { createShelfTabs } from './shell-tabs';
+import { createShowcaseView } from './showcase-view';
 import { renderChoices, renderViewMenu, type ViewMode } from './shell-view-menu';
 
 /**
@@ -66,6 +67,7 @@ function syncThemeColor(): void {
 const chrome = must<HTMLElement>('#chrome');
 const shelfHost = must<HTMLElement>('#shelf');
 const listHost = must<HTMLElement>('#list');
+const showcaseHost = must<HTMLElement>('#showcase');
 const captionHost = must<HTMLElement>('#caption');
 
 let lastOpenedId: string | null = null;
@@ -104,6 +106,7 @@ const bookshelf = createBookshelf({
       renderShelfStatus();
       updateTitle();
       syncStage(true);
+      showcase.render();
     }
     // In list view the row that opened the reader may have been redrawn while it was open. Find it again by id.
     if (store.session().view !== 'list' || document.activeElement !== document.body || !lastOpenedId) return;
@@ -426,9 +429,10 @@ function addHere(): void {
 emptyAdd.addEventListener('click', addHere);
 must<HTMLButtonElement>('#empty-bring').addEventListener('click', () => flows.bringLinksIn());
 
-/** Shows the stage, the list or the empty shelf, whichever applies, and keeps focus on the page. */
+/** Shows the stage, the list, the showcase or the empty shelf, whichever applies, and keeps focus on the page. */
 function renderStage(): void {
-  const list = store.session().view === 'list';
+  const view = store.session().view;
+  const list = view === 'list';
   const empty = row.length === 0;
   const showEmpty = empty && !list;
   if (showEmpty) {
@@ -438,8 +442,9 @@ function renderStage(): void {
     emptyAdd.textContent = state.buttons.find((entry) => entry.action === 'add')?.label ?? 'Add a link';
   }
   const focusWasInCaption = captionHost.contains(document.activeElement);
-  shelfHost.hidden = list || empty;
-  captionHost.hidden = list || empty;
+  shelfHost.hidden = view !== 'shelf' || empty;
+  captionHost.hidden = view !== 'shelf' || empty;
+  showcaseHost.hidden = view !== 'showcase' || empty;
   emptyHost.hidden = !showEmpty;
   mainHost.dataset.empty = showEmpty ? '1' : '0';
   // The last link went away under the caption's buttons: the way forward takes focus.
@@ -471,12 +476,23 @@ function renderListView(): void {
   );
 }
 
+/** The showcase: one link at a time, wired to the same flows as the caption under the row. */
+const showcase = createShowcaseView({
+  host: showcaseHost,
+  store,
+  bookshelf,
+  edit: (id) => flows.editLink(id),
+  say: (text) => say(text),
+});
+
 function applyView(): void {
-  const list = store.session().view === 'list';
-  chrome.dataset.view = list ? 'list' : 'shelf';
+  const view = store.session().view;
+  const list = view === 'list';
+  chrome.dataset.view = view;
   listHost.hidden = !list;
   renderStage();
   if (list) renderListView();
+  else if (view === 'showcase') showcase.render();
   else bookshelf.shelf.refresh();
 }
 
@@ -500,6 +516,7 @@ function renderAll(): void {
   renderStage();
   syncStage(true);
   if (store.session().view === 'list') renderListView();
+  showcase.render();
 }
 
 /*
@@ -524,6 +541,7 @@ function rescueFocus(): void {
   }
   const candidates = [
     must<HTMLElement>('#action-primary'),
+    showcaseHost.querySelector<HTMLElement>('[data-part="primary"]'),
     emptyAdd,
     must<HTMLElement>('#tabs').querySelector<HTMLElement>('[aria-pressed="true"]'),
   ];
@@ -550,7 +568,7 @@ const LOOK_FADE_MS = 110;
 
 function changeLook(name: string): void {
   if (name === bookshelf.shelf.variant.name) return;
-  if (bookshelf.motion.state.reduced || store.session().view === 'list') {
+  if (bookshelf.motion.state.reduced || store.session().view !== 'shelf') {
     bookshelf.setVariant(name);
     syncThemeColor();
     return;
@@ -570,6 +588,7 @@ function setView(view: ViewMode): void {
   if (store.session().view === view) return;
   store.setSession({ view });
   applyView();
+  if (view === 'showcase') showcase.announce();
 }
 
 /**
@@ -623,6 +642,7 @@ function bringToCentre(id: string): void {
     entry?.querySelector<HTMLElement>('.bb-list__title')?.focus({ preventScroll: true });
     return;
   }
+  if (store.session().view === 'showcase') return showcase.bring(id);
   // Focus rides along with the centre as the row travels, so it ends on the link that was asked for.
   bookshelf.shelf.focusCurrent();
   bookshelf.show(id);
