@@ -11,14 +11,12 @@ import {
   NeutralToneMapping,
   PCFShadowMap,
   PerspectiveCamera,
-  PMREMGenerator,
   Scene,
   SpotLight,
   SRGBColorSpace,
   type Texture,
   WebGLRenderer,
 } from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { ShelfFrame } from '../shelf/types';
 import { canvasBox, type CanvasBox, fitCamera, rowOrigin } from './camera';
 
@@ -78,8 +76,6 @@ export class Stage {
   private span = 1000;
   private depth = 300;
   private lampX = 0;
-  /** A room with bright panels, filtered for reflections, until a kit supplies its own studio. */
-  private fallbackEnvironment: Texture | null = null;
 
   constructor(canvas = document.createElement('canvas')) {
     this.canvas = canvas;
@@ -107,15 +103,10 @@ export class Stage {
     this.board = new Mesh(new BoxGeometry(1, 1, 1), this.boardMaterial);
     this.board.receiveShadow = true;
     this.scene.add(this.board);
-    // Metal foil and gloss need something bright to reflect, or they read as dark paint.
-    const pmrem = new PMREMGenerator(this.renderer);
-    this.fallbackEnvironment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    pmrem.dispose();
-    this.scene.environment = this.fallbackEnvironment;
   }
 
   setEnvironment(texture: Texture | null): void {
-    this.scene.environment = texture ?? this.fallbackEnvironment;
+    this.scene.environment = texture;
   }
 
   /** A material for the board from a material kit; null keeps the plain one. */
@@ -183,7 +174,6 @@ export class Stage {
   dispose(): void {
     this.board.geometry.dispose();
     this.boardMaterial.dispose();
-    this.fallbackEnvironment?.dispose();
     this.renderer.dispose();
     this.canvas.remove();
   }
