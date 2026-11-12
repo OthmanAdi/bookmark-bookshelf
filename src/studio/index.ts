@@ -80,6 +80,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   let variant = '';
   let queued: number | null = null;
   let alive = true;
+  let drawn = 0;
   const lively = new Map<Element, number>();
   /** How far each slot's volume stands open under the hand, 0 to 1, and when that was last stepped. */
   const peeks = new Map<number, number>();
@@ -184,6 +185,10 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       bookend.position.set(origin.x + end.x, origin.y, 0);
     });
     stage.render();
+    // What was drawn, for tests and for anyone checking Studio in the inspector.
+    drawn++;
+    canvas.dataset.drawn = String(drawn);
+    canvas.dataset.volumes = String(current.volumes.filter((volume) => !volume.hidden).length);
     if (moving) invalidate();
   }
 
