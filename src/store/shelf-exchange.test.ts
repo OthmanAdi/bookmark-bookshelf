@@ -235,3 +235,19 @@ describe('importShelf', () => {
     expect(events.sort()).toEqual(['bookmarks', 'shelves']);
   });
 });
+
+describe('binding and stamp across a shelf file', () => {
+  it('go out with the file and come in with the shelf', () => {
+    const { store: from, shelfId, c } = teacher();
+    from.updateBookmark(c, { cover: { binding: 'linen', stamp: 'copper' } });
+    const file = exported(from, shelfId);
+    expect(file.volumes[2]?.cover).toEqual({ cloth: 'moss', pattern: 'rays', seed: 9, binding: 'linen', stamp: 'copper' });
+    expect(file.volumes[0]?.cover).not.toHaveProperty('binding');
+    const { store } = makeRig({ idFactory: counterIds('s') });
+    const result = store.importShelf(JSON.parse(JSON.stringify(file)));
+    if (!result.ok) throw new Error(result.error.code);
+    const links = store.bookmarks(result.value.shelfId);
+    expect(links[2]?.cover).toEqual({ cloth: 'moss', pattern: 'rays', seed: 9, binding: 'linen', stamp: 'copper' });
+    expect(links[0]?.cover).not.toHaveProperty('binding');
+  });
+});

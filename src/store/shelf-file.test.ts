@@ -542,3 +542,32 @@ describe('summariseShelfFile', () => {
     expect(summariseShelfFile(back)).toMatchObject({ volumes: 2, required: 1, minutes: 5, minutesKnownFor: 1, hosts: ['example.org'] });
   });
 });
+
+describe('binding and stamp in a shelf file', () => {
+  const shelf = { id: 's1', name: 'Week 3' };
+
+  it('writes them only when they were chosen', () => {
+    const bound = volume(1, { cover: { cloth: 'ink', pattern: 'arcs', seed: 1, binding: 'leather', stamp: 'gold' } });
+    const file = toShelfFile({ shelf, bookmarks: [bound, volume(2)], includeTexts: false });
+    expect(file.volumes[0]?.cover).toEqual({ cloth: 'ink', pattern: 'arcs', seed: 1, binding: 'leather', stamp: 'gold' });
+    expect(Object.keys(file.volumes[1]?.cover ?? {}).sort()).toEqual(['cloth', 'pattern', 'seed']);
+  });
+
+  it('reads them back', () => {
+    const cover = { cloth: 'moss', pattern: 'rays', seed: 4, binding: 'velvet', stamp: 'blind' };
+    expect(readOk(baseFile([{ ...volume(1), cover }])).file.volumes[0]?.cover).toEqual(cover);
+  });
+
+  it('keeps a name this version does not know, and lower-cases it', () => {
+    const cover = { cloth: 'moss', pattern: 'rays', seed: 4, binding: 'Marble', stamp: 'enamel' };
+    expect(readOk(baseFile([{ ...volume(1), cover }])).file.volumes[0]?.cover).toMatchObject({ binding: 'marble', stamp: 'enamel' });
+  });
+
+  it('leaves out a hostile or oversized name and keeps the rest of the cover', () => {
+    for (const bad of ['"><img src=x>', 'gold foil', 'x'.repeat(17), 7, null, {}, ['gold']]) {
+      const cover = readOk(baseFile([{ ...volume(1), cover: { cloth: 'ink', pattern: 'arcs', seed: 3, binding: bad, stamp: bad } }])).file
+        .volumes[0]?.cover;
+      expect(cover).toEqual({ cloth: 'ink', pattern: 'arcs', seed: 3 });
+    }
+  });
+});

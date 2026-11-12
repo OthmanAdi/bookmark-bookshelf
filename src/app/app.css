@@ -377,6 +377,16 @@
   display: none;
 }
 
+/* An item this browser cannot use stays in reach, so its reason can be read, but looks and acts inert. */
+.bb-menu__item[aria-disabled='true'] {
+  color: var(--bb-ink-faint);
+  cursor: not-allowed;
+}
+
+.bb-menu__item[aria-disabled='true']:hover {
+  background: transparent;
+}
+
 /* An item that is an action, not a choice, needs no room for a check mark. */
 .bb-menu__item--plain {
   grid-template-columns: minmax(0, 1fr);

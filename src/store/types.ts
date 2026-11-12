@@ -35,6 +35,14 @@ export interface CoverSpec {
   cloth: string;
   pattern: string;
   seed: number;
+  /**
+   * What the volume is bound in, for a renderer that draws materials. Lower-case letters, at most 16. The
+   * store keeps any such name so a library from a newer version loses nothing; the renderer resolves names
+   * it does not know. Absent, the renderer chooses.
+   */
+  binding?: string;
+  /** How the title is put on the cover. The same shape and rules as `binding`. */
+  stamp?: string;
 }
 
 /** Where a shelf came from when it arrived as a shelf file or link. */
@@ -117,6 +125,11 @@ export const SORT_MODE_NAMES = [
 
 export type SortMode = (typeof SORT_MODE_NAMES)[number];
 
+/** How the shelf is drawn: `classic` is the CSS shelf, `studio` paints it with lit materials in WebGL. */
+export const PAINT_NAMES = ['classic', 'studio'] as const;
+
+export type PaintName = (typeof PAINT_NAMES)[number];
+
 export interface Session {
   /** Active shelf filter. `null` means every shelf. */
   shelfId: string | null;
@@ -130,6 +143,8 @@ export interface Session {
   textScale?: number;
   /** How the list and the shelf are ordered. Absent means `manual`. */
   sort?: SortMode;
+  /** How the shelf is drawn. Absent means `classic`; a browser that cannot draw Studio keeps `classic` too. */
+  paint?: PaintName;
 }
 
 /** The shape of a library saved before version 2. It is read and upgraded, never written. */
@@ -188,6 +203,7 @@ export interface BookmarkPatch {
   note?: string;
   tags?: string[];
   shelfId?: string;
+  /** Fields left out keep their value. An empty `binding` or `stamp` removes it, so the renderer chooses again. */
   cover?: Partial<CoverSpec>;
   /** Empty string removes the reading copy. */
   readingText?: string;

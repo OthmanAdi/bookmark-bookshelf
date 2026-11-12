@@ -375,6 +375,202 @@
   gap: var(--bb-s-4);
 }
 
+/* ---------- binding and title stamp ---------- */
+
+.bb-swatches__hint {
+  margin-top: var(--bb-s-4);
+  color: var(--bb-ink-soft);
+}
+
+.bb-swatches {
+  min-width: 0;
+  margin: var(--bb-s-3) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.bb-swatches__legend {
+  margin-bottom: var(--bb-s-2);
+  padding: 0;
+  color: var(--bb-ink);
+  font-family: var(--bb-font-serif);
+  font-size: var(--bb-text-small);
+  font-weight: 500;
+}
+
+.bb-swatches__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: var(--bb-s-1);
+}
+
+/* The whole row is the radio's label; the radio itself is invisible but stays in place for keys, touch and screen readers. */
+.bb-swatch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--bb-s-2);
+  min-height: 2.5rem;
+  padding: var(--bb-s-1) var(--bb-s-2);
+  border: var(--bb-hairline) solid transparent;
+  border-radius: var(--bb-r-2);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.bb-swatch:hover {
+  background: color-mix(in srgb, var(--bb-ink) 6%, transparent);
+  color: var(--bb-ink);
+}
+
+.bb-swatch__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.bb-swatch:has(.bb-swatch__input:checked) {
+  border-color: var(--bb-rule-strong);
+  background: var(--bb-paper-raised);
+  color: var(--bb-ink);
+}
+
+.bb-swatch:has(.bb-swatch__input:focus-visible) {
+  outline: var(--bb-focus-width) solid var(--bb-focus-ring);
+  outline-offset: var(--bb-focus-offset);
+}
+
+.bb-swatch__name {
+  min-width: 0;
+}
+
+.bb-swatch__input:checked ~ .bb-swatch__name {
+  font-weight: 600;
+}
+
+/* A small upright board, lit from the upper left like the shelf. The checked one wears a ring. */
+.bb-swatch__chip {
+  position: relative;
+  flex: none;
+  width: 1.25rem;
+  height: 1.75rem;
+  border-radius: 1px 3px 3px 1px;
+  background: #6b5a48;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28);
+}
+
+.bb-swatch__input:checked + .bb-swatch__chip {
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.28),
+    0 0 0 2px var(--bb-sheet),
+    0 0 0 3px var(--bb-ink);
+}
+
+.bb-swatch__chip:is([data-binding='auto'], [data-stamp='auto']) {
+  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--bb-rule) 3px 4px);
+  box-shadow: inset 0 0 0 1px var(--bb-rule-strong);
+}
+
+.bb-swatch__chip[data-binding='cloth'] {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 2px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.1) 0 1px, transparent 1px 2px),
+    #3d5a73;
+}
+
+.bb-swatch__chip[data-binding='linen'] {
+  background:
+    repeating-linear-gradient(0deg, rgba(90, 70, 40, 0.18) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(90, 70, 40, 0.14) 0 1px, transparent 1px 3px),
+    #cfc2a3;
+}
+
+.bb-swatch__chip[data-binding='leather'] {
+  background: radial-gradient(circle at 32% 28%, #a8703f, #5b3317 72%);
+}
+
+.bb-swatch__chip[data-binding='paper'] {
+  background:
+    linear-gradient(90deg, #2e3b4a 0 30%, transparent 30%),
+    radial-gradient(circle, #b4452f 0 1px, transparent 1.5px) 0 0 / 4px 4px,
+    #ece2cb;
+}
+
+.bb-swatch__chip[data-binding='gloss'] {
+  background: linear-gradient(135deg, #1d6a87 0 38%, #c6ebf6 47%, #1d6a87 58%);
+}
+
+.bb-swatch__chip[data-binding='velvet'] {
+  background: radial-gradient(circle at 45% 38%, #8a3462, #3a0e28 78%);
+}
+
+.bb-swatch__chip[data-binding='foil'] {
+  background: linear-gradient(135deg, #868d95, #f0f2f4 45%, #9ba2a9 62%, #dadee2);
+}
+
+.bb-swatch__chip[data-binding='holo'],
+.bb-swatch__chip[data-stamp='holo']::after {
+  background: linear-gradient(135deg, #f6c6de, #c6e3f6 28%, #d3f6c6 52%, #f6eec6 74%, #dec6f6);
+}
+
+/* A stamp is shown as a title band on a dark board. */
+.bb-swatch__chip[data-stamp]:not([data-stamp='auto']) {
+  background: #2f3a45;
+}
+
+.bb-swatch__chip[data-stamp]::after {
+  position: absolute;
+  top: 32%;
+  right: 20%;
+  left: 20%;
+  height: 16%;
+  border-radius: 1px;
+  content: '';
+}
+
+.bb-swatch__chip[data-stamp='auto']::after {
+  border: 1px dashed var(--bb-rule-strong);
+}
+
+.bb-swatch__chip[data-stamp='gold']::after {
+  background: linear-gradient(135deg, #9f761f, #f5df8e 45%, #b8892a 72%);
+}
+
+.bb-swatch__chip[data-stamp='silver']::after {
+  background: linear-gradient(135deg, #8c939a, #f2f4f6 45%, #a2a8ae);
+}
+
+.bb-swatch__chip[data-stamp='copper']::after {
+  background: linear-gradient(135deg, #864624, #f1b88d 45%, #a5592e);
+}
+
+.bb-swatch__chip[data-stamp='blind']::after {
+  background: #2f3a45;
+  box-shadow:
+    inset 0 1px 1px rgba(0, 0, 0, 0.7),
+    0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.bb-swatch__chip[data-stamp='ink']::after {
+  background: #ece3cf;
+}
+
+@media (forced-colors: active) {
+  .bb-swatch:has(.bb-swatch__input:checked) {
+    border-color: Highlight;
+  }
+
+  .bb-swatch__chip {
+    forced-color-adjust: none;
+  }
+}
+
 .bb-dialog__actions {
   position: sticky;
   bottom: 0;

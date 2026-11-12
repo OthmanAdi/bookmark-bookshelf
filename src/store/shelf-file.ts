@@ -8,6 +8,7 @@
 
 import type { CoverSpec, Result } from './types';
 import { cleanLine, cleanText } from './clean-text';
+import { materialName } from './cover';
 import { fail, ok } from './result';
 import { minutesOf } from './reading-time';
 import { MAX_URL_LENGTH, hasCredentials } from './url-hygiene';
@@ -132,7 +133,11 @@ export function toShelfFile(input: {
     if (typeof bookmark.required === 'boolean') volume.required = bookmark.required;
     if (typeof bookmark.minutes === 'number') volume.minutes = bookmark.minutes;
     if (bookmark.cover) {
-      volume.cover = { cloth: bookmark.cover.cloth, pattern: bookmark.cover.pattern, seed: bookmark.cover.seed };
+      const { cloth, pattern, seed, binding, stamp } = bookmark.cover;
+      volume.cover = { cloth, pattern, seed };
+      // Only a chosen binding or stamp is written, so a file without them stays as short as before.
+      if (binding) volume.cover.binding = binding;
+      if (stamp) volume.cover.stamp = stamp;
     }
     if (input.includeTexts && bookmark.reading && bookmark.reading.text !== '') volume.text = bookmark.reading.text;
     return volume;
@@ -192,7 +197,10 @@ function coverName(value: unknown): string {
     .slice(0, SHELF_FILE_LIMITS.coverName);
 }
 
-/** Clamps a cover to the allowed shapes. A cover that cannot be made safe is left out; the app derives one. */
+/**
+ * Clamps a cover to the allowed shapes. A cover that cannot be made safe is left out; the app derives one.
+ * A binding or stamp that is not a short name of letters is left out on its own, and the renderer chooses.
+ */
 function readCover(value: unknown): CoverSpec | undefined {
   if (!isFields(value)) return undefined;
   const cloth = coverName(value.cloth);
@@ -200,7 +208,12 @@ function readCover(value: unknown): CoverSpec | undefined {
   const raw = value.seed;
   if (cloth === '' || pattern === '' || typeof raw !== 'number' || Number.isNaN(raw)) return undefined;
   const seed = Math.min(SHELF_FILE_LIMITS.seed, Math.max(0, Math.trunc(raw)));
-  return { cloth, pattern, seed };
+  const cover: CoverSpec = { cloth, pattern, seed };
+  const binding = materialName(value.binding);
+  const stamp = materialName(value.stamp);
+  if (binding !== undefined) cover.binding = binding;
+  if (stamp !== undefined) cover.stamp = stamp;
+  return cover;
 }
 
 type VolumeRead = { volume: ShelfFileVolume } | { reason: string };

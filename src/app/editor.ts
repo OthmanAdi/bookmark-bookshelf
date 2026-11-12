@@ -1,5 +1,6 @@
 import { CLOTHS, PATTERNS } from '../shelf';
-import type { Bookmark, BookmarkInput, Store } from '../store';
+import type { Bookmark, BookmarkInput, CoverSpec, Store } from '../store';
+import { BINDING_LABELS, BINDINGS, STAMP_LABELS, STAMPS } from '../studio/types';
 import { button, make, must, option, toast } from './dom';
 import { askToDiscard, closeDialog, leaveOnEscape } from './flow-dialog';
 import { clearErrorOnInput, ensureHint, errorElement, groupOf, markRequired, setFieldError } from './flow-fields';
@@ -22,6 +23,51 @@ export interface Editor {
 }
 
 const capitalise = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1);
+
+/** A row of radios, each with a small swatch and its name, inside a fieldset whose legend names the row. */
+interface SwatchGroup {
+  /** The chosen name, `''` for Automatic, or undefined when the link has a name this version does not offer. */
+  value(): string | undefined;
+  /** Checks the radio for a name; a name that has no radio leaves every radio unchecked. */
+  set(value: string | undefined): void;
+}
+
+function swatchGroup(
+  form: HTMLFormElement,
+  name: 'binding' | 'stamp',
+  legend: string,
+  choices: ReadonlyArray<{ value: string; label: string }>,
+): SwatchGroup {
+  let fieldset = form.querySelector<HTMLFieldSetElement>(`#field-${name}`);
+  if (!fieldset) {
+    fieldset = make('fieldset', 'bb-swatches');
+    fieldset.id = `field-${name}`;
+    fieldset.append(make('legend', 'bb-swatches__legend', legend));
+    form.querySelector('details')?.append(fieldset);
+  }
+  const list = make('div', 'bb-swatches__list');
+  const inputs = [{ value: '', label: 'Automatic' }, ...choices].map((choice) => {
+    const row = make('label', 'bb-swatch');
+    const input = make('input', 'bb-swatch__input');
+    input.type = 'radio';
+    input.name = name;
+    input.value = choice.value;
+    const chip = make('span', 'bb-swatch__chip');
+    chip.dataset[name] = choice.value || 'auto';
+    chip.setAttribute('aria-hidden', 'true');
+    row.append(input, chip, make('span', 'bb-swatch__name', choice.label));
+    list.append(row);
+    return input;
+  });
+  fieldset.querySelector('.bb-swatches__list')?.remove();
+  fieldset.append(list);
+  return {
+    value: () => inputs.find((input) => input.checked)?.value,
+    set(value) {
+      for (const input of inputs) input.checked = input.value === (value ?? '');
+    },
+  };
+}
 
 export function createEditor(
   store: Store,
@@ -56,6 +102,8 @@ export function createEditor(
 
   cloth.replaceChildren(option('', 'Chosen for you'), ...CLOTHS.map((name) => option(name, capitalise(name))));
   pattern.replaceChildren(option('', 'Chosen for you'), ...PATTERNS.map((name) => option(name, capitalise(name))));
+  const binding = swatchGroup(form, 'binding', 'Binding', BINDINGS.map((value) => ({ value, label: BINDING_LABELS[value] })));
+  const stamp = swatchGroup(form, 'stamp', 'Title stamp', STAMPS.map((value) => ({ value, label: STAMP_LABELS[value] })));
 
   url.setAttribute('autocapitalize', 'off');
   url.setAttribute('autocorrect', 'off');
@@ -139,7 +187,8 @@ export function createEditor(
   }
 
   function values(): string {
-    return JSON.stringify([url, titleInput, author, note, tags, shelf, cloth, pattern, readingText].map((control) => (control as HTMLInputElement).value));
+    const typed = [url, titleInput, author, note, tags, shelf, cloth, pattern, readingText].map((control) => (control as HTMLInputElement).value);
+    return JSON.stringify([...typed, binding.value() ?? null, stamp.value() ?? null]);
   }
 
   function fill(bookmark: Bookmark | undefined, preset: LinkPreset = {}): void {
@@ -156,6 +205,8 @@ export function createEditor(
     if (shelf.value !== wanted) shelf.value = store.shelves()[0]?.id ?? '';
     cloth.value = bookmark?.cover.cloth ?? '';
     pattern.value = bookmark?.cover.pattern ?? '';
+    binding.set(bookmark?.cover.binding);
+    stamp.set(bookmark?.cover.stamp);
     readingText.value = bookmark?.reading?.text ?? preset.text ?? '';
     title.textContent = bookmark ? 'Edit link' : 'Add a link';
     remove.textContent = 'Remove link';
@@ -168,9 +219,14 @@ export function createEditor(
   }
 
   function collect(): BookmarkInput {
-    const cover: { cloth?: string; pattern?: string } = {};
+    const cover: Partial<CoverSpec> = {};
     if (cloth.value) cover.cloth = cloth.value;
     if (pattern.value) cover.pattern = pattern.value;
+    // Automatic is an empty name, which removes the choice. A name with no radio here is left as it is.
+    const chosenBinding = binding.value();
+    const chosenStamp = stamp.value();
+    if (chosenBinding !== undefined) cover.binding = chosenBinding;
+    if (chosenStamp !== undefined) cover.stamp = chosenStamp;
     return {
       url: url.value,
       title: titleInput.value.trim() || titleFromAddress(url.value) || undefined,

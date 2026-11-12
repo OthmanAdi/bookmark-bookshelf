@@ -1,6 +1,7 @@
 /**
- * The View menu: shelf or list, then the four looks, each with its one-line summary in view. A look is
- * chosen only when its item is activated, never while the arrow keys pass over it.
+ * The View menu: shelf or list, then the four looks, each with its one-line summary in view, then how the
+ * shelf is drawn. A look or a drawing is chosen only when its item is activated, never while the arrow keys
+ * pass over it.
  */
 
 export type ViewMode = 'shelf' | 'list';
@@ -11,15 +12,36 @@ export interface LookChoice {
   summary: string;
 }
 
+/** A way to draw the shelf, such as Classic or Studio. */
+export interface PaintChoice {
+  name: string;
+  label: string;
+  summary: string;
+}
+
 export interface ViewMenuOptions {
   panel: HTMLElement;
   looks: readonly LookChoice[];
   onView(view: ViewMode): void;
   onLook(name: string): void;
+  /** Left out or empty, the menu has no Drawing group. */
+  paints?: readonly PaintChoice[];
+  onPaint?(name: string): void;
+}
+
+export interface ViewMenuState {
+  view: ViewMode;
+  look: string;
+  paint?: string;
+  /**
+   * Drawings this browser cannot use, each with the reason in a few words. Such an item stays in the menu,
+   * reachable with the arrow keys, but is marked unavailable, says why in place of its summary, and does nothing.
+   */
+  unavailable?: Readonly<Record<string, string>>;
 }
 
 export interface ViewMenu {
-  update(state: { view: ViewMode; look: string }): void;
+  update(state: ViewMenuState): void;
 }
 
 const VIEWS: ReadonlyArray<{ value: ViewMode; label: string }> = [
@@ -111,15 +133,44 @@ export function renderViewMenu(options: ViewMenuOptions): ViewMenu {
     return element;
   });
 
-  const rule = document.createElement('div');
-  rule.className = 'bb-menu__rule';
-  rule.setAttribute('role', 'separator');
-  panel.replaceChildren(group('View', viewItems), rule, group('Look', lookItems));
+  const paintItems = (options.paints ?? []).map((paint) => {
+    const element = item(paint.label, paint.summary, `${prefix}-paint-${paint.name}`);
+    element.dataset.paint = paint.name;
+    element.addEventListener('click', () => {
+      if (element.getAttribute('aria-disabled') === 'true') return;
+      options.onPaint?.(paint.name);
+    });
+    return { element, paint };
+  });
+
+  const rule = (): HTMLElement => {
+    const element = document.createElement('div');
+    element.className = 'bb-menu__rule';
+    element.setAttribute('role', 'separator');
+    return element;
+  };
+  const parts = [group('View', viewItems), rule(), group('Look', lookItems)];
+  if (paintItems.length > 0) parts.push(rule(), group('Drawing', paintItems.map((entry) => entry.element)));
+  panel.replaceChildren(...parts);
 
   return {
     update(state) {
       for (const element of viewItems) element.setAttribute('aria-checked', String(element.dataset.view === state.view));
       for (const element of lookItems) element.setAttribute('aria-checked', String(element.dataset.look === state.look));
+      for (const { element, paint } of paintItems) {
+        element.setAttribute('aria-checked', String(paint.name === (state.paint ?? paintItems[0]?.paint.name)));
+        const reason = state.unavailable?.[paint.name];
+        const summary = element.querySelector('.bb-menu__summary');
+        if (summary) summary.textContent = reason ?? paint.summary;
+        if (reason) {
+          element.setAttribute('aria-disabled', 'true');
+          // The menu closes on any item it is handed; this one has nothing to do, so the menu stays.
+          element.dataset.keepOpen = '';
+        } else {
+          element.removeAttribute('aria-disabled');
+          delete element.dataset.keepOpen;
+        }
+      }
     },
   };
 }

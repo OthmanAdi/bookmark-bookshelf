@@ -9,7 +9,7 @@ import type {
   ShelfOrigin,
   SkippedLink,
 } from './types';
-import { SORT_MODE_NAMES } from './types';
+import { PAINT_NAMES, SORT_MODE_NAMES } from './types';
 import { cleanLine } from './clean-text';
 import { defaultCover, mergeCover } from './cover';
 import { isValidId } from './ids';
@@ -145,6 +145,9 @@ function readCover(value: unknown, url: string): CoverSpec {
   if (typeof value.cloth === 'string') partial.cloth = value.cloth;
   if (typeof value.pattern === 'string') partial.pattern = value.pattern;
   if (typeof value.seed === 'number') partial.seed = value.seed;
+  // A name that is not usable is left out, and the renderer chooses as it does for an older library.
+  if (typeof value.binding === 'string') partial.binding = value.binding;
+  if (typeof value.stamp === 'string') partial.stamp = value.stamp;
   return mergeCover(base, partial);
 }
 
@@ -280,10 +283,11 @@ export function readSession(value: unknown, shelfIds: IdMap, bookmarkIds: IdMap)
   session.openId = knownIdOrNull(value.openId, bookmarkIds);
   if (value.view === 'shelf' || value.view === 'list') session.view = value.view;
   if (typeof value.variant === 'string' && value.variant.trim() !== '') session.variant = value.variant.trim();
-  const { textScale, sort } = value;
+  const { textScale, sort, paint } = value;
   if (typeof textScale === 'number' && Number.isFinite(textScale)) {
     session.textScale = Math.min(4, Math.max(0, Math.round(textScale)));
   }
   if (typeof sort === 'string' && (SORT_MODE_NAMES as readonly string[]).includes(sort)) session.sort = sort as Session['sort'];
+  if (typeof paint === 'string' && (PAINT_NAMES as readonly string[]).includes(paint)) session.paint = paint as Session['paint'];
   return session;
 }

@@ -1,9 +1,9 @@
 import type { LibraryV2, Session } from './types';
-import { SORT_MODE_NAMES } from './types';
+import { PAINT_NAMES, SORT_MODE_NAMES } from './types';
 
 /**
  * Applies the valid parts of a session patch and reports whether anything changed.
- * Ids that point at nothing, an unknown view, sort or text size and an empty variant are ignored.
+ * Ids that point at nothing, an unknown view, sort, drawing or text size and an empty variant are ignored.
  */
 export function applySessionPatch(lib: LibraryV2, patch: Partial<Session>): boolean {
   const session = lib.session;
@@ -27,5 +27,6 @@ export function applySessionPatch(lib: LibraryV2, patch: Partial<Session>): bool
     set('textScale', Math.min(4, Math.max(0, Math.round(patch.textScale))));
   }
   if (typeof patch.sort === 'string' && (SORT_MODE_NAMES as readonly string[]).includes(patch.sort)) set('sort', patch.sort);
+  if (typeof patch.paint === 'string' && (PAINT_NAMES as readonly string[]).includes(patch.paint)) set('paint', patch.paint);
   return changed;
 }
