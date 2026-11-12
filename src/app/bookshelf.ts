@@ -3,6 +3,7 @@ import { createShelfMotion, prefersReducedMotion, type ShelfMotion } from '../mo
 import { defaultReaderLabels, estimateMinutes, mountReader, type ReaderDoc, type ReaderHandle } from '../reader';
 import { createCover, hashText, imprintOf, mountShelf, outlineOf, type ShelfHandle, type ShelfItem } from '../shelf';
 import { sortVolumes, type Bookmark, type Store } from '../store';
+import type { Paint } from '../studio/types';
 import { createFlight, flightLayoutWidth, type Flight, type FlightEnd, type FlightStart } from './flight';
 
 /**
@@ -41,6 +42,7 @@ export interface Bookshelf {
   close(options?: { immediate?: boolean }): Promise<void>;
   setShelf(shelfId: string | null): void;
   setVariant(name: string): void;
+  setPaint(paint: Paint): void;
   /** Rebuilds the row from the store, keeping the centred volume when it still exists. */
   refresh(): void;
   destroy(): void;
@@ -551,6 +553,7 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       if (themePage) document.documentElement.dataset.variant = shelf.variant.name;
       refresh();
     },
+    setPaint() {},
     refresh,
     destroy() {
       destroyed = true;
