@@ -1,10 +1,10 @@
 /**
- * The View menu: shelf or list, then the four looks, each with its one-line summary in view, then how the
+ * The View menu: shelf, list or showcase, then the four looks, each with its one-line summary in view, then how the
  * shelf is drawn. A look or a drawing is chosen only when its item is activated, never while the arrow keys
  * pass over it.
  */
 
-export type ViewMode = 'shelf' | 'list';
+export type ViewMode = 'shelf' | 'list' | 'showcase';
 
 export interface LookChoice {
   name: string;
@@ -47,6 +47,7 @@ export interface ViewMenu {
 const VIEWS: ReadonlyArray<{ value: ViewMode; label: string }> = [
   { value: 'shelf', label: 'Shelf' },
   { value: 'list', label: 'List' },
+  { value: 'showcase', label: 'Showcase' },
 ];
 
 function item(label: string, summary?: string, summaryId?: string): HTMLButtonElement {
