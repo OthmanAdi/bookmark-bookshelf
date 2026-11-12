@@ -146,6 +146,7 @@ export default defineConfig({
         'example-shelf-only': resolve(root, 'examples/shelf-only.html'),
         'example-reader-only': resolve(root, 'examples/reader-only.html'),
         'example-store-only': resolve(root, 'examples/store-only.html'),
+        'example-materials': resolve(root, 'examples/materials.html'),
       },
     },
   },
