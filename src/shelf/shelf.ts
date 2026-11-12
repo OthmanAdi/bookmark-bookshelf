@@ -41,7 +41,19 @@ import {
 } from './layout';
 import { faceShades, resolveLight, sheenOf, sweepOf } from './light';
 import { resolveVariant } from './variants';
-import type { Geometry, Light, Pose, ShelfHandle, ShelfIntent, ShelfItem, ShelfOptions, Variant } from './types';
+import type {
+  FrameBookend,
+  FrameVolume,
+  Geometry,
+  Light,
+  Pose,
+  ShelfFrame,
+  ShelfHandle,
+  ShelfIntent,
+  ShelfItem,
+  ShelfOptions,
+  Variant,
+} from './types';
 
 const DEG = Math.PI / 180;
 /** Room kept above the books for a leaning or lifted volume, and below for the contact shadow. */
@@ -242,6 +254,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let wroteEmpty: boolean | null = null;
   let wroteOpen = '0';
   const listeners = new Set<(intent: ShelfIntent) => void>();
+  const frameListeners = new Set<(frame: ShelfFrame) => void>();
+  /** The volumes of the frame being drawn, collected only while a frame listener is attached. */
+  let frameVolumes: FrameVolume[] | null = null;
+  let lastFrame: ShelfFrame | null = null;
   /** Set once mounting is done, so a host is never called back before it has the handle. */
   let mounted = false;
   /** Keyboard focus was in the row when its volumes were placed again: make sure it ends on the centre. */
@@ -822,6 +838,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const count = items.length;
     frameNow = -1;
     travelling = false;
+    frameVolumes = frameListeners.size > 0 ? [] : null;
     if (wroteEmpty !== (count === 0)) {
       wroteEmpty = count === 0;
       empty.hidden = count > 0;
@@ -844,6 +861,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       presented = null;
       root.dataset.focus = '';
       root.dataset.focusId = '';
+      emitFrame([]);
       return;
     }
 
@@ -980,6 +998,29 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
         wrote.transform = transform;
         style.transform = transform;
       }
+      if (frameVolumes) {
+        const size = sizeOf(slotPose.slot);
+        frameVolumes.push({
+          id: node.item.id,
+          index: node.index,
+          slot: slotPose.slot,
+          item: node.item,
+          element: node.element,
+          spineWidth: size.spineWidth,
+          bookHeight: size.bookHeight,
+          coverWidth: size.coverWidth,
+          x: slotPose.x + away,
+          corner: slotPose.lean === 0 ? 0 : slotPose.corner,
+          lean: slotPose.lean,
+          tilt,
+          angle: slotPose.angle,
+          lift: slotPose.lift,
+          z: slotPose.z,
+          weight: slotPose.weight,
+          centre: slotPose.slot === centre,
+          hidden: wrote.out,
+        });
+      }
       if (wrote.raised !== slotPose.weight > 0) {
         wrote.raised = slotPose.weight > 0;
         style.zIndex = wrote.raised ? '2' : '';
@@ -1029,7 +1070,36 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       wroteOpen = open;
       root.dataset.open = open;
     }
+    if (frameVolumes) emitFrame(frameVolumes);
     if (travelling) requestFrame();
+  }
+
+  /** Hands the frame just drawn to whoever paints it a second time. */
+  function emitFrame(volumes: FrameVolume[]): void {
+    frameVolumes = null;
+    if (frameListeners.size === 0) return;
+    const ends: FrameBookend[] = [];
+    const endHeight = geometry.bookHeight * BOOKEND_TALL;
+    for (const bookend of [bookends.start, bookends.end]) {
+      if (bookend.x === null || bookend.element.hidden) continue;
+      ends.push({ x: bookend.x, width: bookendWidth(), height: endHeight, depth: geometry.coverWidth * 0.55 });
+    }
+    const current: ShelfFrame = {
+      scene,
+      width: sceneWidth,
+      height: scene.clientHeight || 400,
+      floorY: FLOOR_ROOM,
+      perspective: geometry.perspective,
+      rowGive,
+      volumes,
+      bookends: ends,
+      light,
+      lampX,
+      open: pose.open,
+      variant: variant.name,
+    };
+    lastFrame = current;
+    for (const listener of frameListeners) listener(current);
   }
 
   function bookendWidth(): number {
@@ -1347,6 +1417,14 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    onFrame(listener) {
+      frameListeners.add(listener);
+      // The row may be standing still: draw once so the new listener has a frame to paint.
+      lastFrame = null;
+      render();
+      if (lastFrame === null && frameListeners.has(listener)) emitFrame([]);
+      return () => frameListeners.delete(listener);
+    },
     refresh,
     destroy() {
       alive = false;
@@ -1366,6 +1444,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       previous.removeEventListener('click', onPrevious);
       next.removeEventListener('click', onNext);
       listeners.clear();
+      frameListeners.clear();
       root.remove();
     },
   };

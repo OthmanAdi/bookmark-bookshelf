@@ -207,6 +207,66 @@ export interface ItemsChange {
   arrive?: string[];
 }
 
+/**
+ * One volume as the shelf drew it in a frame, for a second renderer that paints the same row (Studio).
+ * The shelf writes its transform as
+ * `translate3d(x + corner, -lift, z) rotateZ(lean) translateX(-corner) rotateZ(tilt) rotateY(-angle)`
+ * about the foot of the spine, in px, with y down as CSS has it.
+ */
+export interface FrameVolume {
+  id: string;
+  index: number;
+  slot: number;
+  item: ShelfItem;
+  /** The volume's `li.bb-book`. A painter may read its computed style; nothing may change it. */
+  element: HTMLElement;
+  spineWidth: number;
+  bookHeight: number;
+  coverWidth: number;
+  x: number;
+  corner: number;
+  lean: number;
+  /** Lean behind the travel of the row, in degrees, applied after `lean`. */
+  tilt: number;
+  angle: number;
+  lift: number;
+  z: number;
+  /** Focus weight, 1 at the centre. */
+  weight: number;
+  /** The centred volume. */
+  centre: boolean;
+  /** Its place is left empty because the host carries its cover elsewhere (a volume being opened). */
+  hidden: boolean;
+}
+
+export interface FrameBookend {
+  x: number;
+  width: number;
+  height: number;
+  /** How far its faces run back, in px. */
+  depth: number;
+}
+
+/** Everything a second renderer needs to paint one frame of the shelf exactly where the DOM stands. */
+export interface ShelfFrame {
+  /** The element whose box and perspective the row is drawn in. */
+  scene: HTMLElement;
+  width: number;
+  height: number;
+  /** Room under the floor line, in px from the bottom of the scene. */
+  floorY: number;
+  perspective: number;
+  /** Sideways give of the whole row under a pull, in px. */
+  rowGive: number;
+  volumes: FrameVolume[];
+  bookends: FrameBookend[];
+  light: Light;
+  /** Where a lamp stands along the row, in px from its centre. */
+  lampX: number;
+  open: number;
+  variant: string;
+}
+
 export interface ShelfHandle {
   readonly element: HTMLElement;
   /** The element to hand to a gesture recogniser. */
@@ -255,6 +315,12 @@ export interface ShelfHandle {
   /** Moves keyboard focus to the centred volume. */
   focusCurrent(): void;
   on(listener: (intent: ShelfIntent) => void): Unsubscribe;
+  /**
+   * Tells a listener about every frame the shelf draws, after the DOM is written, so another renderer can
+   * paint the same row. The listener is called once at once with the current frame. Nothing is collected
+   * while no one listens.
+   */
+  onFrame(listener: (frame: ShelfFrame) => void): Unsubscribe;
   /** Re-measures after a size change. Called automatically on resize. */
   refresh(): void;
   destroy(): void;
