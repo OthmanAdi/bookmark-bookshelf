@@ -3,6 +3,8 @@ import { createShelfMotion, prefersReducedMotion, type ShelfMotion } from '../mo
 import { defaultReaderLabels, estimateMinutes, mountReader, type ReaderDoc, type ReaderHandle } from '../reader';
 import { createCover, hashText, imprintOf, mountShelf, outlineOf, type ShelfHandle, type ShelfItem } from '../shelf';
 import { sortVolumes, type Bookmark, type Store } from '../store';
+import type { Paint } from '../studio/types';
+import type { StudioHandle } from '../studio';
 import { createFlight, flightLayoutWidth, type Flight, type FlightEnd, type FlightStart } from './flight';
 
 /**
@@ -27,6 +29,8 @@ export interface BookshelfOptions {
   isExample?: (id: string) => boolean;
   onFocusChange?: (bookmark: Bookmark | undefined) => void;
   onOpenChange?: (bookmark: Bookmark | undefined) => void;
+  /** Called when Studio could not start or lost WebGL and the shelf went back to the classic drawing. */
+  onPaintFailure?: (reason: string) => void;
 }
 
 export interface Bookshelf {
@@ -41,6 +45,12 @@ export interface Bookshelf {
   close(options?: { immediate?: boolean }): Promise<void>;
   setShelf(shelfId: string | null): void;
   setVariant(name: string): void;
+  /**
+   * How the shelf is drawn: `classic` is the CSS shelf, `studio` adds the WebGL layer with lit materials.
+   * Studio is loaded the first time it is asked for; if it cannot start, the shelf stays classic.
+   */
+  setPaint(paint: Paint): void;
+  readonly paint: Paint;
   /** Rebuilds the row from the store, keeping the centred volume when it still exists. */
   refresh(): void;
   destroy(): void;
@@ -526,6 +536,37 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     refresh();
   });
 
+  let paint: Paint = 'classic';
+  let studio: StudioHandle | null = null;
+  let studioTicket = 0;
+
+  function dropStudio(): void {
+    studio?.destroy();
+    studio = null;
+  }
+
+  async function setPaint(next: Paint): Promise<void> {
+    paint = next;
+    const ticket = ++studioTicket;
+    if (next !== 'studio') {
+      dropStudio();
+      return;
+    }
+    if (studio) return;
+    const failed = (reason: string) => {
+      dropStudio();
+      paint = 'classic';
+      options.onPaintFailure?.(reason);
+    };
+    try {
+      const module = await import('../studio');
+      if (ticket !== studioTicket || destroyed || paint !== 'studio') return;
+      studio = module.mountStudio(shelf, { onFailure: failed });
+    } catch (error) {
+      if (ticket === studioTicket) failed(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   // Pick up where the person left off: same volume, and the reader if it was open.
   const resumeId = store.session().openId;
   if (resumeId && store.get(resumeId)) void open(resumeId, { immediate: true });
@@ -551,9 +592,17 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       if (themePage) document.documentElement.dataset.variant = shelf.variant.name;
       refresh();
     },
+    setPaint(next) {
+      void setPaint(next);
+    },
+    get paint() {
+      return paint;
+    },
     refresh,
     destroy() {
       destroyed = true;
+      studioTicket++;
+      dropStudio();
       document.removeEventListener('keydown', onKeyDown);
       stopMotion();
       document.removeEventListener('pointerdown', onPointerInput, true);

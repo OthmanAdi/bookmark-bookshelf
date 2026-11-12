@@ -1,0 +1,34 @@
+/*
+ * Studio paints the volumes in a canvas behind the row. The DOM volumes stay where they are, as large as
+ * they are, so every press, drag and focus still lands on them; only what they paint is taken away.
+ * Focus rings are separate planes and stay visible.
+ */
+
+.bb-studio {
+  position: absolute;
+  left: 0;
+  display: block;
+  pointer-events: none;
+  /* The canvas is wider than any one volume and never takes a press. */
+  touch-action: none;
+}
+
+.bb-shelf[data-paint='studio'] .bb-book__spine,
+.bb-shelf[data-paint='studio'] .bb-book__board {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+.bb-shelf[data-paint='studio'] .bb-book__spine > *,
+.bb-shelf[data-paint='studio'] .bb-book__board > *,
+.bb-shelf[data-paint='studio'] .bb-book__slip,
+.bb-shelf[data-paint='studio'] .bb-shelf__bookend,
+.bb-shelf[data-paint='studio'] .bb-shelf__floor {
+  visibility: hidden;
+}
+
+.bb-shelf[data-paint='studio'] .bb-book::after {
+  display: none;
+}
