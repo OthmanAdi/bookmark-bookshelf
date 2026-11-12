@@ -561,9 +561,9 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
       options.onPaintFailure?.(reason);
     };
     try {
-      const module = await import('../studio');
+      const [module, kits] = await Promise.all([import('../studio'), import('../studio/kit')]);
       if (ticket !== studioTicket || destroyed || paint !== 'studio') return;
-      studio = module.mountStudio(shelf, { onFailure: failed });
+      studio = module.mountStudio(shelf, { onFailure: failed, kit: kits.createKit() });
     } catch (error) {
       if (ticket === studioTicket) failed(error instanceof Error ? error.message : String(error));
     }
