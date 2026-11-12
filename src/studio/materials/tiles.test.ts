@@ -180,10 +180,10 @@ describe('holographic flakes', () => {
 
   it('lets a few flakes lean far and most lie nearly flat', () => {
     let leaning = 0;
-    for (let at = 0; at < tile.normal.length; at += 4) if (tile.normal[at + 2]! < 246) leaning += 1;
+    for (let at = 0; at < tile.normal.length; at += 4) if (tile.normal[at + 2]! < 253) leaning += 1;
     const share = leaning / (tile.normal.length / 4);
-    expect(share).toBeGreaterThan(0.03);
-    expect(share).toBeLessThan(0.35);
+    expect(share).toBeGreaterThan(0.02);
+    expect(share).toBeLessThan(0.2);
   });
 
   it('wraps without a seam in its film', () => {

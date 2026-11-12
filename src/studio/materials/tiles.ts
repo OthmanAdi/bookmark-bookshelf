@@ -60,6 +60,16 @@ export function weaveSurface(size: number, options: WeaveOptions): Surface {
   const seed = options.seed ?? 1;
   const out = surface(size);
   const half = threads / 2;
+  // Width of every thread at every step along its length: warp thread i at row y, weft thread j at column x.
+  const warpWidths = new Float32Array(threads * size);
+  const weftWidths = new Float32Array(threads * size);
+  for (let thread = 0; thread < threads; thread += 1) {
+    for (let step = 0; step < size; step += 1) {
+      const along = (step / size) * threads * 0.5;
+      warpWidths[thread * size + step] = 1 - gap + (slub === 0 ? 0 : slub * 1.5 * (valueNoise(along, thread, half, threads, seed + 1) - 0.5));
+      weftWidths[thread * size + step] = 1 - gap + (slub === 0 ? 0 : slub * 1.5 * (valueNoise(along, thread, half, threads, seed + 2) - 0.5));
+    }
+  }
   for (let y = 0; y < size; y += 1) {
     const v = (y / size) * threads;
     const j = Math.floor(v);
@@ -68,9 +78,8 @@ export function weaveSurface(size: number, options: WeaveOptions): Surface {
       const u = (x / size) * threads;
       const i = Math.floor(u);
       const fu = u - i - 0.5;
-      // Width of the warp thread i here along its length, and of the weft thread j.
-      const warpWidth = 1 - gap + (slub === 0 ? 0 : slub * 1.5 * (valueNoise(v * 0.5, i, half, threads, seed + 1) - 0.5));
-      const weftWidth = 1 - gap + (slub === 0 ? 0 : slub * 1.5 * (valueNoise(u * 0.5, j, half, threads, seed + 2) - 0.5));
+      const warpWidth = warpWidths[i * size + y]!;
+      const weftWidth = weftWidths[j * size + x]!;
       const across = Math.cos(Math.max(-0.5, Math.min(0.5, fu / warpWidth)) * Math.PI);
       const along = Math.cos(Math.max(-0.5, Math.min(0.5, fv / weftWidth)) * Math.PI);
       const warpRise = 0.5 + 0.5 * Math.cos(Math.PI * (v - 0.5 + i));
@@ -86,7 +95,7 @@ export function weaveSurface(size: number, options: WeaveOptions): Surface {
       const index = y * size + x;
       out.height[index] = height;
       const hollow = 1 - height;
-      out.shade[index] = clamp01(0.5 + tint * (thread - 0.5) + 0.05 * (fibre - 0.5) - 0.3 * hollow * hollow);
+      out.shade[index] = clamp01(0.5 + tint * (thread - 0.5) + 0.05 * (fibre - 0.5) - 0.2 * hollow * hollow);
       out.rough[index] = 1 - 0.14 * height;
     }
   }
@@ -100,12 +109,12 @@ export function clothSurface(size: number, seed = 1): Surface {
 
 /** Linen: fewer, thicker threads that swell and thin, each a little different in colour. */
 export function linenSurface(size: number, seed = 2): Surface {
-  return weaveSurface(size, { threads: size / 16, slub: 0.55, gap: 0.14, fuzz: 0.2, tint: 0.34, seed });
+  return weaveSurface(size, { threads: size / 16, slub: 0.55, gap: 0.12, fuzz: 0.2, tint: 0.2, seed });
 }
 
 /**
- * Leather: pebbles parted by creases. Two sizes of cell, pushed about by slow noise so no two pebbles
- * match, with the creases rougher and darker than the polished tops.
+ * Leather: pebbles parted by creases. The cells are pushed about by slow noise so no two pebbles match,
+ * the tops are pitted with fine pores, and the creases are rougher and darker than the polished tops.
  */
 export function leatherSurface(size: number, seed = 3): Surface {
   const out = surface(size);
@@ -116,15 +125,15 @@ export function leatherSurface(size: number, seed = 3): Surface {
     const v = y / size;
     for (let x = 0; x < size; x += 1) {
       const u = x / size;
-      const pushX = fbm(u, v, 5, 5, seed + 3, 2) - 0.5;
-      const pushY = fbm(u, v, 5, 5, seed + 4, 2) - 0.5;
+      const pushX = valueNoise(u * 6, v * 6, 6, 6, seed + 3) - 0.5;
+      const pushY = valueNoise(u * 6, v * 6, 6, 6, seed + 4) - 0.5;
       cells((u + pushX * 0.03) * coarse, (v + pushY * 0.03) * coarse, coarse, seed, near, 0.95);
       const pebble = smoothstep(0.02, 0.3, near.f2 - near.f1);
       const dome = 1 - Math.min(1, near.f1 * 1.15);
       const lift = 0.8 + 0.2 * near.id;
-      cells((u + pushY * 0.02) * fine, (v + pushX * 0.02) * fine, fine, seed + 31, near, 0.9);
-      const pore = smoothstep(0.0, 0.22, near.f2 - near.f1);
-      const wrinkle = fbm(u, v, 3, 3, seed + 9, 3);
+      // Pores: fine pits scattered over the pebbles.
+      const pore = smoothstep(0.12, 0.4, valueNoise(u * fine, v * fine, fine, fine, seed + 31));
+      const wrinkle = fbm(u, v, 3, 3, seed + 9, 2);
       const height = clamp01(pebble * lift * (0.62 + 0.2 * dome) + 0.12 * pore * pebble + 0.1 * wrinkle);
       const index = y * size + x;
       out.height[index] = height;
@@ -197,9 +206,9 @@ export function velvetSurface(size: number, seed = 6): Surface {
       const index = y * size + x;
       const pile = valueNoise(u * size * 0.5, v * size * 0.5, size * 0.5, size * 0.5, seed);
       const stroke = fbm(u, v, 3, 3, seed + 2, 3);
-      const patch = smoothstep(0.38, 0.62, stroke);
-      out.height[index] = clamp01(0.25 * pile + 0.75 * stroke);
-      out.shade[index] = clamp01(0.36 + 0.22 * patch + 0.12 * (pile - 0.5));
+      const patch = smoothstep(0.25, 0.75, stroke);
+      out.height[index] = clamp01(0.6 * pile + 0.4 * stroke);
+      out.shade[index] = clamp01(0.3 + 0.2 * patch + 0.1 * (pile - 0.5));
       out.rough[index] = 1;
     }
   }
@@ -217,7 +226,7 @@ export function brushedSurface(size: number, seed = 7): Surface {
       const fineLines = valueNoise(u * 3, v * size * 0.5, 3, size * 0.5, seed);
       const lines = valueNoise(u * 2, v * size * 0.125, 2, size * 0.125, seed + 1);
       const sweep = fbm(u, v, 2, 6, seed + 2, 2);
-      out.height[index] = clamp01(0.5 * fineLines + 0.35 * lines + 0.15 * sweep);
+      out.height[index] = clamp01(0.65 * fineLines + 0.2 * lines + 0.15 * sweep);
       out.shade[index] = clamp01(0.5 + 0.06 * (lines - 0.5));
       out.rough[index] = clamp01(0.78 + 0.22 * fineLines);
     }
@@ -277,8 +286,8 @@ export interface FlakeTile {
 
 /**
  * Holographic foil. The sheet is made of small flakes; most lie nearly flat and a few lean far enough to
- * flash on their own, which reads as glitter. The film thickness drifts slowly across the tile and jumps
- * a little from flake to flake, so the colour runs in bands and breaks up at close range.
+ * flash on their own, which reads as glitter. The film thickness drifts slowly across the tile and steps
+ * very slightly from flake to flake, so the colour runs in smooth bands with a grain at close range.
  */
 export function flakeTile(size: number, seed = 8): FlakeTile {
   const count = size * size;
@@ -295,7 +304,7 @@ export function flakeTile(size: number, seed = 8): FlakeTile {
       const id = near.id;
       const angle = hash2(Math.floor(id * 65536), 3, seed) * Math.PI * 2;
       const pick = hash2(Math.floor(id * 65536), 5, seed);
-      const lean = pick > 0.86 ? 0.34 + 0.3 * hash2(Math.floor(id * 65536), 7, seed) : 0.04 + 0.1 * pick;
+      const lean = pick > 0.93 ? 0.14 + 0.2 * hash2(Math.floor(id * 65536), 7, seed) : 0.008 + 0.03 * pick;
       const nx = Math.cos(angle) * lean;
       const ny = Math.sin(angle) * lean;
       const nz = Math.sqrt(1 - lean * lean);
@@ -306,13 +315,13 @@ export function flakeTile(size: number, seed = 8): FlakeTile {
       normal[at + 3] = 255;
       const edge = smoothstep(0.0, 0.12, near.f2 - near.f1);
       detail[at] = Math.round((0.44 + 0.06 * edge + 0.1 * (id - 0.5)) * 255);
-      detail[at + 1] = Math.round((0.62 + 0.38 * hash2(Math.floor(id * 65536), 9, seed)) * 255);
+      detail[at + 1] = Math.round((0.8 + 0.2 * hash2(Math.floor(id * 65536), 9, seed)) * 255);
       detail[at + 2] = 255;
       detail[at + 3] = 255;
       // A slow run of bands that closes on itself, plus a step per flake.
       const drift = fbm(u, v, 2, 2, seed + 21, 2);
       const band = 0.5 + 0.5 * Math.sin((u + v * 2 + drift * 0.9) * Math.PI * 2);
-      const film = clamp01(0.72 * band + 0.28 * id);
+      const film = clamp01(0.9 * band + 0.1 * id);
       thickness[at] = 0;
       thickness[at + 1] = Math.round(film * 255);
       thickness[at + 2] = 0;
@@ -404,15 +413,15 @@ export function woodTile(size: number, options: WoodOptions): WoodTile {
     const v = y / size;
     for (let x = 0; x < size; x += 1) {
       const u = x / size;
-      const wander = fbm(u, v, 2, 3, seed, 3) - 0.5;
-      const ring = v * rings + wander * 2.4;
+      const wander = fbm(u, v, 1, 2, seed, 3) - 0.5;
+      const ring = v * rings + wander * 1.1;
       const phase = ring - Math.floor(ring);
       // Slow rise through the early wood, a quick dark line of late wood, then the next ring.
-      const late = smoothstep(0.55, 0.92, phase) * (1 - smoothstep(0.92, 1, phase));
+      const late = smoothstep(0.35, 0.9, phase) * (1 - smoothstep(0.9, 1, phase));
       const streak = valueNoise(u * 4, v * size * 0.25, 4, size * 0.25, seed + 4);
       const pore = pores * smoothstep(0.62, 0.9, valueNoise(u * 16, v * size * 0.5, 16, size * 0.5, seed + 6)) * (0.4 + 0.6 * late);
       const figure = fbm(u, v, 3, 2, seed + 8, 2);
-      const mix = clamp01(0.18 + 0.6 * late + 0.22 * (streak - 0.5) + 0.25 * (figure - 0.5) + 0.35 * pore);
+      const mix = clamp01(0.2 + 0.42 * late + 0.34 * (streak - 0.5) + 0.25 * (figure - 0.5) + 0.35 * pore);
       const index = y * size + x;
       const at = index * 4;
       for (let channel = 0; channel < 3; channel += 1) {
