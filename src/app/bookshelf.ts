@@ -95,6 +95,8 @@ export function toShelfItem(bookmark: Bookmark, percent: number, details: ShelfI
     cloth: bookmark.cover.cloth,
     pattern: bookmark.cover.pattern,
     seed: bookmark.cover.seed,
+    binding: bookmark.cover.binding,
+    stamp: bookmark.cover.stamp,
     progress: percent,
     thickness: thicknessOf(text),
     stature: statureOf(source),
