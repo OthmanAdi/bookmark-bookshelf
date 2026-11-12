@@ -5,7 +5,7 @@ import { createCover, hashText, imprintOf, mountShelf, outlineOf, type ShelfHand
 import { sortVolumes, type Bookmark, type Store } from '../store';
 import type { Paint } from '../studio/types';
 import type { StudioHandle } from '../studio';
-import { createFlight, flightLayoutWidth, type Flight, type FlightEnd, type FlightStart } from './flight';
+import { createFlight, flightLayoutWidth, type Flight, type FlightEnd, type FlightOptions, type FlightStart } from './flight';
 
 /**
  * Full composition: store + shelf + motion + reader.
@@ -358,14 +358,24 @@ export function createBookshelf(options: BookshelfOptions): Bookshelf {
     const scale = shelfCover.width > 0 ? flightLayoutWidth(start, end) / shelfCover.width : 1;
     cover.style.setProperty('--bb-cover-k', String(scale));
     const spineEdge = Math.abs(Math.sin((placement.yaw * Math.PI) / 180)) * shelf.variant.geometry.spineWidth * scale;
-    flight = createFlight({
+    const carried: FlightOptions = {
       cover,
       clothClass: `bb-cloth--${bookmark.cover.cloth}`,
       start,
       end,
       spineEdge,
       sheen: { opacity: placement.sheen, sweep: placement.sweep },
-    });
+    };
+    // Studio carries the lit volume itself, pages and all. Without Studio, or when it cannot, the cover flies as CSS.
+    let lit: Flight | null = null;
+    if (studio) {
+      try {
+        lit = studio.createFlight(carried, bookmark.id);
+      } catch {
+        lit = null;
+      }
+    }
+    flight = lit ?? createFlight(carried);
     flight.set(motion.state.openTime);
     return true;
   }
