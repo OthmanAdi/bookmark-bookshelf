@@ -35,6 +35,14 @@ export interface CoverSpec {
   cloth: string;
   pattern: string;
   seed: number;
+  /**
+   * What the volume is bound in, for a renderer that draws materials. Lower-case letters, at most 16. The
+   * store keeps any such name so a library from a newer version loses nothing; the renderer resolves names
+   * it does not know. Absent, the renderer chooses.
+   */
+  binding?: string;
+  /** How the title is put on the cover. The same shape and rules as `binding`. */
+  stamp?: string;
 }
 
 /** Where a shelf came from when it arrived as a shelf file or link. */
@@ -188,6 +196,7 @@ export interface BookmarkPatch {
   note?: string;
   tags?: string[];
   shelfId?: string;
+  /** Fields left out keep their value. An empty `binding` or `stamp` removes it, so the renderer chooses again. */
   cover?: Partial<CoverSpec>;
   /** Empty string removes the reading copy. */
   readingText?: string;

@@ -145,6 +145,9 @@ function readCover(value: unknown, url: string): CoverSpec {
   if (typeof value.cloth === 'string') partial.cloth = value.cloth;
   if (typeof value.pattern === 'string') partial.pattern = value.pattern;
   if (typeof value.seed === 'number') partial.seed = value.seed;
+  // A name that is not usable is left out, and the renderer chooses as it does for an older library.
+  if (typeof value.binding === 'string') partial.binding = value.binding;
+  if (typeof value.stamp === 'string') partial.stamp = value.stamp;
   return mergeCover(base, partial);
 }
 

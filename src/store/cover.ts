@@ -30,6 +30,19 @@ export function coverName(value: unknown): string | undefined {
   return name === '' ? undefined : name;
 }
 
+export const MAX_MATERIAL_NAME = 16;
+const MATERIAL_NAME = new RegExp(`^[a-z]{1,${MAX_MATERIAL_NAME}}$`);
+
+/**
+ * A binding or stamp name: lower-case letters only, at most 16. Case and surrounding space are forgiven;
+ * anything else gives undefined. Names are not checked against a list, so a newer version's names survive.
+ */
+export function materialName(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const name = value.trim().toLowerCase();
+  return MATERIAL_NAME.test(name) ? name : undefined;
+}
+
 /** A whole number from 0 to 2,147,483,647. Larger values wrap round so covers stay varied. */
 export function coverSeed(value: unknown): number | undefined {
   if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
@@ -45,12 +58,26 @@ export function defaultCover(seedText: string): CoverSpec {
   };
 }
 
-/** Applies the usable fields of a partial cover on top of a base cover, keeping every field in range. */
+/** A binding or stamp after a change: left out keeps it, an empty text removes it, an unusable name keeps it. */
+function mergeMaterial(base: string | undefined, partial: unknown): string | undefined {
+  if (partial === undefined) return base;
+  if (typeof partial === 'string' && partial.trim() === '') return undefined;
+  return materialName(partial) ?? base;
+}
+
+/**
+ * Applies the usable fields of a partial cover on top of a base cover, keeping every field in range. An empty
+ * `binding` or `stamp` removes it; an absent one is never written as a key.
+ */
 export function mergeCover(base: CoverSpec, partial: Partial<CoverSpec> | undefined): CoverSpec {
-  if (!partial) return { ...base };
-  return {
-    cloth: coverName(partial.cloth) ?? base.cloth,
-    pattern: coverName(partial.pattern) ?? base.pattern,
-    seed: coverSeed(partial.seed) ?? base.seed,
+  const cover: CoverSpec = {
+    cloth: coverName(partial?.cloth) ?? base.cloth,
+    pattern: coverName(partial?.pattern) ?? base.pattern,
+    seed: coverSeed(partial?.seed) ?? base.seed,
   };
+  const binding = mergeMaterial(materialName(base.binding), partial?.binding);
+  const stamp = mergeMaterial(materialName(base.stamp), partial?.stamp);
+  if (binding !== undefined) cover.binding = binding;
+  if (stamp !== undefined) cover.stamp = stamp;
+  return cover;
 }
