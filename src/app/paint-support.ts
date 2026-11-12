@@ -23,3 +23,12 @@ export function canUseStudio(): boolean {
   known ??= probe();
   return known;
 }
+
+/** The ways to draw the shelf, as the View menu offers them. */
+export const PAINT_CHOICES = [
+  { name: 'classic', label: 'Classic', summary: 'CSS 3D, light and fast.' },
+  { name: 'studio', label: 'Studio', summary: 'Lit materials, drawn with WebGL.' },
+] as const;
+
+/** What the Studio item says instead of its summary in a browser without WebGL2. */
+export const STUDIO_UNAVAILABLE = 'Needs WebGL2, which this browser does not offer.';

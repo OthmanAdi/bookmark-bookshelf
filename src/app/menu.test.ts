@@ -180,3 +180,94 @@ describe('renderViewMenu', () => {
     expect(onView).toHaveBeenCalledWith('shelf');
   });
 });
+
+describe('renderViewMenu drawing', () => {
+  const looks = [{ name: 'paper', label: 'Paper Row', summary: 'A paper ground.' }];
+  const paints = [
+    { name: 'classic', label: 'Classic', summary: 'CSS 3D, light and fast.' },
+    { name: 'studio', label: 'Studio', summary: 'Lit materials, drawn with WebGL.' },
+  ];
+
+  function mount(onPaint = vi.fn()) {
+    document.body.replaceChildren();
+    const panel = document.createElement('div');
+    panel.id = 'view-menu';
+    document.body.appendChild(panel);
+    const menu = renderViewMenu({ panel, looks, onView: vi.fn(), onLook: vi.fn(), paints, onPaint });
+    const item = (name: string): HTMLElement => panel.querySelector<HTMLElement>(`[data-paint="${name}"]`)!;
+    const description = (name: string): string | null | undefined =>
+      document.getElementById(item(name).getAttribute('aria-describedby')!)?.textContent;
+    return { panel, menu, item, description, onPaint };
+  }
+
+  it('has no Drawing group unless drawings are given', () => {
+    document.body.replaceChildren();
+    const panel = document.createElement('div');
+    renderViewMenu({ panel, looks, onView: vi.fn(), onLook: vi.fn() });
+    expect(panel.querySelector('[aria-label="Drawing"]')).toBeNull();
+    expect(panel.querySelectorAll('[role="separator"]')).toHaveLength(1);
+  });
+
+  it('puts Classic and Studio in a group named Drawing after the looks, each with its summary', () => {
+    const { panel, item, description } = mount();
+    const groups = [...panel.querySelectorAll('[role="group"]')].map((group) => group.getAttribute('aria-label'));
+    expect(groups).toEqual(['View', 'Look', 'Drawing']);
+    expect(item('classic').getAttribute('role')).toBe('menuitemradio');
+    expect(item('studio').querySelector('.bb-menu__label')?.textContent).toBe('Studio');
+    expect(description('classic')).toBe('CSS 3D, light and fast.');
+    expect(description('studio')).toBe('Lit materials, drawn with WebGL.');
+  });
+
+  it('marks the current drawing, and Classic when none is stored', () => {
+    const { menu, item } = mount();
+    menu.update({ view: 'shelf', look: 'paper', paint: 'studio' });
+    expect(item('studio').getAttribute('aria-checked')).toBe('true');
+    expect(item('classic').getAttribute('aria-checked')).toBe('false');
+    menu.update({ view: 'shelf', look: 'paper' });
+    expect(item('classic').getAttribute('aria-checked')).toBe('true');
+    expect(item('studio').getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('chooses a drawing only when its item is activated', () => {
+    const { menu, item, onPaint } = mount();
+    menu.update({ view: 'shelf', look: 'paper' });
+    item('studio').focus();
+    item('studio').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    expect(onPaint).not.toHaveBeenCalled();
+    item('studio').click();
+    expect(onPaint).toHaveBeenCalledWith('studio');
+  });
+
+  it('marks Studio unavailable with the reason as its description, and it does nothing', () => {
+    const { menu, item, description, onPaint } = mount();
+    menu.update({ view: 'shelf', look: 'paper', unavailable: { studio: 'Needs WebGL2.' } });
+    expect(item('studio').getAttribute('aria-disabled')).toBe('true');
+    expect(description('studio')).toBe('Needs WebGL2.');
+    expect(item('studio').hasAttribute('data-keep-open')).toBe(true);
+    expect(item('classic').hasAttribute('aria-disabled')).toBe(false);
+    item('studio').click();
+    expect(onPaint).not.toHaveBeenCalled();
+  });
+
+  it('keeps an unavailable item in reach of the arrow keys, and the menu open when it is clicked', () => {
+    const { panel, menu, item } = mount();
+    const button = document.createElement('button');
+    document.body.prepend(button);
+    createMenu({ button, panel, onOpen: () => menu.update({ view: 'shelf', look: 'paper', unavailable: { studio: 'Needs WebGL2.' } }) });
+    button.click();
+    item('classic').focus();
+    key(item('classic'), 'ArrowDown');
+    expect(document.activeElement).toBe(item('studio'));
+    item('studio').click();
+    expect(panel.hidden).toBe(false);
+  });
+
+  it('gives the summary back once the drawing is available again', () => {
+    const { menu, item, description } = mount();
+    menu.update({ view: 'shelf', look: 'paper', unavailable: { studio: 'Needs WebGL2.' } });
+    menu.update({ view: 'shelf', look: 'paper' });
+    expect(item('studio').hasAttribute('aria-disabled')).toBe(false);
+    expect(item('studio').hasAttribute('data-keep-open')).toBe(false);
+    expect(description('studio')).toBe('Lit materials, drawn with WebGL.');
+  });
+});
