@@ -142,6 +142,9 @@ export default defineConfig({
   preview: { host: '127.0.0.1', port: 4173, strictPort: false },
   build: {
     target: 'es2022',
+    // three.js is one chunk of about 540 kB that is only loaded when someone chooses Studio. Every other chunk
+    // stays well under the default limit, which this keeps watching.
+    chunkSizeWarningLimit: 560,
     rollupOptions: {
       input: {
         home: resolve(root, 'index.html'),
