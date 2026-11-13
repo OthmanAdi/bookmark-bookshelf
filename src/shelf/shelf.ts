@@ -96,13 +96,17 @@ const BOOKEND_TALL = 0.62;
 const LAMP_STEP = 0.5;
 /** Space in px a standing row keeps between each bookend and the edge of the scene. */
 const BOOKEND_AIR = 4;
-/** A row that stands still gives at most this far under a hand that pulls it sideways, in px. */
+/**
+ * A row that stands still is pulled along by the hand a volume for each pitch of travel. Pulled past its
+ * first or last volume it has nowhere to go, and gives at most this far, in px.
+ */
 const GIVE_MOST = 28;
-/** A pull of this many px takes such a row about two thirds of the way to that limit. */
+/** A pull of this many px past an end takes such a row about two thirds of the way to that limit. */
 const GIVE_REACH = 90;
 /**
- * A pull on such a row let go faster than this many px per ms, after at least this many px, is a swipe to
- * the next volume. The speed is that of the last of the pull, this many ms of it.
+ * Where nothing may move by itself such a row does not follow the hand. A pull let go faster than this
+ * many px per ms, after at least this many px, is then a swipe to the next volume. The speed is that of
+ * the last of the pull, this many ms of it.
  */
 const SWIPE_SPEED = 0.35;
 const SWIPE_TRAVEL = 24;
@@ -180,7 +184,10 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let variant: Variant = resolveVariant(options.variant);
   let light: Light = resolveLight(variant.light);
   let loop = options.loop ?? variant.loop;
-  /** The row does not travel: it stands in the scene, whole and in the middle where it fits. */
+  /**
+   * The row does not travel: it stands in the scene, whole and in the middle where it fits. A hand that
+   * drags it moves the position along it all the same, so the volumes turn as they are pulled.
+   */
   let fixed = false;
   /** How far from the middle of the scene the presented volume of such a row may stand, in px. */
   let standWithin = Number.POSITIVE_INFINITY;
@@ -231,10 +238,13 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   /** Where the lamp travels from after the row changed, and when that began. */
   let lampFrom: number | null = null;
   let lampFromAt = 0;
-  /** How far the whole row is drawn aside right now, in px: a row that stands still gives under a pull. */
+  /** How far the whole row is drawn aside right now, in px: a row that stands still gives when pulled past an end. */
   let rowGive = 0;
-  /** The hand pulling such a row, with where it has been lately. Null when nothing holds the row. */
-  let pull: { from: number; samples: Array<{ time: number; x: number }> } | null = null;
+  /**
+   * The hand pulling such a row, with where it has been lately. `steps` says the row stays as it is under
+   * the hand and a swipe is to be reported as a step. Null when nothing holds the row.
+   */
+  let pull: { from: number; steps: boolean; samples: Array<{ time: number; x: number }> } | null = null;
   /** The row on its way back after the hand let go: how far it had given, how fast it moved, and when. */
   let giveBack: { from: number; speed: number; at: number } | null = null;
   let giveFrame: number | null = null;
@@ -490,8 +500,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   }
 
   /**
-   * The hand lets go of a row that stands still. Let go at speed, the pull was a swipe and the row steps
-   * to the next volume that way; let go at rest, nothing changes. Either way the row settles back.
+   * The hand lets go of a row that stands still. Whoever follows the drag carries the row on from the
+   * position and the speed it was let go with; a row that had given past an end settles back. Where the
+   * row did not follow the hand, a pull let go at speed was a swipe, and the row steps to the next volume.
    */
   function letGo(cancelled: boolean): void {
     const held = pull;
@@ -503,7 +514,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     const last = recent[recent.length - 1];
     const speed = first && last && last.time > first.time ? (last.x - first.x) / (last.time - first.time) : 0;
     const travel = (held.samples[held.samples.length - 1]?.x ?? held.from) - held.from;
-    if (!cancelled && Math.abs(speed) >= SWIPE_SPEED && Math.abs(travel) >= SWIPE_TRAVEL && speed * travel > 0) {
+    if (held.steps && !cancelled && Math.abs(speed) >= SWIPE_SPEED && Math.abs(travel) >= SWIPE_TRAVEL && speed * travel > 0) {
       const direction = speed < 0 ? 1 : -1;
       // Once whatever recognised the drag has finished with this release: it would put the row back.
       later(() => emit({ type: 'step', direction }), 0);
@@ -1324,22 +1335,51 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       // A swipe in from the side of the window belongs to the system: the row stays where it is.
       if (fromEdge) return () => start.position;
       if (fixed) {
-        // A row that stands still does not travel with the hand: it gives a little, and a swipe steps along it.
-        if (giveFrame !== null) cancelAnimationFrame(giveFrame);
-        giveFrame = null;
-        giveBack = null;
-        const quiet = still();
-        // Caught on its way back, the row carries on from as far as it still gives.
-        const before = pullOf(rowGive, GIVE_MOST, GIVE_REACH);
-        const held = { from: start.x, samples: [{ time: performance.now(), x: start.x }] };
+        const held = { from: start.x, steps: still(), samples: [{ time: performance.now(), x: start.x }] };
         pull = held;
+        const feel = (x: number): boolean => {
+          if (pull !== held || fingers.size > 1) return false;
+          held.samples.push({ time: performance.now(), x });
+          if (held.samples.length > 8) held.samples.shift();
+          return true;
+        };
+        if (held.steps) {
+          // Nothing may move by itself: the row stays as it is under the hand, and a swipe is a step.
+          return (x) => {
+            feel(x);
+            return start.position;
+          };
+        }
+        const sized = sizes ? sizeOf : undefined;
+        const last = items.length - 1;
+        const within = (position: number): number => Math.min(last, Math.max(0, position));
+        // The row stands where it is, so no volume can stay under the hand. The position goes with the hand
+        // instead, a volume for each pitch of travel, and the volumes turn as they are pulled.
+        let at = within(start.position);
+        /** Where the hand asks for, in volumes: past an end it runs on, and the row gives by that much. */
+        let asked = at;
+        if (rowGive !== 0 && (rowGive < 0 ? at >= last : at <= 0)) {
+          // Caught on its way back from an end, the row carries on from as far as it still gives.
+          if (giveFrame !== null) cancelAnimationFrame(giveFrame);
+          giveFrame = null;
+          giveBack = null;
+          asked = at - pullOf(rowGive, GIVE_MOST, GIVE_REACH) / pitchAt(at, geometry, sized);
+        }
+        let lastX = start.x;
         return (x) => {
-          if (pull === held && fingers.size < 2) {
-            held.samples.push({ time: performance.now(), x });
-            if (held.samples.length > 8) held.samples.shift();
-            if (!quiet) drawGive(giveOf(before + x - start.x, GIVE_MOST, GIVE_REACH));
+          if (!feel(x)) return at;
+          const pitch = pitchAt(at, geometry, sized);
+          asked -= (x - lastX) / pitch;
+          lastX = x;
+          at = within(asked);
+          // A row on its way back from an earlier pull is left to finish unless this pull reaches an end.
+          if (asked !== at || giveBack === null) {
+            if (giveFrame !== null) cancelAnimationFrame(giveFrame);
+            giveFrame = null;
+            giveBack = null;
+            drawGive(asked === at ? 0 : giveOf((at - asked) * pitch, GIVE_MOST, GIVE_REACH));
           }
-          return start.position;
+          return at;
         };
       }
       const sized = sizes ? sizeOf : undefined;

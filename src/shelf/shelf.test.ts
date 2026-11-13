@@ -1301,19 +1301,58 @@ describe('mountShelf under a dragging hand', () => {
     expect(track?.(37 - shelf.pitch())).toBeGreaterThan(3.5);
   });
 
-  it('lets a standing row give under a pull without moving along it, and settle back', () => {
+  it('moves the position of a standing row with the hand, a volume for each pitch of travel', () => {
     const { shelf, intents } = mount();
     expect(shelf.fixed).toBe(true);
-    const track = shelf.trackFrom({ x: 300, target: shelf.surface, position: 2 });
-    expect(track?.(300)).toBe(2);
+    const pitch = shelf.pitch();
+    const track = shelf.trackFrom({ x: 400, target: shelf.surface, position: 2 });
+    expect(track?.(400)).toBe(2);
+    // Pulled left, the row is taken up it, as a travelling row is.
+    expect(track?.(400 - pitch / 2)).toBeCloseTo(2.5, 6);
+    expect(track?.(400 - pitch)).toBeCloseTo(3, 6);
+    expect(track?.(400 + pitch)).toBeCloseTo(1, 6);
+    expect(track?.(400 + 1.5 * pitch)).toBeCloseTo(0.5, 6);
+    // Inside the row nothing is drawn aside: the volumes turn where they stand.
     expect(given(shelf)).toBe(0);
+    release(shelf);
+    vi.advanceTimersByTime(10);
+    // The release is settled by whoever follows the drag: the shelf asks for no step of its own.
+    expect(intents).toEqual([]);
+    expect(frames).toHaveLength(0);
+  });
+
+  it('turns the volumes of a standing row under the hand as the position it returns is drawn', () => {
+    const { shelf } = mount();
+    const turnOf = (slot: number): number => Number(/rotateY\(([-\d.]+)deg\)/.exec(bySlot(shelf, slot).style.transform)?.[1] ?? 0);
+    const track = shelf.trackFrom({ x: 400, target: shelf.surface, position: 2 });
+    shelf.setPose({ position: 2, open: 0 });
+    const shown = turnOf(2);
+    expect(Math.abs(shown)).toBeGreaterThan(60);
+    expect(turnOf(3)).toBeCloseTo(0, 6);
+    shelf.setPose({ position: track?.(400 - shelf.pitch() / 2) ?? Number.NaN, open: 0 });
+    // Half a pitch on, the volume that was presented is turning back and the next one is coming round.
+    expect(Math.abs(turnOf(2))).toBeLessThan(Math.abs(shown));
+    expect(Math.abs(turnOf(2))).toBeGreaterThan(1);
+    expect(Math.abs(turnOf(3))).toBeGreaterThan(1);
+    expect(Math.abs(turnOf(3))).toBeCloseTo(Math.abs(turnOf(2)), 3);
+  });
+
+  it('lets a standing row give when it is pulled past an end, never further than its limit, and settle back', () => {
+    const { shelf, intents } = mount();
+    const pitch = shelf.pitch();
+    const track = shelf.trackFrom({ x: 300, target: shelf.surface, position: 1 });
+    // Down to the first volume the position follows and the row stands.
     now += 30;
-    expect(track?.(340)).toBe(2);
+    expect(track?.(300 + pitch)).toBeCloseTo(0, 6);
+    expect(given(shelf)).toBe(0);
+    // Further than that there is no volume to go to: the position stays and the row gives.
+    now += 30;
+    expect(track?.(300 + pitch + 40)).toBe(0);
     const little = given(shelf);
     expect(little).toBeGreaterThan(5);
     expect(little).toBeLessThan(40);
     now += 300;
-    expect(track?.(900)).toBe(2);
+    expect(track?.(300 + pitch + 900)).toBe(0);
     // However far the hand goes, the row gives no more than about 28 px.
     expect(given(shelf)).toBeGreaterThan(27);
     expect(given(shelf)).toBeLessThanOrEqual(28);
@@ -1328,22 +1367,90 @@ describe('mountShelf under a dragging hand', () => {
     for (let frame = 0; frame < 60; frame++) step(16);
     expect(given(shelf)).toBe(0);
     expect(frames).toHaveLength(0);
-    // Pulled the other way, it gives the other way.
-    shelf.trackFrom({ x: 300, target: shelf.surface, position: 2 })?.(200);
+    // Past the last volume it gives the other way, and comes back as the hand does.
+    const other = shelf.trackFrom({ x: 300, target: shelf.surface, position: 4 });
+    expect(other?.(200)).toBe(4);
     expect(given(shelf)).toBeLessThan(-10);
+    expect(other?.(300)).toBe(4);
+    expect(given(shelf)).toBe(0);
+    expect(other?.(300 + pitch)).toBeCloseTo(3, 6);
+    expect(given(shelf)).toBe(0);
   });
 
-  it('steps along a standing row when the pull is let go at speed', () => {
+  it('carries on from as far as a standing row still gives when it is caught on its way back', () => {
+    const { shelf } = mount();
+    const track = shelf.trackFrom({ x: 300, target: shelf.surface, position: 0 });
+    now += 30;
+    track?.(420);
+    now += 200;
+    release(shelf);
+    step(40);
+    const caught = given(shelf);
+    expect(caught).toBeGreaterThan(1);
+    const again = shelf.trackFrom({ x: 500, target: shelf.surface, position: 0 });
+    // Held where it was caught, it neither jumps back to rest nor out to the limit.
+    expect(again?.(500)).toBe(0);
+    expect(given(shelf)).toBeCloseTo(caught, 1);
+    expect(again?.(540)).toBe(0);
+    expect(given(shelf)).toBeGreaterThan(caught);
+    expect(frames).toHaveLength(0);
+  });
+
+  it('asks for no step of its own when a standing row is let go at speed: the position it returned carries the swipe', () => {
     const { shelf, intents } = mount();
-    const swipe = (to: number): void => {
+    const pitch = shelf.pitch();
+    const swipe = (to: number): number => {
+      const track = shelf.trackFrom({ x: 400, target: shelf.surface, position: 2 });
+      let at = 2;
+      for (let index = 1; index <= 5; index++) {
+        now += 10;
+        at = track?.(400 + ((to - 400) * index) / 5) ?? Number.NaN;
+      }
+      release(shelf);
+      vi.advanceTimersByTime(5);
+      return at;
+    };
+    // A swipe left has taken the position up the row by its travel, and one right down it.
+    expect(swipe(320)).toBeCloseTo(2 + 80 / pitch, 6);
+    expect(swipe(480)).toBeCloseTo(2 - 80 / pitch, 6);
+    expect(intents).toEqual([]);
+  });
+
+  it('holds a standing row where it is while a second finger is down, and drops the pull when it is cancelled', () => {
+    const { shelf, intents } = mount();
+    const scene = shelf.surface;
+    const touch = (type: string, id: number, primary: boolean): void => {
+      const event = new MouseEvent(type, { bubbles: true, clientX: 400, clientY: 100 });
+      Object.defineProperties(event, { pointerId: { value: id }, pointerType: { value: 'touch' }, isPrimary: { value: primary } });
+      scene.dispatchEvent(event);
+    };
+    touch('pointerdown', 1, true);
+    const track = shelf.trackFrom({ x: 400, target: scene, position: 2 });
+    const before = track?.(400 - shelf.pitch() / 2) ?? Number.NaN;
+    expect(before).toBeCloseTo(2.5, 6);
+    touch('pointerdown', 2, false);
+    expect(track?.(100)).toBe(before);
+    touch('pointercancel', 2, false);
+    touch('pointercancel', 1, true);
+    vi.advanceTimersByTime(5);
+    expect(intents).toEqual([]);
+    expect(given(shelf)).toBe(0);
+  });
+
+  it('moves nothing of a standing row under the hand under reduced motion, and steps on a swipe', () => {
+    const { shelf, intents } = mount({ pose: { position: 2, open: 0, reduced: true } });
+    const swipe = (to: number, type = 'pointerup', wait = 0): void => {
       const track = shelf.trackFrom({ x: 400, target: shelf.surface, position: 2 });
       for (let index = 1; index <= 5; index++) {
         now += 10;
-        track?.(400 + ((to - 400) * index) / 5);
+        // Neither along the row nor aside: the position stays and the row does not give, even past an end.
+        expect(track?.(400 + ((to - 400) * index) / 5)).toBe(2);
+        expect(given(shelf)).toBe(0);
       }
-      release(shelf);
+      now += wait;
+      release(shelf, type);
     };
-    swipe(320);
+    swipe(300);
     // The step is asked for once the release has been dealt with, not in the middle of it.
     expect(intents).toEqual([]);
     vi.advanceTimersByTime(1);
@@ -1354,39 +1461,12 @@ describe('mountShelf under a dragging hand', () => {
       { type: 'step', direction: 1 },
       { type: 'step', direction: -1 },
     ]);
-  });
-
-  it('steps nowhere for a pull that is short, cancelled, or still when it is let go', () => {
-    const { shelf, intents } = mount();
-    const pullTo = (to: number): void => {
-      const track = shelf.trackFrom({ x: 400, target: shelf.surface, position: 2 });
-      for (let index = 1; index <= 5; index++) {
-        now += 10;
-        track?.(400 + ((to - 400) * index) / 5);
-      }
-    };
-    pullTo(385);
-    release(shelf);
-    pullTo(300);
-    release(shelf, 'pointercancel');
-    pullTo(300);
-    now += 200;
-    release(shelf);
+    // A pull that is short, cancelled, or still when it is let go is no swipe.
+    swipe(385);
+    swipe(300, 'pointercancel');
+    swipe(300, 'pointerup', 200);
     vi.advanceTimersByTime(5);
-    expect(intents).toEqual([]);
-  });
-
-  it('does not let a standing row give under reduced motion, and still steps on a swipe', () => {
-    const { shelf, intents } = mount({ pose: { position: 2, open: 0, reduced: true } });
-    const track = shelf.trackFrom({ x: 400, target: shelf.surface, position: 2 });
-    for (let index = 1; index <= 5; index++) {
-      now += 10;
-      expect(track?.(400 - index * 20)).toBe(2);
-    }
-    expect(given(shelf)).toBe(0);
-    release(shelf);
-    vi.advanceTimersByTime(1);
-    expect(intents).toEqual([{ type: 'step', direction: 1 }]);
+    expect(intents).toHaveLength(2);
     expect(frames).toHaveLength(0);
   });
 });
