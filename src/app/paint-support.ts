@@ -1,3 +1,5 @@
+import type { Paint } from '../studio/types';
+
 /**
  * Whether this browser can draw the shelf in Studio, which needs WebGL2. The question is asked once, with a
  * canvas that never joins the page, and the answer is kept for the visit: the View menu asks every time
@@ -32,3 +34,30 @@ export const PAINT_CHOICES = [
 
 /** What the Studio item says instead of its summary in a browser without WebGL2. */
 export const STUDIO_UNAVAILABLE = 'Needs WebGL2, which this browser does not offer.';
+/** And while Studio is loading and has not drawn the shelf yet. */
+export const STUDIO_PREPARING = 'Preparing…';
+
+/** Why Studio cannot be used right now, in a few words, or undefined when it can. */
+export function studioUnavailable(): string | undefined {
+  return canUseStudio() ? undefined : STUDIO_UNAVAILABLE;
+}
+
+/**
+ * How the shelf is drawn right now, and the way to ask for another drawing. The app shell fills this in
+ * once the bookshelf exists, so a dialog can read the drawing and offer Studio without knowing the shell.
+ */
+export interface PaintControl {
+  current(): Paint;
+  /** Asks for a drawing exactly as the View menu does: it is drawn, and remembered for the next visit. */
+  choose(paint: Paint): void;
+}
+
+let control: PaintControl | undefined;
+
+export function setPaintControl(next: PaintControl | undefined): void {
+  control = next;
+}
+
+export function paintControl(): PaintControl | undefined {
+  return control;
+}

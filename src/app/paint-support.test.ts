@@ -41,4 +41,33 @@ describe('canUseStudio', () => {
     const canUseStudio = await fresh();
     expect(canUseStudio()).toBe(false);
   });
+
+});
+
+describe('studioUnavailable', () => {
+  it('gives the reason in a few words', async () => {
+    vi.resetModules();
+    const support = await import('./paint-support');
+    expect(support.studioUnavailable()).toBe(support.STUDIO_UNAVAILABLE);
+  });
+
+  it('says nothing where WebGL2 is offered', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ getExtension: () => null } as never);
+    vi.resetModules();
+    const support = await import('./paint-support');
+    expect(support.studioUnavailable()).toBeUndefined();
+  });
+});
+
+describe('the paint control', () => {
+  it('is empty until the shell fills it in, and hands back what it was given', async () => {
+    vi.resetModules();
+    const support = await import('./paint-support');
+    expect(support.paintControl()).toBeUndefined();
+    const control = { current: () => 'classic' as const, choose: vi.fn() };
+    support.setPaintControl(control);
+    expect(support.paintControl()).toBe(control);
+    support.setPaintControl(undefined);
+    expect(support.paintControl()).toBeUndefined();
+  });
 });
