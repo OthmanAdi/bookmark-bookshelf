@@ -15,7 +15,7 @@ import { carriesAddress } from './flow-address';
 import { createFlows } from './flows';
 import { renderList } from './list-view';
 import { createMenu } from './menu';
-import { canUseStudio, PAINT_CHOICES, setPaintControl, STUDIO_PREPARING, studioUnavailable } from './paint-support';
+import { canUseStudio, FORCED_COLORS_QUERY, forcedColors, PAINT_CHOICES, setPaintControl, STUDIO_PREPARING, studioUnavailable } from './paint-support';
 import { createSearch, findLinks } from './search';
 import { attachDrop } from './shell-drop';
 import { emptyState, READING_NOTE } from './shell-empty';
@@ -118,7 +118,8 @@ const bookshelf = createBookshelf({
 
 // A link can ask for a drawing, so a Studio shelf can be shared as it looks: `app.html?paint=studio`.
 const askedPaint = new URLSearchParams(location.search).get('paint');
-if (askedPaint === 'studio' || askedPaint === 'classic') bookshelf.setPaint(askedPaint);
+// Forced colours win over the address: Studio paints its own colours over the ones the system asked for.
+if (askedPaint === 'classic' || (askedPaint === 'studio' && !forcedColors())) bookshelf.setPaint(askedPaint);
 
 const flows = createFlows({ store, bookshelf, refresh: () => renderAll() });
 
@@ -659,6 +660,17 @@ createMenu({
   onOpen: refreshViewMenu,
 });
 setPaintControl({ current: currentPaint, choose: setPaint });
+
+// Forced colours can be turned on while the page is open: Studio leaves at once and comes back with them off.
+window.matchMedia(FORCED_COLORS_QUERY).addEventListener('change', (event) => {
+  if (event.matches) {
+    if (currentPaint() === 'studio') bookshelf.setPaint('classic');
+  } else if (store.session().paint === 'studio' && canUseStudio() && currentPaint() !== 'studio') {
+    studioAskedAt = Date.now();
+    bookshelf.setPaint('studio');
+  }
+  refreshViewMenu();
+});
 
 must<HTMLButtonElement>('#add').addEventListener('click', () => flows.addLink());
 
