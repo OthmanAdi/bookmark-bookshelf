@@ -3,6 +3,7 @@ import { resolveCloth } from '../shelf/variants';
 import type { FrameVolume, ShelfFrame, ShelfItem } from '../shelf/types';
 import { peekOpening } from '../studio';
 import { type DressKit, Dresser } from '../studio/dress';
+import { createKit } from '../studio/kit';
 import { paintVolume } from '../studio/paint';
 import { Stage, webglAvailable } from '../studio/stage';
 import { VolumeMesh } from '../studio/volume';
@@ -18,49 +19,8 @@ const DEG = Math.PI / 180;
 /** Solids kept at most, in view or not. */
 const KEEP = 6;
 
-/**
- * The kit the showcase dresses with until Studio's full materials kit is passed in: the painter's faces
- * as printed cloth, matt, with no foil. Titles and drawings are there; the shine is the full kit's work.
- */
-export const printedKit: DressKit = {
-  bindingOf: () => ({ binding: 'cloth', stamp: 'ink' }),
-  paint: (request) =>
-    paintVolume({
-      item: request.volume.item,
-      source: request.volume.element,
-      size: request.size,
-      binding: request.binding,
-      stamp: request.stamp,
-      density: request.density,
-    }),
-  materials(_volume, style, _binding, _stamp, faces) {
-    const textures = [faces.front.color, faces.spine.color, faces.back.color].map((canvas) => {
-      const texture = new CanvasTexture(canvas);
-      texture.colorSpace = SRGBColorSpace;
-      texture.anisotropy = 8;
-      return texture;
-    });
-    const printed = textures.map((map) => new MeshPhysicalMaterial({ map, roughness: 0.74, sheen: 0.55, sheenRoughness: 0.55, sheenColor: style.cloth }));
-    const edge = new MeshPhysicalMaterial({ color: style.cloth, roughness: 0.78, sheen: 0.5, sheenRoughness: 0.6, sheenColor: style.cloth });
-    const pages = new MeshStandardMaterial({ color: '#efe6d2', roughness: 0.92 });
-    const endpaper = new MeshStandardMaterial({ color: '#e8dfcc', roughness: 0.9 });
-    return {
-      front: printed[0]!,
-      spine: printed[1]!,
-      back: printed[2]!,
-      boardEdge: edge,
-      pages,
-      endpaper,
-      dispose() {
-        for (const texture of textures) texture.dispose();
-        for (const material of [...printed, edge, pages, endpaper]) material.dispose();
-      },
-    };
-  },
-};
-
 export interface StudioDrawingOptions {
-  /** Materials and painting. Left out, books are dressed with `printedKit`. */
+  /** Materials and painting. Left out, books are dressed with Studio's own kit, as on the shelf. */
   kit?: DressKit;
   onFailure(reason: string): void;
 }
@@ -95,7 +55,9 @@ export function createStudioDrawing(options: StudioDrawingOptions): Drawing {
   let alive = true;
   let queued: number | null = null;
   let drawn = 0;
-  const dresser = new Dresser(options.kit ?? printedKit, () => schedule());
+  const kit = options.kit ?? createKit(stage.renderer);
+  stage.setEnvironment(kit.environment ?? null);
+  const dresser = new Dresser(kit, () => schedule());
   const matrix = new Matrix4();
   const part = new Matrix4();
 
@@ -127,6 +89,7 @@ export function createStudioDrawing(options: StudioDrawingOptions): Drawing {
       floorY: bookBox.stageHeight / 2 - bookBox.height / 2,
       perspective: bookBox.perspective,
       rowGive: 0,
+      gap: 0,
       volumes: [],
       bookends: [],
       light: { x: -0.42, z: 0.91, ambient: 0.5, tint: '#000' },
@@ -258,6 +221,7 @@ export function createStudioDrawing(options: StudioDrawingOptions): Drawing {
       canvas.removeEventListener('webglcontextlost', onLost);
       clear();
       dresser.dispose();
+      if (!options.kit) kit.dispose?.();
       noBoard.dispose();
       stage.dispose();
       element.remove();
