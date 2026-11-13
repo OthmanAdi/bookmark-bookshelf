@@ -75,6 +75,30 @@ body.bb-home {
   padding: var(--bb-s-5) var(--home-gutter);
 }
 
+/*
+ * The one large book: the first thing on the page. Its room is reserved before anything is drawn in it,
+ * so the words beside it never move. On a narrow screen it stands above the title.
+ */
+.bb-hero__book {
+  position: relative;
+  min-width: 0;
+  height: min(58svh, 112vw);
+  min-height: 16rem;
+}
+
+.bb-hero__text {
+  display: grid;
+  gap: var(--bb-s-4);
+  min-width: 0;
+}
+
+/* Nothing travels through this stage, so the book needs no soft edge at its head and foot. */
+.bb-hero__book .bb-showcase__scene {
+  overflow: visible;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 .bb-hero__title {
   min-width: 0;
   max-width: 13ch;
@@ -94,11 +118,21 @@ body.bb-home {
 
 /* Title and deck share a last baseline, so the hero is two short columns, not a tall stack. */
 @media (min-width: 64rem) {
+  /* The book takes the left of the first screen, about two thirds of its height; the words stand beside it. */
   .bb-hero {
-    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    column-gap: clamp(2rem, 5vw, 6rem);
-    align-items: last baseline;
-    padding-block: var(--bb-s-6) var(--bb-s-5);
+    grid-template-columns: minmax(0, 11fr) minmax(0, 9fr);
+    column-gap: clamp(1rem, 3vw, 4rem);
+    align-items: center;
+    padding-block: var(--bb-s-4) var(--bb-s-5);
+  }
+
+  .bb-hero__book {
+    height: min(69svh, 46rem);
+    margin-inline-start: 12%;
+  }
+
+  .bb-hero__text {
+    gap: var(--bb-s-5);
   }
 
   .bb-hero__deck {

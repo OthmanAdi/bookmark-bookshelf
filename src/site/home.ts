@@ -1,10 +1,12 @@
 import '../styles/base.css';
 import './home.css';
-import { createBookshelf, hostnameOf } from '../app/bookshelf';
+import { createBookshelf, hostnameOf, toShelfItem } from '../app/bookshelf';
 import { make, must } from '../app/dom';
+import { canUseStudio } from '../app/paint-support';
 import { sampleLibrary } from '../data/sample-library';
 import { listVariants } from '../shelf';
 import { createMemoryStorage, createStore, type Bookmark } from '../store';
+import { mountHero } from './hero';
 
 /**
  * Homepage: the real composition on an in-memory store, so trying it here
@@ -94,11 +96,34 @@ function syncLooks(): void {
 
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
+/* ---------- the one large book ---------- */
+
+const lookOf = (): { variant: string; aspect: number } => {
+  const { name, geometry } = bookshelf.shelf.variant;
+  return { variant: name, aspect: geometry.coverWidth / geometry.bookHeight };
+};
+
+/** A visitor who asked the browser to save data gets the CSS book and nothing is fetched for a second one. */
+const savingData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+/** Forced colours take the CSS book too: the lit drawing would ignore the person's own colours. */
+const forcedColours = window.matchMedia('(forced-colors: active)').matches;
+
+const heroLink = store.get('example-commonplace-book') ?? store.bookmarks(null)[0];
+const hero = heroLink
+  ? mountHero(must<HTMLElement>('#hero-book'), {
+      item: toShelfItem(heroLink, 0, { mark: '07' }),
+      look: lookOf(),
+      studio: !savingData && !forcedColours && canUseStudio(),
+      reduced: () => reducedMotion.matches,
+    })
+  : null;
+
 /** The whole page cross-fades from one look to the next, so nothing is seen being rebuilt. */
 function chooseLook(name: string): void {
   if (name === bookshelf.shelf.variant.name) return;
   const apply = (): void => {
     bookshelf.setVariant(name);
+    hero?.setLook(lookOf());
     syncLooks();
   };
   if (reducedMotion.matches || typeof document.startViewTransition !== 'function') apply();
