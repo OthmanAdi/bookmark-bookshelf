@@ -51,6 +51,8 @@ Nothing was removed and data written by 0.2.0 opens unchanged. The full list is 
 
 ## Known limits
 
+- During travel along the row, Studio draws each frame one frame after the DOM volumes it covers (about 16 ms on a 60 Hz screen).
+- On a slow device Studio lowers its detail as it goes, and a browser that draws WebGL in software starts with less. One test of the flight, Escape while the volume is in the air at phone size, passes only some of the time on the software renderer the tests use.
 - Studio needs WebGL 2. Without it the Studio item in the View menu says so and the shelf stays in Classic.
 - The reader never fetches a page, and there is no sync between devices. A backup, a shelf file or a shelf link moves links from one browser to another.
 - The browser tests run in Chromium, on a desktop and on a phone-sized screen with touch, and as a smoke run in WebKit that does not reach Studio or Showcase. Firefox is not covered by them.

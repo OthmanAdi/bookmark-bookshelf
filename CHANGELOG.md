@@ -13,6 +13,7 @@ In the app:
 - A Drawing switch at the top of the View menu, Classic or Studio, with one line under it that sums up the choice or says why Studio is not available ("Needs WebGL2, which this browser does not offer.", "Not drawn in forced colours."). While Studio loads, that line reads "Preparing…". The choice is kept with the session. `app.html?paint=studio` opens the shelf in Studio and `app.html?paint=classic` in Classic, for that visit only.
 - When the browser takes the WebGL context away, or Studio cannot start, the shelf goes back to Classic and a message says so, with a button to try Studio again.
 - Under forced colours the shelf, Showcase and the homepage are drawn in Classic, and a shelf set to Studio returns to it when forced colours are turned off.
+- Studio watches how far apart its frames come while the row moves. Where they run slow it draws fewer device pixels per px, smaller shadow maps and coarser faces, a step at a time, so the shelf's motion keeps its pace.
 - The View menu stays open while a look or a drawing is chosen, so looks can be compared in one visit. A view, Escape or a click outside closes it.
 - Studio paints the row in a canvas behind the DOM shelf, with a camera that repeats the CSS perspective. The DOM volumes stay where they are with transparent faces, so every control, focus ring, gesture and announcement is the one Classic has.
 - Eight bindings (book cloth, linen, leather, paper over boards, gloss laminate, velvet, metal foil, holographic foil) and six title stamps (gold foil, silver foil, copper foil, holographic foil, blind deboss, printed ink). All surfaces are generated in code when the page runs. Each volume has a contact shadow and stands on a floor in the material of its look: paper-covered board, oiled oak, dark lacquered wood or painted pine. The light follows the pointer.
@@ -54,6 +55,8 @@ For people who reuse a module:
 
 ### Known limits
 
+- During travel along the row, Studio draws each frame one frame after the DOM volumes it covers. On a 60 Hz screen that is about 16 ms.
+- On a device that cannot keep up, Studio lowers its detail as it goes, and a browser that draws WebGL in software starts with less. The browser tests run on such a renderer; one test of the flight (Escape while the volume is in the air, phone size) passes only some of the time there.
 - Studio needs WebGL 2. Without it the Studio item in the View menu is marked unavailable ("Needs WebGL2, which this browser does not offer.") and the shelf stays in Classic.
 - Studio and Showcase are covered by the browser tests in Chromium only. The WebKit smoke run does not reach them, and Firefox is not covered at all.
 - The reader never fetches pages, and there is no sync between devices, as before.
