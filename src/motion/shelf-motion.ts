@@ -489,7 +489,14 @@ export function createShelfMotion(options: ShelfMotionOptions): ShelfMotion {
             // A flick always moves at least one volume in its direction.
             destination = dragStartTarget + (itemsPerMs > 0 ? 1 : -1);
           }
-          destination = clamp(destination, dragStartTarget - FLICK_MAX_ITEMS, dragStartTarget + FLICK_MAX_ITEMS);
+          // A throw carries the row no further than this from where the drag began. A hand that has itself
+          // taken the row further than that is not undone: the row never goes back behind where it was let go.
+          const here = Math.round(state.position);
+          destination = clamp(
+            destination,
+            Math.min(dragStartTarget - FLICK_MAX_ITEMS, here),
+            Math.max(dragStartTarget + FLICK_MAX_ITEMS, here),
+          );
           setTarget(destination);
           state.velocity = cancelled || state.reduced ? 0 : itemsPerMs;
           if (state.reduced) {
