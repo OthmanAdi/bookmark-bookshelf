@@ -1,11 +1,11 @@
 ---
 name: bookshelf
-description: Add a 3D bookshelf to a web project, a draggable row of book spines for a bookmark manager, a read-later list or a reading list, where saved links are books that open into a reading page. Provides four TypeScript modules with no runtime dependencies, namely a CSS 3D shelf (DOM, no WebGL), a spring and drag motion engine, a versioned local bookmark store with import and export, and a safe text reader that remembers the reading position. Use when someone asks for a 3D bookshelf, a draggable row or carousel of book spines, a bookmark manager or read-later list shown as books, a cover that flies open into a reading view with resume, or only one of the four parts (shelf, motion, store, reader) added to an existing project, even if they never name this repository.
+description: Add a 3D bookshelf to a web project, a draggable row of book spines for a bookmark manager, a read-later list or a reading list, where saved links are books that open into a reading page. Provides four TypeScript modules with no runtime dependencies, namely a CSS 3D shelf (DOM), a spring and drag motion engine, a versioned local bookmark store with import and export, and a safe text reader that remembers the reading position. An optional fifth part, Studio, draws the same shelf in WebGL with lit book materials and needs three.js. Use when someone asks for a 3D bookshelf, a draggable row or carousel of book spines, a bookmark manager or read-later list shown as books, a cover that flies open into a reading view with resume, only one of the four parts (shelf, motion, store, reader) added to an existing project, or the WebGL drawing of the shelf, even if they never name this repository.
 ---
 
 # Bookmark Bookshelf
 
-Four small TypeScript modules with no runtime dependencies. Each one works alone. Together they make a shelf of saved links that you drag, open and read. This skill describes version 0.2.0.
+Four small TypeScript modules with no runtime dependencies. Each one works alone. Together they make a shelf of saved links that you drag, open and read. Studio is an optional fifth part that draws the same shelf in WebGL and needs three.js (see "Studio, the optional WebGL drawing"). This skill describes version 0.3.0.
 
 | Module | Folder | Does | Knows nothing about |
 |---|---|---|---|
@@ -22,10 +22,10 @@ Try the routes in this order and stop at the first that works.
 
 1. Next to the skill. If this file is at `<root>/.agents/skills/bookshelf/SKILL.md` and `<root>/src/shelf/index.ts` exists, `<root>` is the source root. This is the case when the skill is used in place, and when it was installed as a plugin that keeps the whole repository.
 2. A path the person gives. If the skill was copied somewhere else (the skills folder of an agent), the person may already have a checkout. If the request contains a path, use it as the source root. If it does not, ask for one, and offer route 3 in the same question.
-3. A shallow clone, only after the person agrees. Ask first, and say plainly what will happen: the public repository `https://github.com/OthmanAdi/bookmark-bookshelf` is cloned at release tag `v0.2.0` into a new temporary folder, and nothing else is downloaded. Do not fetch anything before the person says yes. After a yes, run:
+3. A shallow clone, only after the person agrees. Ask first, and say plainly what will happen: the public repository `https://github.com/OthmanAdi/bookmark-bookshelf` is cloned at release tag `v0.3.0` into a new temporary folder, and nothing else is downloaded. Do not fetch anything before the person says yes. After a yes, run:
 
    ```bash
-   git clone --depth 1 --branch v0.2.0 https://github.com/OthmanAdi/bookmark-bookshelf <temporary folder>
+   git clone --depth 1 --branch v0.3.0 https://github.com/OthmanAdi/bookmark-bookshelf <temporary folder>
    ```
 
    The temporary folder is a new, empty directory outside the project (the system temporary directory is fine). Tell the person where it is. It is the source root. Copy from it, never edit inside it, and say at the end that it can be deleted. If the clone fails (no network, no git, tag missing), say so and go back to route 2.
@@ -34,7 +34,7 @@ Try the routes in this order and stop at the first that works.
    - These markers exist: `src/shelf/index.ts`, `src/motion/index.ts`, `src/store/index.ts`, `src/reader/index.ts`, `src/app/bookshelf.ts`, `src/app/bookshelf.css`, `src/app/flight.ts`, `src/styles/tokens.css`.
    - If it is a git checkout, note `git -C <root> rev-parse --short HEAD`.
 
-   If a marker is missing, stop and say which one. This skill describes version `0.2.x`. For another version, read the `types.ts` of each module before trusting the reference files here: 0.1.0 has no `flight.ts`, and its shelf, store and reader contracts differ (see the end of `references/modules.md`).
+   If a marker is missing, stop and say which one. This skill describes version `0.3.x`. For another version, read the `types.ts` of each module before trusting the reference files here: 0.2.0 has no `src/studio` and no `shelf.onFrame`, 0.1.0 has no `flight.ts`, and its shelf, store and reader contracts differ (see the end of `references/modules.md`).
 5. Report the source path, version and commit you copied from, and whether it was a clone you made, so a later update can be compared.
 
 Every path below that starts with `src/`, `examples/` or `public/` is relative to that source root.
@@ -51,11 +51,12 @@ Ask what the person needs, then take only that.
 | A bookmark library without UI: import, export, search, sharing a shelf | `store` | nothing |
 | Drag, flick and snap for some other row | `motion` | nothing |
 | A shelf that opens into a reader, with their own data | `shelf`, `motion`, `reader` | `tokens.css`, the same three rules from `base.css` |
-| The whole composition | all four, `src/app/bookshelf.ts`, `src/app/bookshelf.css`, `src/app/flight.ts` | `src/styles/*`, `src/data/*` if the example links are wanted |
+| The shelf drawn in WebGL with lit materials (Studio) | `shelf`, `motion`, `src/studio`, `src/app/flight.ts` | `tokens.css`, the `three` package |
+| The whole composition | all four, `src/studio`, `src/app/bookshelf.ts`, `src/app/bookshelf.css`, `src/app/flight.ts` | `src/styles/*`, the `three` package, `src/data/*` if the example links are wanted |
 
-Modules never import each other. If an import between two module folders appears, the integration is wrong: the meeting point belongs in the host's own composition file (see `src/app/bookshelf.ts`).
+The four modules never import each other. If an import between two of their folders appears, the integration is wrong: the meeting point belongs in the host's own composition file (see `src/app/bookshelf.ts`). Studio is the exception by design: it is built on the shelf and imports from `src/shelf` and `src/app/flight.ts`.
 
-The whole composition is seven things, and the list is easy to get one short: the four module folders, `src/app/bookshelf.ts`, its stylesheet `src/app/bookshelf.css`, and `src/app/flight.ts`, which carries the cover between the shelf and the page. The script imports the other two, so a build without them fails with a missing-file error. Copy the three files together, into a folder that sits next to the module folders.
+The whole composition is eight things, and the list is easy to get one short: the four module folders, `src/studio`, `src/app/bookshelf.ts`, its stylesheet `src/app/bookshelf.css`, and `src/app/flight.ts`, which carries the cover between the shelf and the page. The script imports the stylesheet and the flight, so a build without them fails with a missing-file error. Since 0.3.0 it also imports `src/studio` on demand, for `setPaint('studio')`, so the build needs that folder and the `three` package even when Studio is never switched on. A page that stays with the CSS shelf still never downloads three.js. Copy the three files together, into a folder that sits next to the module folders.
 
 The app around the composition (the bar and its menus, the dialogs for adding links, bringing many in and sharing a shelf, the list view) is the rest of `src/app/` together with `app.html`. Those files depend on each other and on element ids in `app.html`. Take them as a whole and adapt, or build your own interface on the store's functions, which `references/composition.md` shows.
 
@@ -105,9 +106,9 @@ shelf.on((intent) => {
 });
 ```
 
-`items` is an array of `{ id, title, source?, author?, cloth?, pattern?, seed?, progress?, thickness?, stature?, outline?, note?, done? }`. Runnable versions of the combinations are in `examples/`.
+`items` is an array of `{ id, title, source?, author?, cloth?, pattern?, seed?, progress?, thickness?, stature?, outline?, note?, done?, binding?, stamp?, handled?, age? }`. The last four are read by Studio only. Runnable versions of the combinations are in `examples/`.
 
-Looping is decided by the shelf. A row loops only when its volumes fill at least four fifths of the scene. A shorter row stands still in the middle between two bookends (`shelf.fixed`): the arrows, the arrow keys and a click on a spine choose the presented volume, and a drag does nothing. Tell the person which of the two they will see with their number of items, because eight titles on a desktop screen stand still.
+Looping is decided by the shelf. A row loops only when its volumes fill at least four fifths of the scene. A shorter row stands still in the middle between two bookends (`shelf.fixed`): the arrows, the arrow keys and a click on a spine choose the presented volume, and with the wiring above a drag does nothing. Tell the person which of the two they will see with their number of items, because eight titles on a desktop screen stand still. Since 0.3.0 a standing row can follow the hand instead: pass `track: (start) => shelf.trackFrom(start)` to `motion.attach` and leave `enabled` out, as `examples/shelf-only.ts` does. The volumes then turn as they are pulled, as far as the first and the last, and a release carries on at the speed it had.
 
 ## 4. Rules that keep it working
 
@@ -135,6 +136,7 @@ Run what applies. `references/checks.md` has the commands, the DOM hooks to asse
 | any module | `npx tsc --noEmit` clean, the module's own `*.test.ts` pass under Vitest with `happy-dom` |
 | shelf | books render, `data-focus` changes on `setPose`, exactly one `.bb-book__control` per item, arrow keys emit `step` |
 | shelf + motion | on a row long enough to loop, a real mouse drag changes `data-focus-id` and ends with `data-settled="1"`. On a standing row the arrow keys change it and a drag does not. A vertical touch drag scrolls the page |
+| studio | with Studio on, `.bb-shelf` has `data-paint="studio"` and one `canvas.bb-studio` stands in `.bb-shelf__scene`. The page requests no three.js file before Studio is switched on. Every check for shelf + motion passes with Studio on |
 | reader | Escape calls `onClose`, a reload restores `scrollTop`, a `<script>` in the text shows as text |
 | store | a `javascript:` address is rejected, export then import round-trips, a second `createStore` on the same storage sees the data, a shelf survives `encodeShelfLink` then `decodeShelfLink` |
 | all four | the setup smoke check in `references/checks.md` passes. Open a volume, scroll, reload: the same volume is open at the same place. Close: focus is back on that volume |
@@ -147,6 +149,47 @@ Report what you ran and what you did not. A build that passes type checking has 
 
 The four looks move the same way: steps and released drags settle on one spring, and a volume takes 720 ms to open and 520 ms to close. They differ in proportions, materials and light, and `night` is lit by a lamp over the middle of the row. After `shelf.setVariant(name)` call `motion.setLoop(shelf.loop)` and `motion.setTiming(shelf.variant.motion)`.
 
+## Studio, the optional WebGL drawing
+
+Studio paints the row a second time, in WebGL with lit materials, in a canvas behind the DOM shelf. The shelf stays mounted and keeps every control, focus ring and gesture, so every rule above still holds. Offer Studio as a choice and keep the CSS shelf as the default. Studio needs WebGL 2 and the `three` package (0.187.0, MIT), which is 541 kB in a production build, or 132 kB gzipped.
+
+1. Copy `src/studio` next to `src/shelf`, and keep `src/app/flight.ts` in a folder `app` next to both: Studio imports from `../shelf` and `../app/flight`. Run `npm i three` and `npm i -D @types/three`.
+2. Import Studio on demand, so a page that never turns it on never downloads three.js. This is the wiring of `examples/studio-shelf.ts`, over the shelf from section 3:
+
+```ts
+import type { StudioHandle } from './studio';
+
+let studio: StudioHandle | null = null;
+
+async function setStudio(on: boolean): Promise<void> {
+  if (!on) {
+    studio?.destroy();
+    studio = null;
+    return;
+  }
+  if (studio) return;
+  try {
+    const [{ mountStudio }, { createKit }] = await Promise.all([import('./studio'), import('./studio/kit')]);
+    studio = mountStudio(shelf, {
+      kit: (renderer) => createKit(renderer),
+      onFailure: () => void setStudio(false), // the browser took WebGL away, and the CSS shelf carries on
+    });
+  } catch {
+    // mountStudio throws without WebGL 2. The CSS shelf stays as it was: tell the person why.
+  }
+}
+```
+
+What to know before changing it:
+
+- `mountStudio` takes the handle that `mountShelf` returned and follows the shelf through `shelf.onFrame`. It sets `data-paint="studio"` on `.bb-shelf`, which makes the DOM faces transparent, and `destroy()` gives them back.
+- An item may name its `binding` (`cloth`, `linen`, `leather`, `paper`, `gloss`, `velvet`, `foil`, `holo`) and its `stamp` (`gold`, `silver`, `copper`, `holo`, `blind`, `ink`). Left out, the kit chooses both from the item's `seed` and keeps the spine title legible. The names and their labels are in `src/studio/types.ts`, which imports nothing, so a picker can list them without loading three.js.
+- `handled` (0 to 1) and `age` (days) on an item show as wear. The app works them out from reading progress and the date a link was saved, in `toShelfItem` in `src/app/bookshelf.ts`.
+- Studio paints its own colours and does not look at `forced-colors`. Decide in the host what happens there. The app's Showcase keeps the CSS drawing (`src/app/showcase-view.ts`).
+- With the whole composition nothing needs wiring: call `bookshelf.setPaint('studio')` and pass `onPaintFailure` to hear when it went back to the CSS shelf.
+
+Showcase (`src/showcase`) is the app's view of one large book at a time: `mountShowcase(host, options)`, with the options and the handle in `src/showcase/index.ts` and the app's use of it in `src/app/showcase-view.ts`. Copy it together with `src/shelf` and `src/studio`, because it imports from both.
+
 ## What this skill does not cover
 
-Server-side article extraction, accounts or sync, browser-extension capture, WebGL rendering. If one of those is asked for, say it is outside these modules before building anything.
+Server-side article extraction, accounts or sync, browser-extension capture. If one of those is asked for, say it is outside these modules before building anything.

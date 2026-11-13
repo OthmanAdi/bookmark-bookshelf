@@ -1,6 +1,6 @@
 # Wiring recipes
 
-Each recipe is a complete composition for version 0.2.0. Paths assume the module folders sit next to the file you are writing. Runnable copies live in `examples/` and `src/app/bookshelf.ts`. Every block here was type-checked against the modules under `strict`. Names that are not imported (`host`, `items`, `savedText`, functions such as `showPicked`) are yours.
+Each recipe is a complete composition for version 0.3.0. Paths assume the module folders sit next to the file you are writing. Runnable copies live in `examples/` and `src/app/bookshelf.ts`. Every block here was type-checked against the modules under `strict`. Names that are not imported (`host`, `items`, `savedText`, functions such as `showPicked`) are yours.
 
 Contents: [shelf only](#shelf-only), [shelf and motion](#shelf-and-motion), [reader only](#reader-only), [store only](#store-only), [shelf, motion and reader](#shelf-motion-and-reader), [all four](#all-four), [framework hosts](#framework-hosts)
 
