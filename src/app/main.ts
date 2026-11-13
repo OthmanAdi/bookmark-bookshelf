@@ -87,6 +87,7 @@ const bookshelf = createBookshelf({
   caption: false,
   arrows: false,
   isExample: isExampleId,
+  onPaintFailure: () => studioStopped(),
   onFocusChange: () => {
     if (!ready) return;
     // The row was rebuilt or retargeted: read its links again before describing the centre.
@@ -607,6 +608,7 @@ function setPaint(name: string): void {
     if (name === 'studio') studioAskedAt = Date.now();
     bookshelf.setPaint(name);
   }
+  // Classic may already be drawn because Studio stopped: choosing it then is what makes it the stored drawing.
   if (store.session().paint !== name) store.setSession({ paint: name });
   refreshViewMenu();
 }
@@ -644,6 +646,16 @@ function refreshViewMenu(): void {
     studioWatch = undefined;
     refreshViewMenu();
   }, STUDIO_POLL_MS);
+}
+
+/** Studio could not start, or lost WebGL, and the bookshelf went back to Classic by itself. */
+function studioStopped(): void {
+  if (!ready) return;
+  toast(
+    'Studio stopped. The shelf is drawn in Classic.',
+    canUseStudio() ? { label: 'Try Studio again', run: () => setPaint('studio') } : undefined,
+  );
+  refreshViewMenu();
 }
 
 const viewMenu = renderViewMenu({
