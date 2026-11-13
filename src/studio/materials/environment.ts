@@ -1,8 +1,10 @@
 /**
  * The room the volumes are lit in: a dim studio with soft boxes, drawn once into an environment map.
- * A warm key stands high on the left behind the viewer and a cool fill low on the right; two narrow
- * strips and a top light give gloss and foil something sharp to reflect, and two lamps behind the
- * shelf catch edges. The caller turns the room with `scene.environmentRotation`.
+ * A warm key stands high on the left behind the viewer, in the direction the stage's key light shines
+ * from (38 degrees left, 42 up), so a reflection and a shadow tell of the same lamp. A weak fill, close to
+ * neutral, stands low on the right: the room may turn a little and the white of a cover must not turn
+ * with it. Narrow strips and a top light give gloss and foil something sharp to reflect, and two lamps
+ * behind the shelf catch edges. The caller turns the room with `scene.environmentRotation`.
  */
 import * as THREE from 'three';
 
@@ -25,16 +27,17 @@ export interface SoftBox {
 }
 
 export const STUDIO_LAMPS: readonly SoftBox[] = [
-  // Key: a wide warm box, front left and a little above the eye.
-  { position: [-5.7, 3.8, 7.3], size: [9, 7], color: [1, 0.87, 0.72], intensity: 4.6, feather: 0.6 },
-  // Fill: wider, cooler and much weaker, front right.
-  { position: [8.1, 1.4, 5.7], size: [9, 8], color: [0.68, 0.81, 1], intensity: 1.5, feather: 0.8 },
+  // Key: a warm box front left and well above the eye, with an edge, so gloss shows a window and not a haze.
+  { position: [-5.7, 8.3, 7.3], size: [7, 6], color: [1, 0.94, 0.86], intensity: 4.2, feather: 0.3 },
+  // Fill: wider, close to neutral and much weaker, front right.
+  { position: [8.1, 1.4, 5.7], size: [9, 8], color: [0.86, 0.91, 1], intensity: 1.0, feather: 0.8 },
   // Top light along the row.
   { position: [0, 10, 3], size: [12, 3], color: [1, 0.97, 0.92], intensity: 4, feather: 0.4 },
   // Narrow strips: the sharp lines that run across gloss and foil.
-  { position: [-1.5, 0.8, 11], size: [0.5, 10], color: [1, 0.95, 0.88], intensity: 13, feather: 0.25 },
-  { position: [4.2, 0.5, 10], size: [0.38, 9], color: [0.8, 0.9, 1], intensity: 9, feather: 0.25 },
-  { position: [-10, 1, 3.5], size: [0.5, 9], color: [1, 0.9, 0.8], intensity: 8, feather: 0.25 },
+  // The one nearest the eye is the band that crosses a cover as it turns: narrow, so it passes a title and does not sit on it.
+  { position: [-1.5, 0.8, 11], size: [0.3, 10], color: [1, 0.95, 0.88], intensity: 20, feather: 0.25 },
+  { position: [4.2, 0.5, 10], size: [0.38, 9], color: [0.86, 0.92, 1], intensity: 15, feather: 0.25 },
+  { position: [-10, 1, 3.5], size: [0.5, 9], color: [1, 0.9, 0.8], intensity: 13, feather: 0.25 },
   // Behind the shelf, for edges and for a volume turned away.
   { position: [-9, 3, -7], size: [5, 5], color: [1, 0.8, 0.6], intensity: 3.5, feather: 0.6 },
   { position: [8.5, 4.5, -7.5], size: [4, 6], color: [0.7, 0.82, 1], intensity: 3, feather: 0.6 },
