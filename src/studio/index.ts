@@ -111,6 +111,9 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   let queued: number | null = null;
   let alive = true;
   let drawn = 0;
+  /** Whether the frame being drawn was asked for by the one before it, and when that one was drawn. */
+  let continuing = false;
+  let lastDrawAt = 0;
   const lively = new Map<Element, number>();
   /** Volumes that stand open under the hand or are closing again, by slot. The page motion itself is in riffle.ts. */
   const peeks = new Map<number, Peek>();
@@ -174,14 +177,16 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
     queued = requestAnimationFrame(draw);
   }
 
+
   /** Detail of the painted faces: more for a large shelf on a sharp screen, never more than the canvas shows. */
   function density(volume: FrameVolume): number {
     const ratio = window.devicePixelRatio || 1;
     const screen = Math.min(2, ratio);
     const near = Math.min(2.5, screen * 1.25);
     // The presented volume is the one that gets read: it keeps up with a zoomed page, up to four device px per px.
-    if (volume.centre) return Math.max(near, Math.min(4, ratio));
-    return volume.weight > 0 ? near : screen;
+    const wanted = volume.centre ? Math.max(near, Math.min(4, ratio)) : volume.weight > 0 ? near : screen;
+    // Never paint faces finer than this device can afford to draw.
+    return Math.min(wanted, Math.max(1, stage.detail * 1.25));
   }
 
   /** Studio takes over from the CSS drawing: the canvas comes up behind the row while the CSS faces fade away over it. */
@@ -215,6 +220,11 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
     const now = performance.now();
     const still = reducedMotion();
     let moving = false;
+    // Frames asked for one after another are motion: how far apart they come is what this device can do. A
+    // device that cannot keep up is given less detail, so the shelf's motion is not stretched out.
+    const travelling = root.dataset.settled === '0';
+    if ((continuing || travelling) && now - lastDrawAt < 1000 && stage.note(now - lastDrawAt)) moving = true;
+    lastDrawAt = now;
     // The light follows the hand with a lag and keeps the frames coming until it has arrived.
     if (still) stage.pin();
     else if (stage.advance(now)) moving = true;
@@ -379,6 +389,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
     drawn++;
     canvas.dataset.drawn = String(drawn);
     canvas.dataset.volumes = String(current.volumes.filter((volume) => !volume.hidden).length);
+    continuing = moving;
     if (moving) invalidate();
     // The loose leaves are first shown when a volume opens. Their shader is compiled once the row stands, in a
     // quiet moment, or the first opening would wait for it and jump.

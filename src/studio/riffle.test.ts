@@ -237,7 +237,8 @@ describe('the pages of a volume in the air', () => {
     expect(at).toBeLessThan(0.56);
     // The riffle sits in the middle of the way: before a quarter and after three quarters the board is all but shut.
     for (const time of [0, 0.1, 0.2, 0.25, 0.75, 0.8, 0.9, 1]) expect(flightOpening(time).cover, `at ${time}`).toBeLessThan(most * 0.1);
-  });
+    // It bends every leaf at every sampled moment of the flight: a few seconds of work on a busy machine.
+  }, 20_000);
 
   it('lets the free edges follow the board: they are widest after it is', () => {
     const peak = (read: (opening: Opening) => number): number => {

@@ -19,6 +19,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import type { ShelfFrame } from '../shelf/types';
+import { createBudget, startingDensity, type Budget } from './budget';
 import { canvasBox, type CanvasBox, fitCamera, rowOrigin } from './camera';
 import { follow, follower, FOLLOW_MS, HOME_MS } from './pointer';
 
@@ -152,6 +153,8 @@ export class Stage {
   private readonly boardMaterial: MeshStandardMaterial;
   private box: CanvasBox | null = null;
   private size = { width: 0, height: 0, perspective: 0, density: 0 };
+  /** What this device can afford, learnt from how long frames take; it only ever goes down. */
+  private budget: Budget = createBudget(1);
   private room: Room = roomOf('paper');
   private boardOverride: Material | null = null;
   /** Pointer place over the scene, -1 to 1 each way, following the hand with a short lag; the light leans toward it. */
@@ -174,6 +177,7 @@ export class Stage {
   constructor(canvas = document.createElement('canvas')) {
     this.canvas = canvas;
     this.renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+    this.budget = createBudget(startingDensity(window.devicePixelRatio || 1, rendererName(this.renderer), MAX_DENSITY));
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
@@ -275,7 +279,7 @@ export class Stage {
 
   /** Fits canvas, camera, board and lights to a frame. Cheap when nothing about the scene changed. */
   fit(frame: ShelfFrame, deepest: number, tallest = 0): CanvasBox {
-    const wanted = Math.min(MAX_DENSITY, window.devicePixelRatio || 1);
+    const wanted = Math.min(MAX_DENSITY, window.devicePixelRatio || 1, this.budget.density);
     const box = canvasBox(frame.width, frame.height);
     const density = Math.min(wanted, Math.sqrt(MAX_PIXELS / Math.max(1, box.width * box.height)));
     const changed =
@@ -311,6 +315,23 @@ export class Stage {
   boardSize(): { width: number; depth: number } {
     const step = (value: number) => Math.max(200, Math.round(value / 200) * 200);
     return { width: step(this.span), depth: step(this.reach() + this.depth * 1.25) };
+  }
+
+  /** Most device pixels per CSS px this device can afford, for the canvas and for painted faces. */
+  get detail(): number {
+    return this.budget.density;
+  }
+
+  /**
+   * Notes how long one frame of continuous motion took, from the frame before it, in ms. Returns true when
+   * that showed this device cannot keep up at the present detail and the detail has just been lowered; the
+   * next frame is then fitted afresh at the lower density.
+   */
+  note(ms: number): boolean {
+    if (!this.budget.record(ms)) return false;
+    this.size = { ...this.size, density: -1 };
+    this.stale = true;
+    return true;
   }
 
   render(): void {
@@ -353,7 +374,7 @@ export class Stage {
 
   /** Shadow maps as fine as the screen can show: half the size on a screen of one device pixel per px. */
   private fitShadows(density: number): void {
-    const size = density > 1 ? 2048 : 1024;
+    const size = density > 1 ? 2048 : density >= 1 ? 1024 : 512;
     if (size === this.shadowSize) return;
     this.shadowSize = size;
     for (const light of [this.key, this.lamp]) {
@@ -448,6 +469,17 @@ export class Stage {
 /** The rim light of a lamp-lit room. */
 const RIM_COLOR = '#aebfe0';
 const RIM = 0.3;
+
+/** The name a renderer's context gives for the hardware it draws with, or '' when it will not say. */
+function rendererName(renderer: WebGLRenderer): string {
+  try {
+    const gl = renderer.getContext();
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    return String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? '');
+  } catch {
+    return '';
+  }
+}
 
 export function webglAvailable(): boolean {
   try {
