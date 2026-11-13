@@ -150,6 +150,33 @@ describe('motion.attach drag', () => {
     expect(motion.state.target).toBe(4);
   });
 
+  it('carries the speed of a throw whose last move came a late frame after the one before', () => {
+    const { motion, fire } = setup();
+    fire('pointerdown', { x: 900, t: 0 });
+    fire('pointermove', { x: 700, t: 100 });
+    // The frame before the release took 120 ms: only this move lies inside the window.
+    fire('pointermove', { x: 580, t: 220 });
+    fire('pointerup', { x: 580, t: 220 });
+    // 120 px in those 120 ms is 1 px/ms, which is 0.01 items per ms at a pitch of 100.
+    expect(motion.state.velocity).toBeCloseTo(0.01, 6);
+    expect(motion.state.target).toBe(6);
+  });
+
+  it('still carries no speed when one late move follows a rest and the pointer is let go after another', () => {
+    const { motion, fire } = setup();
+    fire('pointerdown', { x: 900, t: 0 });
+    fire('pointermove', { x: 700, t: 20 });
+    fire('pointermove', { x: 500, t: 40 });
+    fire('pointerup', { x: 500, t: 400 });
+    expect(motion.state.velocity).toBe(0);
+    // A last small move after a long rest is measured over the rest: next to no speed, and no throw.
+    fire('pointerdown', { x: 900, t: 1000 });
+    fire('pointermove', { x: 600, t: 1020 });
+    fire('pointermove', { x: 598, t: 1420 });
+    fire('pointerup', { x: 598, t: 1430 });
+    expect(Math.abs(motion.state.velocity)).toBeLessThan(0.0001);
+  });
+
   it('a fast flick moves at least one volume in its direction', () => {
     const { clock, motion, fire } = setup({ initial: 5 });
     fire('pointerdown', { x: 500, t: 0 });
