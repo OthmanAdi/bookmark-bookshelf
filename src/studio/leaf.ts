@@ -61,6 +61,12 @@ export function leafLine(length: number, shape: LeafShape): { x: number[]; z: nu
   return { x, z, nx, nz };
 }
 
+/** How light the paper is at `s` along a leaf (0 root, 1 free edge): darker in the gutter, full from a third out. */
+export function gutterShade(s: number): number {
+  const t = Math.min(1, Math.max(0, s / 0.32));
+  return 0.58 + 0.42 * t * t * (3 - 2 * t);
+}
+
 export function leafGeometry(): BufferGeometry {
   const columns = LEAF_SEGMENTS + 1;
   const geometry = new BufferGeometry();
@@ -71,6 +77,13 @@ export function leafGeometry(): BufferGeometry {
     uv.set([i / LEAF_SEGMENTS, 0, i / LEAF_SEGMENTS, 1], i * 4);
   }
   geometry.setAttribute('uv', new BufferAttribute(uv, 2));
+  // The gutter: paper is in shade where the leaves crowd together at the binding, and clears within a third of its length.
+  const color = new Float32Array(columns * 2 * 3);
+  for (let i = 0; i < columns; i++) {
+    const shade = gutterShade(i / LEAF_SEGMENTS);
+    color.set([shade, shade, shade * 0.97, shade, shade, shade * 0.97], i * 6);
+  }
+  geometry.setAttribute('color', new BufferAttribute(color, 3));
   const index: number[] = [];
   for (let i = 0; i < LEAF_SEGMENTS; i++) {
     const a = i * 2;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bendLeaf, leafGeometry, leafLine, leafTangent, LEAF_KNEE, LEAF_SEGMENTS } from './leaf';
+import { bendLeaf, gutterShade, leafGeometry, leafLine, leafTangent, LEAF_KNEE, LEAF_SEGMENTS } from './leaf';
 
 const lengthOf = (line: { x: number[]; z: number[] }) => {
   let total = 0;
@@ -34,6 +34,17 @@ describe('a bent leaf', () => {
     // The direction is continuous across the knee.
     expect(leafTangent(shape, LEAF_KNEE + 1e-6) - leafTangent(shape, LEAF_KNEE - 1e-6)).toBeCloseTo(0, 5);
     expect(lengthOf(leafLine(180, shape))).toBeCloseTo(180, 0);
+  });
+
+  it('is darker in the gutter and full paper white from a third of its length', () => {
+    expect(gutterShade(0)).toBeLessThan(0.65);
+    expect(gutterShade(0.16)).toBeGreaterThan(gutterShade(0));
+    expect(gutterShade(0.33)).toBe(1);
+    expect(gutterShade(1)).toBe(1);
+    const color = leafGeometry().getAttribute('color');
+    expect(color.count).toBe((LEAF_SEGMENTS + 1) * 2);
+    expect(color.getX(0)).toBeCloseTo(gutterShade(0), 6);
+    expect(color.getX(color.count - 1)).toBe(1);
   });
 
   it('writes unit normals and both edges of the leaf', () => {

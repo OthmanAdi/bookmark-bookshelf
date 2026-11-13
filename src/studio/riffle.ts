@@ -10,11 +10,13 @@ import { LEAVES, type Opening } from './volume';
  * Each of the three follows the same move, the outer ones a little later, so the paper trails its root
  * and catches up (follow-through). The result is then held to what paper can do, see `tidy`.
  *
- * The numbers come from measuring a reference (see the 0.3 notes): one opening value per volume reached
- * exponentially in 100 ms (90 % in about a quarter of a second, no overshoot), boards open 12 to 14 degrees
- * under the hand and 15 to 18 in flight, the stack fanned in proportion to each leaf's place in it, and
- * the bend of a page growing toward its free edge with about 35 ms of lag per joint. The reference steps
- * its lag twice a frame; here the lag is solved in closed form, so it does not depend on the frame rate.
+ * The numbers start from measuring a reference (see the 0.3 notes): boards open 12 to 14 degrees under
+ * the hand and 15 to 18 in flight, 90 % of the way in about a quarter of a second, the stack fanned in
+ * proportion to each leaf's place in it, and the bend of a page growing toward its free edge. The reference
+ * moves everything on one exponential and steps its lag twice a frame. Here the board has mass (a spring
+ * that overshoots a tenth and settles), every leaf follows on its own, slower the deeper it lies, the bend
+ * comes from how fast the leaf turns, and all of it is solved in closed form, so it does not depend on
+ * the frame rate.
  */
 
 /** Direction of a leaf at its root, its knee and its free edge, in radians from shut. */
@@ -77,44 +79,56 @@ export function layer(base: Opening, extra: Opening): Opening {
   return tidy({ cover: base.cover + extra.cover, leaves });
 }
 
-/** Share of a move done `ms` after it began, approached exponentially with time constant `tau`. */
-function approach(ms: number, tau: number): number {
-  return ms <= 0 ? 0 : 1 - Math.exp(-ms / tau);
-}
-
-/**
- * The same move as `approach`, seen through a first-order lag of `lag` ms: what a point of the paper does
- * when it is dragged along by a point nearer the spine. Solved exactly, so it is the same at any frame rate.
- */
-function trailing(ms: number, tau: number, lag: number): number {
-  if (ms <= 0) return 0;
-  if (lag <= 0) return approach(ms, tau);
-  if (Math.abs(tau - lag) < 1e-6) return 1 - Math.exp(-ms / tau) * (1 + ms / tau);
-  return 1 - (tau * Math.exp(-ms / tau) - lag * Math.exp(-ms / lag)) / (tau - lag);
-}
-
 /** How far the board stands open under the hand, in radians: about 16 degrees. */
 export const PEEK_COVER = 0.28;
-/** Time constant of the opening under the hand, in ms. 90 % is reached after 2.3 of these. */
-export const PEEK_TAU_MS = 100;
+/** The board's spring, acceleration = K (target - x) - C velocity: a tenth of overshoot, settled near 450 ms. */
+const BOARD_K = 140;
+const BOARD_C = 14;
 /** After this long a peek has arrived for the eye and is drawn as arrived. */
-export const PEEK_REST_MS = 900;
-/** Each leaf begins this much later than the one in front of it, in ms: the fan runs down the stack. */
-const PEEK_STAGGER_MS = 11;
-/** Lag of the knee and of the free edge behind the root, in ms: one and about two joints of the reference. */
-const KNEE_LAG_MS = 35;
-const EDGE_LAG_MS = 80;
+export const PEEK_REST_MS = 1100;
+/** Time constants of a leaf's own lag, in ms: opening, the first leaf and what the last adds; closing likewise. */
+const LEAF_OPEN_MS = 73;
+const LEAF_OPEN_MORE_MS = 230;
+const LEAF_CLOSE_MS = 30;
+const LEAF_CLOSE_MORE_MS = 48;
+/** Seconds of its own turning a leaf bends by: the free edge trails a leaf that turns fast. */
+const CURL_PER_RATE = 0.05;
+const CURL_MOST = 0.6;
+/** The bend a leaf keeps at rest, in radians for the first leaf: its edge hangs back a little. */
+const REST_CURL = -0.08;
+/** How fast the bend a leaf had when the hand came or left dies away, and how fast the new one sets in, in ms. */
+const CURL_FADE_MS = 60;
+const CURL_ONSET_MS = 25;
+
+/** Share of its way a spring released at rest has gone after `ms`: it overshoots, comes back and settles. */
+function sprung(ms: number): number {
+  if (ms <= 0) return 0;
+  const t = ms / 1000;
+  const decay = BOARD_C / 2;
+  const swing = Math.sqrt(BOARD_K - decay * decay);
+  return 1 - Math.exp(-decay * t) * (Math.cos(swing * t) + (decay / swing) * Math.sin(swing * t));
+}
+
+/** The same spring with just enough damping not to swing: a board coming shut does not bounce off the block. */
+function damped(ms: number): number {
+  if (ms <= 0) return 0;
+  const x = (Math.sqrt(BOARD_K) * ms) / 1000;
+  return 1 - Math.exp(-x) * (1 + x);
+}
 
 /** Share of the stack a leaf has in front of it: 1 for the first leaf, falling toward the block. */
 const placeOf = (index: number): number => Math.max(0, 1 - index / LEAVES);
+
+/** How deep a leaf lies in the loose stack: 0 for the first leaf, 1 for the last. */
+const depthOf = (index: number): number => (LEAVES > 1 ? index / (LEAVES - 1) : 0);
 
 /** A volume standing open under the hand, at rest. */
 export function peekRest(): Opening {
   const leaves = Array.from({ length: LEAVES }, (_, index) => {
     const place = placeOf(index);
     // The first leaves follow the board, the rest stay near the block; every free edge hangs back a little.
-    const root = PEEK_COVER * 0.8 * place * place;
-    return shapeOf([root, root * 0.74, root * 0.5]);
+    const root = PEEK_COVER * 0.8 * place ** 1.6;
+    return { angle: root, curl: Math.max(-root * 0.6, REST_CURL * place), flick: 0 };
   });
   return tidy({ cover: PEEK_COVER, leaves });
 }
@@ -134,28 +148,51 @@ export function peekShare(amount: number): Opening {
 }
 
 /**
- * The presented volume `ms` after the hand came (`open`) or left: the board lifts and the leaves fan after
- * it, each a little later than the one in front, their free edges trailing; leaving, it closes the same way
- * and the board gathers the leaves. `from` is how the volume stood at that moment, so a hand that comes
- * back half way through continues from where the pages are.
+ * The presented volume `ms` after the hand came (`open`) or left. The board swings out on its spring,
+ * a little too far, and settles. Each leaf follows on its own lag, slower the deeper it lies, so the fan
+ * runs from the board down the stack; while a leaf turns its free edge trails by how fast it turns, and
+ * the bend relaxes as it comes to rest. Leaving, the leaves nearest the block go first and the board
+ * last, without a bounce, so it gathers the paper instead of passing through it. `from` is how the volume
+ * stood at that moment, so a hand that comes back half way through continues from where the pages are.
  */
 export function peekAt(ms: number, open: boolean, from: Opening = shut()): Opening {
   const to = open ? peekRest() : shut();
   if (ms >= PEEK_REST_MS) return to;
   const t = Math.max(0, ms);
-  const cover = from.cover + (to.cover - from.cover) * approach(t, PEEK_TAU_MS);
+  const cover = from.cover + (to.cover - from.cover) * (open ? sprung(t) : damped(t));
+  const fade = Math.exp(-t / CURL_FADE_MS);
+  const onset = 1 - Math.exp(-t / CURL_ONSET_MS);
   const leaves = Array.from({ length: LEAVES }, (_, index) => {
-    // Opening, the fan runs from the board down the stack; closing, the leaves nearest the block go first.
-    const late = (open ? index : LEAVES - 1 - index) * PEEK_STAGGER_MS;
-    const a = knotsOf(from.leaves[index]);
-    const b = knotsOf(to.leaves[index]);
-    return shapeOf([
-      a[0] + (b[0] - a[0]) * approach(t - late, PEEK_TAU_MS),
-      a[1] + (b[1] - a[1]) * trailing(t - late, PEEK_TAU_MS, KNEE_LAG_MS),
-      a[2] + (b[2] - a[2]) * trailing(t - late, PEEK_TAU_MS, EDGE_LAG_MS),
-    ]);
+    const depth = depthOf(index);
+    const tau = open ? LEAF_OPEN_MS + LEAF_OPEN_MORE_MS * depth : LEAF_CLOSE_MS + LEAF_CLOSE_MORE_MS * (1 - depth);
+    const was = from.leaves[index] ?? { angle: 0, curl: 0 };
+    const will = to.leaves[index] ?? { angle: 0, curl: 0 };
+    const left = Math.exp(-t / tau);
+    const angle = will.angle + (was.angle - will.angle) * left;
+    // Radians a second the root is turning right now; the paper bends against it.
+    const rate = ((will.angle - was.angle) / tau) * left * 1000;
+    const trail = Math.min(CURL_MOST, Math.max(-CURL_MOST, -CURL_PER_RATE * rate)) * onset;
+    return {
+      angle,
+      curl: will.curl + (was.curl - will.curl) * fade + trail,
+      // The outer part of the leaf is the freest: it trails half as much again.
+      flick: (was.flick ?? 0) * fade + trail * 0.5,
+    };
   });
   return tidy({ cover, leaves });
+}
+
+/**
+ * An opening drawn back to a share of itself: the board and every leaf turn that share of their way. A
+ * hand near the hinge opens a volume less than a hand at its fore-edge.
+ */
+export function scaled(opening: Opening, share: number): Opening {
+  const k = clamp01(share);
+  if (k >= 1) return opening;
+  return tidy({
+    cover: opening.cover * k,
+    leaves: opening.leaves.map((leaf) => ({ angle: leaf.angle * k, curl: leaf.curl * k, flick: (leaf.flick ?? 0) * k })),
+  });
 }
 
 /** How long the flutter of a volume that has just arrived at the centre lasts, in ms. */
@@ -183,7 +220,7 @@ export function arrivalAt(ms: number, steps: number): Opening {
   const cover = ARRIVE_COVER * strength * bump(u, 0.3);
   const leaves = Array.from({ length: LEAVES }, (_, index) => {
     const place = 0.35 + 0.65 * placeOf(index);
-    const late = 0.03 + 0.03 * index;
+    const late = 0.03 + 0.2 * depthOf(index);
     const edge = ARRIVE_COVER * strength * 0.9 * place * bump(u - late, 0.2);
     // The root hardly moves: it is the free edge that runs.
     return shapeOf([edge * 0.12, edge * 0.4, edge]);
@@ -191,13 +228,17 @@ export function arrivalAt(ms: number, steps: number): Opening {
   return tidy({ cover, leaves });
 }
 
-/** Shares of the flight between which the volume stands open, and the most its board turns. */
-export const FLIGHT_OPEN_FROM = 0.02;
+/**
+ * Shares of the flight between which the volume stands open, and the most its board turns. The volume
+ * first tips and lifts off the shelf shut; the board is more than a tenth open only between a quarter and
+ * three quarters of the way.
+ */
+export const FLIGHT_OPEN_FROM = 0.2;
 export const FLIGHT_OPEN_TO = 0.78;
 /** About 15 degrees, as the reference's boards open while its book is carried. */
 export const FLIGHT_COVER = 0.27;
 /** In shares of the flight: each leaf's delay behind the one in front, and the lag of the knee and the edge. */
-const FLIGHT_STAGGER = 0.012;
+const FLIGHT_STAGGER = 0.075;
 const FLIGHT_KNEE_LAG = 0.03;
 const FLIGHT_EDGE_LAG = 0.07;
 
@@ -221,7 +262,7 @@ export function flightOpening(time: number): Opening {
   const leaves = Array.from({ length: LEAVES }, (_, index) => {
     const place = placeOf(index);
     const reach = FLIGHT_COVER * 0.82 * place * Math.sqrt(place);
-    const late = index * FLIGHT_STAGGER;
+    const late = depthOf(index) * FLIGHT_STAGGER;
     return shapeOf([
       reach * swell(t - late),
       reach * 0.86 * swell(t - late - FLIGHT_KNEE_LAG),

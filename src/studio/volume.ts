@@ -34,19 +34,27 @@ export interface VolumeParts {
   endpaper: Material;
 }
 
-/** Board thickness in px for a volume: thin for a paperback-slim volume, never thicker than a real board looks. */
+/** Board thickness in px for a volume: it goes with the format, a taller volume has a stouter board. */
 export function boardThickness(size: VolumeSize): number {
-  return Math.min(3.2, Math.max(1.1, size.spineWidth * 0.07));
+  return Math.min(4, Math.max(1.8, size.bookHeight * 0.0095));
 }
 
 /** How far the boards stand proud of the text block at head, foot and fore-edge, in px. */
 export function squareOf(size: VolumeSize): number {
-  return Math.min(4, Math.max(1.2, size.bookHeight * 0.011));
+  return Math.min(6, Math.max(1.2, size.bookHeight * 0.011));
 }
 
-/** How far the rounded spine bulges toward the viewer at its middle, in px. */
+/** How far the rounded spine bulges toward the viewer at its middle, in px. A very slim volume has a flat spine. */
 export function spineBulge(size: VolumeSize): number {
-  return Math.min(5, size.spineWidth * 0.07);
+  return size.spineWidth < 14 ? 0 : Math.min(9, size.spineWidth * 0.14);
+}
+
+/**
+ * How far back from the spine the joint lies, in px: the groove a board turns in. A board does not hinge
+ * on the corner of the spine; the strip between the spine and the joint stays where it is.
+ */
+export function jointOf(size: VolumeSize): number {
+  return Math.min(boardThickness(size) * 2.5, size.coverWidth * 0.1);
 }
 
 /**
@@ -96,17 +104,24 @@ const PX = 0;
 const NX = 1;
 
 /**
- * A board: a slab `thickness` thick, as tall as the volume and as deep as the cover. Its material index
- * per face is chosen so the outer face carries the printed cover and the inner face the endpaper.
+ * A board, or the part of one between `from` and `to` px back from the spine: a slab `thickness` thick and
+ * as tall as the volume. Its material index per face is chosen so the outer face carries the printed cover
+ * and the inner face the endpaper, and a part keeps its own stretch of the print.
  */
-function boardGeometry(size: VolumeSize, thickness: number, side: 'front' | 'back'): BoxGeometry {
-  const geometry = new BoxGeometry(thickness, size.bookHeight, size.coverWidth);
+function boardGeometry(size: VolumeSize, thickness: number, side: 'front' | 'back', from = 0, to = size.coverWidth): BoxGeometry {
+  const depth = Math.max(0.01, to - from);
+  const geometry = new BoxGeometry(thickness, size.bookHeight, depth);
   // Materials: 0 outer face, 1 inner face, 2 edges.
   const outer = side === 'front' ? PX : NX;
   geometry.groups.forEach((group, face) => {
     group.materialIndex = face === outer ? 0 : face === PX || face === NX ? 1 : 2;
   });
-  geometry.translate(0, size.bookHeight / 2, -size.coverWidth / 2);
+  // The two large faces are the first eight vertices: +x, whose u runs back from the spine, then -x, whose u runs toward it.
+  const uv = geometry.getAttribute('uv');
+  const full = Math.max(0.01, size.coverWidth);
+  for (let i = 0; i < 4; i++) uv.setX(i, (from + uv.getX(i) * depth) / full);
+  for (let i = 4; i < 8; i++) uv.setX(i, (full - to + uv.getX(i) * depth) / full);
+  geometry.translate(0, size.bookHeight / 2, -(from + to) / 2);
   return geometry;
 }
 
@@ -122,15 +137,23 @@ function pagesGeometry(size: VolumeSize, thickness: number, square: number): Box
 const hiddenMaterial: Material = new MeshBasicMaterial({ visible: false });
 
 /** Loose leaves a volume can lift when it opens or riffles; the rest of the block stays a solid. */
-export const LEAVES = 7;
+export const LEAVES = 16;
 
 /**
- * Paper of the loose leaves: both sides lit, a warm white a little brighter than the block's edge. Paper
- * lets light through, so a leaf in the shade of its own board still glows a little instead of going dark.
+ * Paper of the loose leaves: both sides lit, a bright warm white. Paper lets light through, so a leaf
+ * behind its own board still glows instead of going grey, and it is darker only in the gutter, where the
+ * leaves crowd together (the leaf's geometry carries that shade).
  */
 let leafPaper: MeshStandardMaterial | null = null;
 function leafMaterial(): MeshStandardMaterial {
-  leafPaper ??= new MeshStandardMaterial({ color: '#f4ecdb', roughness: 0.93, side: DoubleSide, emissive: '#d9c9a6', emissiveIntensity: 0.42 });
+  leafPaper ??= new MeshStandardMaterial({
+    color: '#fbf5e6',
+    roughness: 0.94,
+    side: DoubleSide,
+    vertexColors: true,
+    emissive: '#efe2c6',
+    emissiveIntensity: 0.74,
+  });
   return leafPaper;
 }
 
@@ -144,28 +167,31 @@ export class VolumeMesh {
   readonly group = new Group();
   private size: VolumeSize = { spineWidth: 0, bookHeight: 0, coverWidth: 0 };
   private readonly front = new Mesh<BufferGeometry, Material | Material[]>(new BufferGeometry(), [hiddenMaterial, hiddenMaterial, hiddenMaterial]);
+  /** The strip of the front cover between the spine and the joint. It does not turn with the board. */
+  private readonly shoulder = new Mesh<BufferGeometry, Material | Material[]>(new BufferGeometry(), [hiddenMaterial, hiddenMaterial, hiddenMaterial]);
   private readonly back = new Mesh<BufferGeometry, Material | Material[]>(new BufferGeometry(), [hiddenMaterial, hiddenMaterial, hiddenMaterial]);
   private readonly spine = new Mesh<BufferGeometry, Material | Material[]>(new BufferGeometry(), hiddenMaterial);
   private readonly pages = new Mesh<BufferGeometry, Material | Material[]>(new BufferGeometry(), hiddenMaterial);
   /** A slip of card standing in the pages, as far from the front board as the reading has got. */
   readonly slip = new Mesh<BufferGeometry, Material | Material[]>(new PlaneGeometry(1, 1), hiddenMaterial);
-  /** The front board turns about this line: the edge where it meets the spine. */
+  /** The front board turns about this line: the joint, a little back from the spine. */
   private readonly hinge = new Group();
   private readonly leaves: Array<Mesh<BufferGeometry, Material>> = [];
   private opened = false;
 
   constructor() {
     this.group.matrixAutoUpdate = false;
-    for (const part of [this.front, this.back, this.spine, this.pages]) {
+    for (const part of [this.front, this.shoulder, this.back, this.spine, this.pages]) {
       part.castShadow = true;
       part.receiveShadow = true;
     }
     this.hinge.add(this.front);
-    this.group.add(this.hinge, this.back, this.spine, this.pages);
+    this.group.add(this.hinge, this.shoulder, this.back, this.spine, this.pages);
     for (let i = 0; i < LEAVES; i++) {
       const leaf = new Mesh(leafGeometry(), leafMaterial());
-      leaf.castShadow = true;
-      leaf.receiveShadow = true;
+      // The board would shade them into mud, and sixteen sheets add nothing to the shadow of the volume.
+      leaf.castShadow = false;
+      leaf.receiveShadow = false;
       leaf.visible = false;
       this.leaves.push(leaf);
       this.group.add(leaf);
@@ -189,15 +215,18 @@ export class VolumeMesh {
     this.opened = lifted;
     const thickness = boardThickness(this.size);
     const square = squareOf(this.size);
-    const length = Math.max(1, d - square * 1.5);
+    const joint = jointOf(this.size);
+    const length = Math.max(1, d - square * 1.5 - joint);
     const height = Math.max(1, h - square * 2);
+    // Thin sheets close together: the loose stack is a small part of the block, never wider than a third of it.
+    const apart = Math.min(0.42, (w - thickness * 2) / (LEAVES * 3));
     this.leaves.forEach((leaf, index) => {
       const shape = opening?.leaves[index];
       const show = lifted && shape !== undefined;
       leaf.visible = show;
       if (!show) return;
-      // Leaves are taken from the front of the block, the first nearest the board.
-      leaf.position.set(w / 2 - thickness - 0.35 - index * Math.min(0.9, (w - thickness * 2) / (LEAVES * 3)), square, -0.4);
+      // Leaves are taken from the front of the block, the first nearest the board, and turn where the board turns.
+      leaf.position.set(w / 2 - thickness - 0.3 - index * apart, square, -joint);
       bendLeaf(leaf.geometry, length, height, shape);
     });
   }
@@ -217,13 +246,17 @@ export class VolumeMesh {
     this.size = { ...size };
     const thickness = boardThickness(size);
     const square = squareOf(size);
-    const front = boardGeometry(size, thickness, 'front');
-    // The front board hangs from its hinge, at the spine's front edge.
-    front.translate(-thickness / 2, 0, 0);
-    this.hinge.position.set(size.spineWidth / 2, 0, 0);
+    const joint = jointOf(size);
+    // The front board hangs from its hinge at the joint; the strip in front of the joint stays with the spine.
+    const front = boardGeometry(size, thickness, 'front', joint, size.coverWidth);
+    front.translate(-thickness / 2, 0, joint);
+    this.hinge.position.set(size.spineWidth / 2, 0, -joint);
+    const shoulder = boardGeometry(size, thickness, 'front', 0, joint);
+    shoulder.translate(size.spineWidth / 2 - thickness / 2, 0, 0);
     const back = boardGeometry(size, thickness, 'back');
     back.translate(-size.spineWidth / 2 + thickness / 2, 0, 0);
     this.swap(this.front, front);
+    this.swap(this.shoulder, shoulder);
     this.swap(this.back, back);
     this.swap(this.spine, spineGeometry(size));
     this.swap(this.pages, pagesGeometry(size, thickness, square));
@@ -232,6 +265,7 @@ export class VolumeMesh {
 
   setParts(parts: VolumeParts): void {
     this.front.material = [parts.front, parts.endpaper, parts.boardEdge];
+    this.shoulder.material = this.front.material;
     this.back.material = [parts.back, parts.endpaper, parts.boardEdge];
     this.spine.material = parts.spine;
     this.pages.material = parts.pages;
@@ -255,7 +289,7 @@ export class VolumeMesh {
   }
 
   dispose(): void {
-    for (const part of [this.front, this.back, this.spine, this.pages, this.slip, ...this.leaves]) part.geometry.dispose();
+    for (const part of [this.front, this.shoulder, this.back, this.spine, this.pages, this.slip, ...this.leaves]) part.geometry.dispose();
   }
 
   private swap(mesh: Mesh<BufferGeometry, Material | Material[]>, geometry: BufferGeometry): void {
