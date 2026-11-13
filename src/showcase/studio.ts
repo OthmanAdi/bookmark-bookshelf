@@ -1,9 +1,9 @@
 import { CanvasTexture, Matrix4, MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, SRGBColorSpace } from 'three';
 import { resolveCloth } from '../shelf/variants';
-import type { FrameVolume, ShelfFrame, ShelfItem } from '../shelf/types';
+import type { ShelfFrame, ShelfItem } from '../shelf/types';
 import { peekShare } from '../studio/riffle';
 import { type DressKit, Dresser } from '../studio/dress';
-import { createKit } from '../studio/kit';
+import { createKit, type ShownVolume } from '../studio/kit';
 import { paintVolume } from '../studio/paint';
 import { Stage, webglAvailable } from '../studio/stage';
 import { VolumeMesh } from '../studio/volume';
@@ -125,7 +125,9 @@ export function createStudioDrawing(options: StudioDrawingOptions): Drawing {
         stage.row.add(stood.mesh.group);
       }
       const size = sizeOf(frame.item, bookBox);
-      const volume: FrameVolume = {
+      // Shown large and alone, so the kit gives it full grain and sharp foil, as a cover held in the hand.
+      const volume: ShownVolume = {
+        presented: 1,
         id: frame.item.id,
         index: frame.index,
         slot: frame.index,

@@ -91,6 +91,11 @@ export class Dresser {
       item.seed ?? 0,
       item.mark ?? volume.index,
       item.done ? 1 : 0,
+      // Wear is drawn from how handled and how old a volume is, in steps fine enough to see and coarse
+      // enough that reading a few lines does not repaint it.
+      Math.round((item.handled ?? 0) * 10),
+      Math.round(Math.log2(1 + Math.max(0, item.age ?? 0))),
+      (volume as { presented?: number }).presented ?? 0,
       variant,
       Math.round(size.spineWidth),
       Math.round(size.bookHeight),
