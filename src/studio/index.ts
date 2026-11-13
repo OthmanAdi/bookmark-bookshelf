@@ -5,7 +5,7 @@ import type { FrameVolume, ShelfFrame, ShelfHandle } from '../shelf/types';
 import { fromCssMatrix, volumeMatrix } from './camera';
 import { type DressKit, Dresser } from './dress';
 import { ContactShadows } from './ground';
-import { Stage, webglAvailable } from './stage';
+import { roomOf, Stage, webglAvailable } from './stage';
 import { type FlightBook, FlightStage } from './flight';
 import { leafTangent } from './leaf';
 import { arrivalAt, ARRIVE_MS, isShut, layer, PEEK_COVER, PEEK_REST_MS, peekAt, shut } from './riffle';
@@ -177,7 +177,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       variant = current.variant;
       stage.setRoom(variant);
       dresser.clear();
-      ground.setStrength(variant === 'night' ? 0.34 : 0.5);
+      ground.setStrength(roomOf(variant).contact);
       floorKey = '';
     }
     let deepest = 0;
@@ -189,7 +189,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       floorKey = `${variant}:${board.width}:${board.depth}`;
       stage.setBoardMaterial(kit.floor?.(variant, board) ?? null);
     }
-    ground.update(current, origin, current.gap);
+    ground.update(current, origin, stage.front);
     const now = performance.now();
     const still = reducedMotion();
     let moving = false;
