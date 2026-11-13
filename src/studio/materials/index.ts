@@ -13,7 +13,7 @@
 import * as THREE from 'three';
 import type { Binding, PaintedFace, Stamp } from '../types';
 import { createStudioEnvironment } from './environment';
-import { BINDING_RECIPES, FILM, STAMP_RECIPES, type BindingRecipe, type StampRecipe, type TileName } from './recipes';
+import { BINDING_RECIPES, FILM, STAMP_FILM, STAMP_RECIPES, nearness, reliefAt, rubOf, stampAt, sunLift, useOf, type BindingRecipe, type StampRecipe, type TileName, type Use } from './recipes';
 import { applyBindingShader, type BindingUniforms, type FaceUniforms } from './shader';
 import {
   brushedSurface,
@@ -32,8 +32,8 @@ import {
   type WoodOptions,
 } from './tiles';
 
-export { resolveBinding, resolveStamp, BINDING_WEIGHTS, STAMP_WEIGHTS } from './resolve';
-export { BINDING_RECIPES, STAMP_RECIPES, type BindingRecipe, type StampRecipe } from './recipes';
+export { resolveBinding, resolveStamp, BINDING_WEIGHTS, LOOK_BINDING_WEIGHTS, STAMP_WEIGHTS } from './resolve';
+export { BINDING_RECIPES, STAMP_RECIPES, nearness, reliefAt, stampAt, useOf, type BindingRecipe, type StampRecipe, type Use } from './recipes';
 
 export interface VolumeLook {
   binding: Binding;
@@ -48,6 +48,16 @@ export interface VolumeLook {
   joint?: boolean;
   /** How round the spine is across its width: 0 flat, 1 strongly rounded. Default 0.35. */
   spineRound?: number;
+  /**
+   * How near the volume is shown, 0 (standing in the row, at shelf distance) to 1 (a cover shown large).
+   * Grain is quieter and foil softer far off. Left out, it follows from `size.bookHeight`; say it when
+   * the volume is drawn at another size than `size` (a camera close to it, a scaled group).
+   */
+  presented?: number;
+  /** How much the volume has been handled, 0 (never opened) to 1 (read through). Rubs edges and corners and dulls the foil at the head of the spine. */
+  handled?: number;
+  /** Days since the link was saved. The spine fades and yellows a little with the years; the boards stay fresh. */
+  age?: number;
 }
 
 export interface VolumeMaterials {
@@ -63,6 +73,12 @@ export interface VolumeMaterials {
   pages: THREE.Material;
   /** Inside faces of the boards. */
   endpaper: THREE.Material;
+  /**
+   * A loose leaf: bright warm paper, lit from both sides, with a little light of its own (paper lets light
+   * through) and a sheen, so a band crosses a leaf as it lifts. One material for the whole kit, owned by
+   * the kit: `dispose` of a volume leaves it alone.
+   */
+  leaf: THREE.Material;
   dispose(): void;
 }
 
@@ -75,6 +91,8 @@ export interface MaterialKit {
    * scale; without it a floor of 1600 by 420 is assumed. The kit owns the material.
    */
   floor(look: string, size?: { width: number; depth: number }): THREE.Material;
+  /** The paper of loose leaves, the same material every volume hands out as `leaf`. */
+  readonly leaf: THREE.Material;
   /**
    * PMREM-filtered studio environment (soft boxes, a warm key, cool fill) for scene.environment. The
    * caller rotates it with scene.environmentRotation to sweep reflections with the pointer.
@@ -99,8 +117,8 @@ interface TileTextures {
  */
 const TILES: Record<TileName, { size: number; reference: number; strength: number; make?: (size: number) => Surface }> = {
   cloth: { size: 256, reference: 512, strength: 1.5, make: clothSurface },
-  linen: { size: 256, reference: 512, strength: 2.4, make: linenSurface },
-  leather: { size: 256, reference: 512, strength: 4.5, make: leatherSurface },
+  linen: { size: 256, reference: 512, strength: 1.5, make: linenSurface },
+  leather: { size: 256, reference: 512, strength: 1.7, make: leatherSurface },
   paper: { size: 256, reference: 256, strength: 1.4, make: paperSurface },
   gloss: { size: 128, reference: 0, strength: 2.5, make: glossSurface },
   velvet: { size: 256, reference: 256, strength: 2, make: velvetSurface },
@@ -141,6 +159,16 @@ const FLOORS: Record<string, { wood?: WoodOptions; color: string; span: number; 
 
 /** The height in CSS px of the volume the recipes' spans are written for: the shelf's default book. */
 const REFERENCE_HEIGHT = 340;
+/**
+ * A volume in the row shows its spine; its boards are only seen once it is taken out and turned to the
+ * reader. So unless the caller says how near the volume is, its boards count as at least this near.
+ */
+const BOARD_NEAR = 0.5;
+/**
+ * Paper: the share of its own colour a page block and a loose leaf give back unlit (light that came
+ * through the sheet), and the sheen that lays a band across a leaf as it lifts.
+ */
+export const PAPER = { glow: 0.16, leafGlow: 0.2, sheen: 0.25 };
 
 let probe: CanvasRenderingContext2D | null | undefined;
 
@@ -172,6 +200,7 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
   /** Everything the kit made and has not yet disposed. */
   const live = new Set<{ dispose(): void }>();
   let pages: { color: THREE.DataTexture; normal: THREE.DataTexture; span: number } | undefined;
+  let leaf: THREE.MeshPhysicalMaterial | undefined;
   let studio: ReturnType<typeof createStudioEnvironment> | undefined;
   let disposed = false;
 
@@ -231,8 +260,9 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     return copy;
   }
 
-  function canvasTexture(canvas: HTMLCanvasElement, colorSpace: THREE.ColorSpace, into: Set<{ dispose(): void }>): THREE.CanvasTexture {
+  function canvasTexture(canvas: HTMLCanvasElement, colorSpace: THREE.ColorSpace, into: Set<{ dispose(): void }>, format?: THREE.PixelFormat): THREE.CanvasTexture {
     const texture = new THREE.CanvasTexture(canvas);
+    if (format !== undefined) texture.format = format;
     texture.colorSpace = colorSpace;
     texture.anisotropy = anisotropy;
     texture.wrapS = THREE.ClampToEdgeWrapping;
@@ -279,6 +309,11 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     round: number;
     /** Size of the detail against its size on a volume 340 px tall. */
     grain: number;
+    /** 0 at shelf distance, 1 shown large. */
+    near: number;
+    /** The spine: the one face that stands in the light and is hooked out by its head. */
+    spine: boolean;
+    use: Use;
   }
 
   function faceMaterial(look: VolumeLook, recipe: BindingRecipe, stamp: StampRecipe, cloth: THREE.Color, ink: THREE.Color, spec: FaceSpec, into: Set<{ dispose(): void }>): THREE.MeshPhysicalMaterial {
@@ -288,26 +323,43 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     const material = bindingMaterial(recipe, cloth);
     material.map = canvasTexture(spec.face.color, THREE.SRGBColorSpace, into);
     material.normalMap = repeated(textures.normal, repeatX, repeatY, into);
-    material.normalScale.setScalar(recipe.normalScale);
+    const relief = reliefAt(spec.near);
+    material.normalScale.setScalar(recipe.normalScale * relief);
     material.roughnessMap = repeated(textures.detail, repeatX, repeatY, into);
-    const holoStamp = stamp.iridescence === 1;
+    const holoStamp = stamp.iridescence !== null && stamp.iridescence > 0;
     if (recipe.iridescence > 0 || holoStamp) film(material, spec.width / spec.grain, spec.height / spec.grain, into);
 
-    const mask = canvasTexture(spec.face.mask, THREE.NoColorSpace, into);
+    // The shader reads one channel of the mask, so one channel is all the GPU is given: a quarter of the memory.
+    const mask = canvasTexture(spec.face.mask, THREE.NoColorSpace, into, THREE.RedFormat);
+    const pressed = stampAt(stamp, recipe, spec.near);
     const filmOutside = recipe.iridescence;
     const filmInside = stamp.iridescence ?? recipe.iridescence;
-    const stampColor = stamp.color === 'ink' ? ink : stamp.color ? new THREE.Color(stamp.color[0], stamp.color[1], stamp.color[2]) : new THREE.Color(0, 0, 0);
+    // A metal board is bright whatever its cloth colour was: the look's pale ink would be lost on it.
+    const metalBoard = recipe.metalness > 0.5;
+    const stampColor =
+      stamp.color === 'ink' ? (metalBoard ? new THREE.Color(0.03, 0.028, 0.026) : ink) : stamp.color ? new THREE.Color(stamp.color[0], stamp.color[1], stamp.color[2]) : new THREE.Color(0, 0, 0);
+    const luminance = (color: THREE.Color): number => 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+    const rub = rubOf(recipe.wear, spec.use.rub);
+    // Metal does not fade. Elsewhere only the spine has stood in the light.
+    const sun = spec.spine && !metalBoard ? spec.use.sun : 0;
+    // A foil title is light; a printed or blind one is as light as the look's ink.
+    const titleLuminance = Array.isArray(stamp.color) ? 1 : luminance(ink);
     const jointWidth = Math.max(1.5, spec.width * 0.011);
     const uniforms: FaceUniforms = {
-      bbDetail: { value: new THREE.Vector4(recipe.shade, recipe.lift, recipe.iridescence > 0 ? recipe.filmShift : holoStamp ? 120 : 0, recipe.pastel) },
+      bbDetail: { value: new THREE.Vector4(recipe.shade * relief, recipe.lift, recipe.iridescence > 0 ? recipe.filmShift : holoStamp ? STAMP_FILM.shift : 0, recipe.pastel) },
       bbStamp: { value: mask },
       bbStampTexel: { value: new THREE.Vector2(1.25 / Math.max(1, spec.face.mask.width), 1.25 / Math.max(1, spec.face.mask.height)) },
       bbStampColor: { value: stampColor },
-      bbStampMix: { value: new THREE.Vector4(stamp.tint, stamp.shade, stamp.flatten, stamp.deboss) },
-      bbStampPbr: { value: new THREE.Vector4(stamp.roughness[0], stamp.roughness[1], stamp.metalness[0], stamp.metalness[1]) },
+      bbStampMix: { value: new THREE.Vector4(stamp.tint, stamp.shade, pressed.flatten, pressed.deboss) },
+      bbStampPbr: { value: new THREE.Vector4(pressed.roughness[0], pressed.roughness[1], pressed.metalness[0], pressed.metalness[1]) },
+      bbFoil: { value: new THREE.Vector4(pressed.gain - 1, pressed.wall, metalBoard ? 1 : 0, 0) },
+      bbCloth: { value: cloth.clone() },
+      bbUse: { value: new THREE.Vector4(sun, spec.use.rub, spec.spine && Array.isArray(stamp.color) ? spec.use.dull : 0, sunLift(sun, titleLuminance, luminance(cloth))) },
+      // A spine's long edges are its joints, which rub far less than its head and tail.
+      bbRub: { value: new THREE.Vector4(spec.spine ? rub.reach * 0.35 : rub.reach, rub.reach, 0, 0) },
       bbStampFx: { value: new THREE.Vector4(stamp.sheen, stamp.clearcoat, filmOutside, filmInside) },
       bbFaceSize: { value: new THREE.Vector2(spec.width, spec.height) },
-      bbEdge: { value: new THREE.Vector4(recipe.wear[0], recipe.wear[1], recipe.bevel[0], recipe.bevel[1]) },
+      bbEdge: { value: new THREE.Vector4(0, rub.amount, recipe.bevel[0], recipe.bevel[1]) },
       bbJoint: { value: new THREE.Vector4(spec.joint, jointWidth, spec.joint < 0 || look.joint === false ? 0 : recipe.joint, spec.round) },
     };
     applyBindingShader(material, uniforms, true);
@@ -339,10 +391,13 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     const jointAt = coverWidth * 0.034;
     const round = look.spineRound ?? 0.35;
     const grain = Math.max(0.25, bookHeight / REFERENCE_HEIGHT);
+    const near = nearness(bookHeight, look.presented);
+    const boardNear = look.presented === undefined ? Math.max(near, BOARD_NEAR) : near;
+    const use = useOf(look.handled, look.age);
 
-    const front = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.front, width: coverWidth, height: bookHeight, joint: jointAt, round: 0, grain }, own);
-    const back = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.back, width: coverWidth, height: bookHeight, joint: coverWidth - jointAt, round: 0, grain }, own);
-    const spine = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.spine, width: spineWidth, height: bookHeight, joint: -1, round, grain }, own);
+    const front = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.front, width: coverWidth, height: bookHeight, joint: jointAt, round: 0, grain, near: boardNear, spine: false, use }, own);
+    const back = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.back, width: coverWidth, height: bookHeight, joint: coverWidth - jointAt, round: 0, grain, near: boardNear, spine: false, use }, own);
+    const spine = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.spine, width: spineWidth, height: bookHeight, joint: -1, round, grain, near, spine: true, use }, own);
 
     // The board edges are a few px wide: the binding's colour and finish, without its relief.
     const boardEdge = bindingMaterial(recipe, cloth);
@@ -358,13 +413,22 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     own.add(boardEdge);
 
     const sheets = pagesTextures();
-    const pagesMaterial = new THREE.MeshStandardMaterial({
-      map: repeated(sheets.color, Math.max(0.05, spineWidth / (sheets.span * grain)), 1, own),
+    const sheetColor = repeated(sheets.color, Math.max(0.05, spineWidth / (sheets.span * grain)), 1, own);
+    // Paper lets light through: the block gives back a little of its own colour even in the shade of its
+    // boards, so its edges read as paper and not as grey card. The sheen lays a soft band across them.
+    const pagesMaterial = new THREE.MeshPhysicalMaterial({
+      map: sheetColor,
+      emissiveMap: sheetColor,
+      emissive: new THREE.Color(1, 1, 1),
+      emissiveIntensity: PAPER.glow,
       normalMap: repeated(sheets.normal, Math.max(0.05, spineWidth / (sheets.span * grain)), 1, own),
-      roughness: 0.94,
+      roughness: 0.88,
       metalness: 0,
+      sheen: PAPER.sheen,
+      sheenRoughness: 0.5,
+      sheenColor: new THREE.Color(1, 0.97, 0.9),
     });
-    pagesMaterial.normalScale.setScalar(0.55);
+    pagesMaterial.normalScale.setScalar(0.4);
     own.add(pagesMaterial);
 
     // Endpapers: a plain sheet that takes a little of the binding's colour.
@@ -388,6 +452,7 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
       boardEdge,
       pages: pagesMaterial,
       endpaper,
+      leaf: leafPaper(),
       dispose() {
         for (const item of own) {
           item.dispose();
@@ -396,6 +461,25 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
         own.clear();
       },
     };
+  }
+
+  function leafPaper(): THREE.Material {
+    if (!leaf) {
+      if (disposed) throw new Error('The material kit has been disposed.');
+      leaf = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color().setRGB(0.957, 0.925, 0.859, THREE.SRGBColorSpace),
+        emissive: new THREE.Color().setRGB(0.957, 0.925, 0.859, THREE.SRGBColorSpace),
+        emissiveIntensity: PAPER.leafGlow,
+        roughness: 0.86,
+        metalness: 0,
+        sheen: PAPER.sheen,
+        sheenRoughness: 0.5,
+        sheenColor: new THREE.Color(1, 0.97, 0.9),
+        side: THREE.DoubleSide,
+      });
+      live.add(leaf);
+    }
+    return leaf;
   }
 
   function floor(look: string, size?: { width: number; depth: number }): THREE.Material {
@@ -444,6 +528,9 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
   return {
     volume,
     floor,
+    get leaf() {
+      return leafPaper();
+    },
     get environment() {
       if (!studio) {
         if (disposed) throw new Error('The material kit has been disposed.');
@@ -459,6 +546,7 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
       floors.clear();
       woods.clear();
       pages = undefined;
+      leaf = undefined;
       studio?.dispose();
       studio = undefined;
     },

@@ -5,12 +5,14 @@
  *
  * Address parameters, for looking at one thing: `only` (a binding, or `floors`), `stamp`, `ground`
  * (`paper` or `night`), `t` (freeze the clock at this many seconds), `yaw` (hold this angle, radians),
- * `at` (pointer position as `x,y`, each -1 to 1), `quality` (`high` or `low`).
+ * `at` (pointer position as `x,y`, each -1 to 1), `quality` (`high` or `low`), `near` (0 draws the
+ * materials as on a volume at shelf distance, 1 as on a cover shown large; left out, it follows the size),
+ * `handled` (0 to 1) and `age` (days since saved), which wear the volumes.
  */
 import '../src/styles/base.css';
 import './example.css';
 import * as THREE from 'three';
-import { createMaterialKit, type VolumeMaterials } from '../src/studio/materials';
+import { createMaterialKit, nearness, type VolumeMaterials } from '../src/studio/materials';
 import { BINDINGS, BINDING_LABELS, STAMPS, STAMP_LABELS, isBinding, isStamp, type Binding, type PaintedFace, type Stamp } from '../src/studio/types';
 
 interface Shown {
@@ -38,6 +40,11 @@ const SIZE = { spineWidth: 46, bookHeight: 300, coverWidth: 196 };
 const SERIF = "'Newsreader Variable', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif";
 
 const params = new URLSearchParams(location.search);
+/** `near` in the address holds how near the volumes count as drawn: 0 shelf distance, 1 shown large. */
+const nearOverride = params.has('near') ? Math.min(1, Math.max(0, Number(params.get('near')) || 0)) : undefined;
+/** `handled` (0 to 1) and `age` (days) in the address wear the volumes: rubbed corners, a sunned spine, dulled foil. */
+const handled = Number(params.get('handled')) || 0;
+const age = Number(params.get('age')) || 0;
 const stage = document.querySelector<HTMLElement>('#stage')!;
 const note = document.querySelector<HTMLElement>('#note')!;
 const stampPicker = document.querySelector<HTMLSelectElement>('#stamp')!;
@@ -222,12 +229,15 @@ function label(title: string, detail: string): HTMLElement {
   return element;
 }
 
+/** How large the lab draws its volumes against their painted size; set by the layout before they are built. */
+let drawnScale = 1;
+
 function buildVolume(binding: Binding, stampOverride: Stamp | undefined, seed: number): Volume {
   const shown = SHOWN[binding];
   const stamp = stampOverride ?? shown.stamp;
   const scale = Math.min(3, Math.max(2, Math.ceil(window.devicePixelRatio || 1) + 1));
   const materials = kit.volume(
-    { binding, stamp, cloth: shown.cloth, ink: shown.ink, seed, size: SIZE },
+    { binding, stamp, cloth: shown.cloth, ink: shown.ink, seed, size: SIZE, presented: nearOverride ?? nearness(SIZE.bookHeight * drawnScale), handled, age },
     { front: paintFront(shown, scale), spine: paintSpine(shown, scale), back: paintBack(shown, scale) },
   );
   const { spineWidth: d, bookHeight: h, coverWidth: w } = SIZE;
@@ -281,6 +291,7 @@ function build(): void {
     });
   } else {
     const shownBindings = isBinding(only) ? [only] : [...BINDINGS];
+    drawnScale = scaleFor(shownBindings.length);
     volumes = shownBindings.map((binding, index) => buildVolume(binding, stamp, 101 + index * 37));
   }
   layout();
@@ -288,6 +299,16 @@ function build(): void {
 
 let width = 1;
 let height = 1;
+
+/** The scale `count` volumes are drawn at in a stage of the present size. */
+function scaleFor(count: number): number {
+  const w = Math.max(1, stage.clientWidth);
+  const h = Math.max(1, stage.clientHeight);
+  if (count === 1) return Math.min((h - 90) / SIZE.bookHeight, (w - 60) / (SIZE.coverWidth + 80), 2.6);
+  const columns = w > 1080 ? 4 : w > 560 ? 2 : 1;
+  const rows = Math.ceil(count / columns);
+  return Math.min(1.15, (w / columns - 70) / (SIZE.coverWidth + 30), (Math.max(h / rows, 1) - 120) / SIZE.bookHeight);
+}
 
 function layout(): void {
   width = Math.max(1, stage.clientWidth);
@@ -313,7 +334,7 @@ function layout(): void {
     return;
   }
   if (volumes.length === 1) {
-    const scale = Math.min((height - 90) / SIZE.bookHeight, (width - 60) / (SIZE.coverWidth + 80), 2.6);
+    const scale = scaleFor(1);
     const volume = volumes[0]!;
     volume.group.scale.setScalar(scale);
     volume.group.position.set(0, 14, 0);
@@ -325,7 +346,7 @@ function layout(): void {
   const rows = Math.ceil(volumes.length / columns);
   const cellWidth = width / columns;
   const cellHeight = Math.max(height / rows, 1);
-  const scale = Math.min(1.15, (cellWidth - 70) / (SIZE.coverWidth + 30), (cellHeight - 120) / SIZE.bookHeight);
+  const scale = scaleFor(volumes.length);
   volumes.forEach((volume, index) => {
     const column = index % columns;
     const row = Math.floor(index / columns);

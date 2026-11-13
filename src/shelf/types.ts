@@ -46,6 +46,13 @@ export interface ShelfItem {
   binding?: string;
   /** How the title is put on: `gold`, `silver`, `copper`, `holo`, `blind` or `ink`. Left out, chosen from the binding. */
   stamp?: string;
+  /**
+   * How much the volume has been handled, 0 (never opened) to 1 (read through and returned to). A
+   * renderer that draws materials may show it as wear: rubbed corners, dulled foil. The CSS shelf ignores it.
+   */
+  handled?: number;
+  /** Days since the volume was put on the shelf. A renderer that draws materials may fade its spine a little. */
+  age?: number;
 }
 
 /** One frame of the shelf. */

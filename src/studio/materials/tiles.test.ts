@@ -108,7 +108,7 @@ describe('binding surfaces', () => {
     }
   });
 
-  it('makes linen coarser and less even than book cloth', () => {
+  it('makes linen less even than book cloth', () => {
     const spread = (made: Surface) => {
       let mean = 0;
       for (const value of made.shade) mean += value;
@@ -118,6 +118,22 @@ describe('binding surfaces', () => {
       return variance / made.shade.length;
     };
     expect(spread(linenSurface(128))).toBeGreaterThan(spread(clothSurface(128)));
+  });
+
+  it('grains leather finely: a pebble is a twelfth of the tile or less', () => {
+    const size = 96;
+    const leather = leatherSurface(size);
+    // Creases are the deep lines between pebbles. Count the pebbles a row crosses by its runs of high ground.
+    let runs = 0;
+    for (let y = 0; y < size; y += 8) {
+      let high = false;
+      for (let x = 0; x < size; x += 1) {
+        const now = leather.height[y * size + x]! > 0.3;
+        if (now && !high) runs += 1;
+        high = now;
+      }
+    }
+    expect(runs / (size / 8)).toBeGreaterThanOrEqual(6);
   });
 
   it('makes leather rougher in its creases than on its pebbles', () => {
@@ -178,12 +194,29 @@ describe('holographic flakes', () => {
     expect(high - low).toBeGreaterThan(120);
   });
 
-  it('lets a few flakes lean far and most lie nearly flat', () => {
-    let leaning = 0;
-    for (let at = 0; at < tile.normal.length; at += 4) if (tile.normal[at + 2]! < 253) leaning += 1;
-    const share = leaning / (tile.normal.length / 4);
-    expect(share).toBeGreaterThan(0.02);
-    expect(share).toBeLessThan(0.2);
+  it('lays every flake nearly flat, each leaning its own way', () => {
+    const leans = new Set<number>();
+    for (let at = 0; at < tile.normal.length; at += 4) {
+      // A flake that leaned far would mirror a dark corner of the room and show as a dark speck.
+      expect(tile.normal[at + 2]!).toBeGreaterThanOrEqual(254);
+      leans.add(tile.normal[at]! * 256 + tile.normal[at + 1]!);
+    }
+    expect(leans.size).toBeGreaterThan(8);
+  });
+
+  it('never makes a flake darker than the sheet, and makes one in twenty brighter', () => {
+    const big = flakeTile(128, 8);
+    let brighter = 0;
+    for (let at = 0; at < big.detail.length; at += 4) {
+      // Shade: 127 or 128 leaves the colour as it is.
+      expect(big.detail[at]!).toBeGreaterThanOrEqual(127);
+      if (big.detail[at]! > 130) brighter += 1;
+      // All equally smooth: a smoother flake would mirror one spot of the room and mostly show dark.
+      expect(big.detail[at + 1]!).toBeGreaterThanOrEqual(229);
+    }
+    const share = brighter / (big.detail.length / 4);
+    expect(share).toBeGreaterThan(0.01);
+    expect(share).toBeLessThan(0.12);
   });
 
   it('wraps without a seam in its film', () => {
@@ -206,7 +239,8 @@ describe('page edges', () => {
       blue += pages.color[at + 2]!;
     }
     expect(red).toBeGreaterThan(blue * 1.05);
-    expect(red / (pages.color.length / 4)).toBeGreaterThan(170);
+    // Bright paper, not grey card.
+    expect(red / (pages.color.length / 4)).toBeGreaterThan(215);
     // Lines run along v: colour changes far more across the sheets than along them.
     let acrossSheets = 0;
     let alongSheets = 0;
