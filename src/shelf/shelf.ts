@@ -116,6 +116,16 @@ const TAP_SLOP = 10;
 const TAP_MAX_MS = 700;
 /** After a touch that was held too long to be a tap, the click the browser still sends is ignored for this long, in ms. */
 const HELD_CLICK_MS = 400;
+/**
+ * A mouse that crosses the scene faster than this many px per ms is on its way somewhere else, and no spine
+ * rises to it. Its speed is taken over stretches of at least `PASSING_SPAN_MS`. It goes on counting as
+ * passing until `PASSING_REST_MS` have gone by without such a stretch: by then it has slowed down or
+ * stopped. Moves further apart than `PASSING_STALE_MS` say nothing about speed.
+ */
+const PASSING_SPEED = 0.4;
+const PASSING_SPAN_MS = 16;
+const PASSING_REST_MS = 60;
+const PASSING_STALE_MS = 150;
 /** A touch that begins this close to the side of the window is the system's own edge swipe, in px. */
 const EDGE_PX = 20;
 const MIN_SCALE = 0.5;
@@ -1165,8 +1175,40 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     if (book) touchDown = { id: event.pointerId, x: event.clientX, y: event.clientY, time: event.timeStamp, book };
   };
 
+  /** Where the mouse was when its speed was last taken, and the wait that ends its passing. */
+  let passingFrom: { x: number; y: number; time: number } | null = null;
+  let passingTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Tells a mouse that is crossing the row from one that has come to a volume. While it is passing the
+   * shelf says so in `data-passing`, and the style sheet raises no spine: a sweep along the row would
+   * otherwise play the spines like piano keys.
+   */
+  function notePassing(event: PointerEvent): void {
+    if (event.pointerType !== 'mouse') return;
+    const from = passingFrom;
+    const span = from ? event.timeStamp - from.time : Number.POSITIVE_INFINITY;
+    if (span < PASSING_SPAN_MS) return;
+    passingFrom = { x: event.clientX, y: event.clientY, time: event.timeStamp };
+    if (!from || span > PASSING_STALE_MS) return;
+    if (Math.hypot(event.clientX - from.x, event.clientY - from.y) / span < PASSING_SPEED) return;
+    if (passingTimer === null) root.dataset.passing = '1';
+    else {
+      timers.delete(passingTimer);
+      clearTimeout(passingTimer);
+    }
+    const wait = setTimeout(() => {
+      timers.delete(wait);
+      passingTimer = null;
+      delete root.dataset.passing;
+    }, PASSING_REST_MS);
+    passingTimer = wait;
+    timers.add(wait);
+  }
+
   // A touch that ever leaves the slop radius is a drag for good, even if it comes back to where it started.
   const onPointerMove = (event: PointerEvent): void => {
+    notePassing(event);
     if (!touchDown || touchDown.id !== event.pointerId) return;
     if (Math.hypot(event.clientX - touchDown.x, event.clientY - touchDown.y) > TAP_SLOP) touchDown = null;
   };

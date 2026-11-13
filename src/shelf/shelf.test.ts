@@ -1246,6 +1246,73 @@ describe('mountShelf taps and touches', () => {
   });
 });
 
+describe('mountShelf and a mouse crossing the row', () => {
+  /** A mouse move over the scene at a chosen place and moment. */
+  const move = (shelf: ShelfHandle, x: number, time: number, kind = 'mouse'): void => {
+    const event = new MouseEvent('pointermove', { bubbles: true, clientX: x, clientY: 200 });
+    Object.defineProperties(event, { pointerId: { value: 1 }, pointerType: { value: kind }, timeStamp: { value: time } });
+    shelf.surface.dispatchEvent(event);
+  };
+  const passing = (shelf: ShelfHandle): boolean => shelf.element.dataset.passing === '1';
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('marks a mouse that sweeps along the row as passing, and no longer once it has slowed down or stopped', () => {
+    const { shelf } = mount();
+    expect(passing(shelf)).toBe(false);
+    // One spine width every frame: about a px a ms.
+    for (let frame = 0; frame <= 6; frame++) {
+      move(shelf, 200 + frame * 16, frame * 16);
+      vi.advanceTimersByTime(16);
+    }
+    expect(passing(shelf)).toBe(true);
+    // It stops on a volume: after a moment it is no longer passing, and the style sheet may raise the spine.
+    vi.advanceTimersByTime(40);
+    expect(passing(shelf)).toBe(true);
+    vi.advanceTimersByTime(30);
+    expect(passing(shelf)).toBe(false);
+    // Sweeping on and then creeping: the slow moves do not keep it passing.
+    for (let frame = 0; frame <= 4; frame++) {
+      move(shelf, 400 + frame * 16, 1000 + frame * 16);
+      vi.advanceTimersByTime(16);
+    }
+    expect(passing(shelf)).toBe(true);
+    for (let frame = 1; frame <= 5; frame++) {
+      move(shelf, 464 + frame * 2, 1064 + frame * 16);
+      vi.advanceTimersByTime(16);
+    }
+    expect(passing(shelf)).toBe(false);
+  });
+
+  it('never marks a slow mouse, a touch, or a mouse that only starts off again after a rest', () => {
+    const { shelf } = mount();
+    // A fifth of a px a ms.
+    for (let frame = 0; frame <= 10; frame++) move(shelf, 200 + frame * 3, frame * 16);
+    expect(passing(shelf)).toBe(false);
+    for (let frame = 0; frame <= 6; frame++) move(shelf, 200 + frame * 16, 2000 + frame * 16, 'touch');
+    expect(passing(shelf)).toBe(false);
+    // Two moves a long time apart say nothing about speed, however far apart they are.
+    move(shelf, 100, 5000);
+    move(shelf, 700, 5400);
+    expect(passing(shelf)).toBe(false);
+  });
+
+  it('forgets the wait when the shelf is destroyed', () => {
+    const { shelf } = mount();
+    move(shelf, 200, 0);
+    move(shelf, 240, 20);
+    expect(passing(shelf)).toBe(true);
+    shelf.destroy();
+    expect(() => vi.advanceTimersByTime(200)).not.toThrow();
+  });
+});
+
 describe('mountShelf under a dragging hand', () => {
   let now = 0;
   let frames: FrameRequestCallback[] = [];
