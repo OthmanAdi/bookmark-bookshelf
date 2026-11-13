@@ -71,7 +71,7 @@ export function legibleStamp(first: Stamp, cloth: string, needs: StampNeeds = {}
 
 export function bindingFor(item: FrameVolume['item'], cloth?: string, needs: StampNeeds & { look?: string } = {}): { binding: Binding; stamp: Stamp } {
   const seed = Math.abs(Math.floor(item.seed ?? 0));
-  const binding = resolveBinding(item.binding, seed);
+  const binding = resolveBinding(item.binding, seed, needs.look);
   const stamp = resolveStamp(item.stamp, binding, seed);
   // What the person chose stands as chosen, readable or not.
   return { binding, stamp: isStamp(item.stamp) || cloth === undefined ? stamp : legibleStamp(stamp, cloth, needs) };

@@ -69,6 +69,13 @@ describe('choosing a stamp that can be read', () => {
     expect(legibleStamp('gold', '#c9982f', { ink: '#211c12' })).toBe('ink');
   });
 
+  it('binds a Pocket Paperback in paper or gloss unless the person chose its binding', () => {
+    for (let seed = 1; seed < 400; seed += 7) {
+      expect(['paper', 'gloss']).toContain(bindingFor({ id: 'a', title: 'A', seed }, '#ef5b3a', { look: 'pocket' }).binding);
+    }
+    expect(bindingFor({ id: 'a', title: 'A', seed: 7, binding: 'velvet' }, '#ef5b3a', { look: 'pocket' }).binding).toBe('velvet');
+  });
+
   it('gives the same volume the same dress on every visit', () => {
     const item = { id: 'a', title: 'A', seed: 1234 };
     expect(bindingFor(item, '#1f5a5c')).toEqual(bindingFor(item, '#1f5a5c'));

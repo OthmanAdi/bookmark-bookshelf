@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BINDINGS, STAMPS, type Binding, type Stamp } from '../types';
-import { BINDING_WEIGHTS, STAMP_WEIGHTS, resolveBinding, resolveStamp } from './resolve';
+import { BINDING_WEIGHTS, LOOK_BINDING_WEIGHTS, STAMP_WEIGHTS, resolveBinding, resolveStamp } from './resolve';
 
 const seeds = Array.from({ length: 6000 }, (_, index) => 101 + index * 37);
 
@@ -29,6 +29,19 @@ describe('resolveBinding', () => {
     expect(share('velvet') + share('foil') + share('holo')).toBeLessThan(0.12);
     expect(share('cloth')).toBeGreaterThan(share('leather'));
     expect(share('leather')).toBeGreaterThan(share('gloss'));
+  });
+
+  it('binds every Pocket Paperback in printed card, matt or laminated', () => {
+    const seen = new Set<Binding>();
+    for (const seed of seeds.slice(0, 2000)) seen.add(resolveBinding(undefined, seed, 'pocket'));
+    expect([...seen].sort()).toEqual(['gloss', 'paper']);
+    expect(LOOK_BINDING_WEIGHTS.pocket!.map(([binding]) => binding)).toEqual(['paper', 'gloss']);
+    // The item's own binding still wins, and the other looks keep the mixed shelf.
+    expect(resolveBinding('leather', 5, 'pocket')).toBe('leather');
+    for (const look of ['paper', 'oak', 'night', 'toString', '']) {
+      for (const seed of seeds.slice(0, 50)) expect(resolveBinding(undefined, seed, look)).toBe(resolveBinding(undefined, seed));
+    }
+    expect(resolveBinding(undefined, 77, 'pocket')).toBe(resolveBinding(undefined, 77, 'pocket'));
   });
 
   it('does not run in a pattern along consecutive seeds', () => {

@@ -32,7 +32,7 @@ import {
   type WoodOptions,
 } from './tiles';
 
-export { resolveBinding, resolveStamp, BINDING_WEIGHTS, STAMP_WEIGHTS } from './resolve';
+export { resolveBinding, resolveStamp, BINDING_WEIGHTS, LOOK_BINDING_WEIGHTS, STAMP_WEIGHTS } from './resolve';
 export { BINDING_RECIPES, STAMP_RECIPES, nearness, reliefAt, stampAt, type BindingRecipe, type StampRecipe } from './recipes';
 
 export interface VolumeLook {

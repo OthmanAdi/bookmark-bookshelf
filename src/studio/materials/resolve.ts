@@ -19,6 +19,17 @@ export const BINDING_WEIGHTS: Weighted<Binding> = [
   ['holo', 2],
 ];
 
+/**
+ * What a look binds its volumes in when it is not the mixed shelf above. Pocket Paperbacks are printed
+ * card, matt or laminated: no cloth, no leather, no velvet.
+ */
+export const LOOK_BINDING_WEIGHTS: Readonly<Record<string, Weighted<Binding>>> = {
+  pocket: [
+    ['paper', 62],
+    ['gloss', 38],
+  ],
+};
+
 /** What a binder would put on each binding. A stamp that cannot be seen on a binding is left out. */
 export const STAMP_WEIGHTS: Record<Binding, Weighted<Stamp>> = {
   cloth: [['gold', 34], ['ink', 24], ['blind', 16], ['silver', 12], ['copper', 11], ['holo', 3]],
@@ -42,10 +53,14 @@ function pick<T>(weights: Weighted<T>, at: number): T {
   return weights[weights.length - 1]![0];
 }
 
-/** Deterministic choice when an item names no binding. Same seed, same answer. */
-export function resolveBinding(binding: string | undefined, seed: number): Binding {
+/**
+ * Deterministic choice when an item names no binding. Same seed and look, same answer. A binding the
+ * item names stands in every look.
+ */
+export function resolveBinding(binding: string | undefined, seed: number, look?: string): Binding {
   if (isBinding(binding)) return binding;
-  return pick(BINDING_WEIGHTS, hash1(seed, 1));
+  const weights = look !== undefined && Object.hasOwn(LOOK_BINDING_WEIGHTS, look) ? LOOK_BINDING_WEIGHTS[look]! : BINDING_WEIGHTS;
+  return pick(weights, hash1(seed, 1));
 }
 
 /** Deterministic choice of stamp for a binding when an item names none. Same seed, same answer. */
