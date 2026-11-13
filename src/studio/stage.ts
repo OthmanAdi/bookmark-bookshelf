@@ -61,10 +61,10 @@ export interface Room {
  * the CSS drawing of the same look: switching drawings changes the material, not the brightness.
  */
 export const ROOMS: Record<string, Room> = {
-  paper: { board: '#e2dccd', lamp: false, key: 1.7, environment: 0.16, keyColor: '#fffaf3', exposure: 1.68, sky: 1.2, lip: 6, front: 0.2, contact: 0.62 },
-  oak: { board: '#7a5636', lamp: false, key: 1.85, environment: 0.16, keyColor: '#fff8ee', exposure: 1.75, sky: 1.45, lip: 8, front: 0.42, contact: 0.66 },
+  paper: { board: '#e2dccd', lamp: false, key: 2.3, environment: 0.16, keyColor: '#fffaf3', exposure: 1.66, sky: 0.55, lip: 6, front: 0.2, contact: 0.62 },
+  oak: { board: '#7a5636', lamp: false, key: 2.45, environment: 0.16, keyColor: '#fff8ee', exposure: 1.73, sky: 0.7, lip: 8, front: 0.42, contact: 0.66 },
   night: { board: '#2a211b', lamp: true, key: 5.2, environment: 0.08, keyColor: '#ffe3c0', exposure: 1.15, sky: 0.55, lip: 5, front: 0.85, contact: 0.5 },
-  pocket: { board: '#d2bd98', lamp: false, key: 1.65, environment: 0.16, keyColor: '#fffbf5', exposure: 1.8, sky: 1.2, lip: 6, front: 0.2, contact: 0.62 },
+  pocket: { board: '#d2bd98', lamp: false, key: 2.2, environment: 0.16, keyColor: '#fffbf5', exposure: 1.78, sky: 0.55, lip: 6, front: 0.2, contact: 0.62 },
 };
 
 export function roomOf(variant: string): Room {
@@ -88,8 +88,17 @@ export function shoulder(peak: number): number {
 }
 
 const TONE_STUB = 'vec3 CustomToneMapping( vec3 color ) { return color; }';
+/**
+ * Strength of the toe, in linear light after exposure: a value this dark comes out at half, a cream at
+ * about 96 percent. The diffuse sky that lights a shelf from all round lifts the darks; the toe takes
+ * that lift back without taking the room's light away.
+ */
+const TOE = '0.03';
+
 const TONE_CURVE = /* glsl */ `vec3 CustomToneMapping( vec3 color ) {
 	color *= toneMappingExposure;
+	// A toe: the darks go down toward the depth the CSS drawing gives them, the light tones hardly move.
+	color = color * color / ( color + ${TOE} );
 	float peak = max( color.r, max( color.g, color.b ) );
 	if ( peak < ${SHOULDER} ) return color;
 	float d = 1.0 - ${SHOULDER};
