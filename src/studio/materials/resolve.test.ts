@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BINDINGS, STAMPS, type Binding, type Stamp } from '../types';
-import { BINDING_WEIGHTS, STAMP_WEIGHTS, resolveBinding, resolveStamp } from './resolve';
+import { BINDING_WEIGHTS, LOOK_BINDING_WEIGHTS, STAMP_WEIGHTS, resolveBinding, resolveStamp } from './resolve';
 
 const seeds = Array.from({ length: 6000 }, (_, index) => 101 + index * 37);
 
@@ -27,8 +27,24 @@ describe('resolveBinding', () => {
     }
     expect(share('cloth') + share('linen')).toBeGreaterThan(0.5);
     expect(share('velvet') + share('foil') + share('holo')).toBeLessThan(0.12);
+    // A whole board of metal or holographic foil is a showpiece: about one volume in fifty.
+    expect(share('foil') + share('holo')).toBeLessThan(0.035);
+    expect(share('holo')).toBeLessThan(0.016);
     expect(share('cloth')).toBeGreaterThan(share('leather'));
     expect(share('leather')).toBeGreaterThan(share('gloss'));
+  });
+
+  it('binds every Pocket Paperback in printed card, matt or laminated', () => {
+    const seen = new Set<Binding>();
+    for (const seed of seeds.slice(0, 2000)) seen.add(resolveBinding(undefined, seed, 'pocket'));
+    expect([...seen].sort()).toEqual(['gloss', 'paper']);
+    expect(LOOK_BINDING_WEIGHTS.pocket!.map(([binding]) => binding)).toEqual(['paper', 'gloss']);
+    // The item's own binding still wins, and the other looks keep the mixed shelf.
+    expect(resolveBinding('leather', 5, 'pocket')).toBe('leather');
+    for (const look of ['paper', 'oak', 'night', 'toString', '']) {
+      for (const seed of seeds.slice(0, 50)) expect(resolveBinding(undefined, seed, look)).toBe(resolveBinding(undefined, seed));
+    }
+    expect(resolveBinding(undefined, 77, 'pocket')).toBe(resolveBinding(undefined, 77, 'pocket'));
   });
 
   it('does not run in a pattern along consecutive seeds', () => {
@@ -65,6 +81,21 @@ describe('resolveStamp', () => {
     expect(count('leather', 'gold')).toBeGreaterThan(0.45);
     expect(count('paper', 'ink')).toBeGreaterThan(0.58);
     expect(count('foil', 'gold')).toBe(0);
+  });
+
+  it('puts holographic foil on a shelf as a stamp far more often than as a board', () => {
+    let boards = 0;
+    let stamps = 0;
+    for (const seed of seeds) {
+      const binding = resolveBinding(undefined, seed);
+      if (binding === 'holo') boards += 1;
+      else if (resolveStamp(undefined, binding, seed) === 'holo') stamps += 1;
+    }
+    expect(stamps).toBeGreaterThan(boards * 3);
+    const weight = (binding: Binding) => STAMP_WEIGHTS[binding].find(([stamp]) => stamp === 'holo')?.[1] ?? 0;
+    expect(weight('cloth')).toBeGreaterThan(0);
+    expect(weight('gloss')).toBeGreaterThan(weight('cloth'));
+    for (const binding of ['linen', 'leather', 'paper', 'velvet', 'foil', 'holo'] as const) expect(weight(binding)).toBe(0);
   });
 
   it('chooses the stamp apart from the binding', () => {

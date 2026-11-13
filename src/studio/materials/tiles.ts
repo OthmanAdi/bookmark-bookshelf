@@ -107,20 +107,26 @@ export function clothSurface(size: number, seed = 1): Surface {
   return weaveSurface(size, { threads: size / 8, slub: 0.12, gap: 0.05, fuzz: 0.1, tint: 0.1, seed });
 }
 
-/** Linen: fewer, thicker threads that swell and thin, each a little different in colour. */
+/**
+ * Linen: threads nearly as fine as book cloth's (the recipe lays the tile over less of the board, so on
+ * the book they are finer), that swell and thin in slubs and each differ a little in colour.
+ */
 export function linenSurface(size: number, seed = 2): Surface {
-  return weaveSurface(size, { threads: size / 16, slub: 0.55, gap: 0.12, fuzz: 0.2, tint: 0.2, seed });
+  return weaveSurface(size, { threads: size / 9, slub: 0.4, gap: 0.1, fuzz: 0.18, tint: 0.28, seed });
 }
 
 /**
- * Leather: pebbles parted by creases. The cells are pushed about by slow noise so no two pebbles match,
- * the tops are pitted with fine pores, and the creases are rougher and darker than the polished tops.
+ * Leather: small pebbles parted by creases, as on goatskin. The cells are pushed about by slow noise so
+ * no two pebbles match, a second and larger run of cells lifts and sinks whole groups of them, the tops
+ * are pitted with fine pores, and the creases are rougher and darker than the polished tops.
  */
 export function leatherSurface(size: number, seed = 3): Surface {
   const out = surface(size);
-  const coarse = Math.max(4, Math.round(size / 20));
-  const fine = coarse * 3;
+  const coarse = Math.max(4, Math.round(size / 12));
+  const broad = Math.max(2, Math.round(coarse / 3));
+  const fine = coarse * 2;
   const near: Cells = { f1: 0, f2: 0, id: 0 };
+  const group: Cells = { f1: 0, f2: 0, id: 0 };
   for (let y = 0; y < size; y += 1) {
     const v = y / size;
     for (let x = 0; x < size; x += 1) {
@@ -131,10 +137,13 @@ export function leatherSurface(size: number, seed = 3): Surface {
       const pebble = smoothstep(0.02, 0.3, near.f2 - near.f1);
       const dome = 1 - Math.min(1, near.f1 * 1.15);
       const lift = 0.8 + 0.2 * near.id;
+      // The larger pebbles: whole groups stand a little higher, with a shallow fold between them.
+      cells((u + pushY * 0.05) * broad, (v + pushX * 0.05) * broad, broad, seed + 17, group, 0.9);
+      const swell = 0.76 + 0.24 * smoothstep(0, 0.35, group.f2 - group.f1) * (0.7 + 0.3 * group.id);
       // Pores: fine pits scattered over the pebbles.
       const pore = smoothstep(0.12, 0.4, valueNoise(u * fine, v * fine, fine, fine, seed + 31));
       const wrinkle = fbm(u, v, 3, 3, seed + 9, 2);
-      const height = clamp01(pebble * lift * (0.62 + 0.2 * dome) + 0.12 * pore * pebble + 0.1 * wrinkle);
+      const height = clamp01(pebble * lift * swell * (0.62 + 0.2 * dome) + 0.1 * pore * pebble + 0.1 * wrinkle);
       const index = y * size + x;
       out.height[index] = height;
       const crease = 1 - pebble;
@@ -285,8 +294,8 @@ export interface FlakeTile {
 }
 
 /**
- * Holographic foil. The sheet is made of small flakes; most lie nearly flat and a few lean far enough to
- * flash on their own, which reads as glitter. The film thickness drifts slowly across the tile and steps
+ * Holographic foil. The sheet is made of small flakes that all lie nearly flat; one in twenty is a little
+ * brighter than the sheet, which reads as glitter. None is darker than the sheet. The film thickness drifts slowly across the tile and steps
  * very slightly from flake to flake, so the colour runs in smooth bands with a grain at close range.
  */
 export function flakeTile(size: number, seed = 8): FlakeTile {
@@ -304,7 +313,10 @@ export function flakeTile(size: number, seed = 8): FlakeTile {
       const id = near.id;
       const angle = hash2(Math.floor(id * 65536), 3, seed) * Math.PI * 2;
       const pick = hash2(Math.floor(id * 65536), 5, seed);
-      const lean = pick > 0.93 ? 0.14 + 0.2 * hash2(Math.floor(id * 65536), 7, seed) : 0.008 + 0.03 * pick;
+      const spark = pick > 0.95;
+      // Every flake lies nearly flat. One that leaned far would mirror a dark corner of the room most of
+      // the time and show as a dark speck.
+      const lean = spark ? 0.03 + 0.03 * hash2(Math.floor(id * 65536), 7, seed) : 0.006 + 0.02 * pick;
       const nx = Math.cos(angle) * lean;
       const ny = Math.sin(angle) * lean;
       const nz = Math.sqrt(1 - lean * lean);
@@ -313,9 +325,10 @@ export function flakeTile(size: number, seed = 8): FlakeTile {
       normal[at + 1] = Math.round((ny * 0.5 + 0.5) * 255);
       normal[at + 2] = Math.round((nz * 0.5 + 0.5) * 255);
       normal[at + 3] = 255;
-      const edge = smoothstep(0.0, 0.12, near.f2 - near.f1);
-      detail[at] = Math.round((0.44 + 0.06 * edge + 0.1 * (id - 0.5)) * 255);
-      detail[at + 1] = Math.round((0.8 + 0.2 * hash2(Math.floor(id * 65536), 9, seed)) * 255);
+      // A flake is never darker than the sheet it lies in: the ones that stand out are brighter and smoother.
+      detail[at] = Math.round((0.5 + (spark ? 0.1 + 0.12 * id : 0)) * 255);
+      // All equally smooth: a smoother flake mirrors one spot of the room, which is dark more often than bright.
+      detail[at + 1] = Math.round((0.9 + 0.1 * hash2(Math.floor(id * 65536), 9, seed)) * 255);
       detail[at + 2] = 255;
       detail[at + 3] = 255;
       // A slow run of bands that closes on itself, plus a step per flake.
@@ -364,11 +377,12 @@ export function pagesTile(width = 256, rows = 64, seed = 9): PagesTile {
       const relief = clamp01(Math.sqrt(ridge) * (0.7 + 0.3 * setBack) - gathering * (1 - ridge));
       height[y * width + x] = relief;
       const grain = valueNoise(v * rows * 0.5, x, rows * 0.5, width, seed + 5);
-      const light = 0.66 + 0.26 * relief + 0.08 * (tone - 0.5) + 0.05 * (grain - 0.5) - gathering * 0.25 * (1 - ridge);
+      // Bright paper: the gaps between sheets are a soft line, not a grey one.
+      const light = 0.8 + 0.17 * relief + 0.06 * (tone - 0.5) + 0.04 * (grain - 0.5) - gathering * 0.2 * (1 - ridge);
       const at = (y * width + x) * 4;
-      color[at] = Math.round(clamp01(light * 0.985) * 255);
-      color[at + 1] = Math.round(clamp01(light * 0.95) * 255);
-      color[at + 2] = Math.round(clamp01(light * 0.86) * 255);
+      color[at] = Math.round(clamp01(light * 0.99) * 255);
+      color[at + 1] = Math.round(clamp01(light * 0.955) * 255);
+      color[at + 2] = Math.round(clamp01(light * 0.875) * 255);
       color[at + 3] = 255;
     }
   }

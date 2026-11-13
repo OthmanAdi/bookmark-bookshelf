@@ -219,7 +219,7 @@ export function createEditor(
   function showLook(turn: boolean): void {
     const item = draft();
     const colour = clothColor(dialog, item.cloth ?? '');
-    const bound = resolveBinding(item.binding, Math.abs(Math.floor(item.seed ?? 0)));
+    const bound = resolveBinding(item.binding, Math.abs(Math.floor(item.seed ?? 0)), lookOf().variant);
     stamp.note((value) => {
       const trouble = stampTrouble(value, bound, colour);
       return trouble ? STAMP_TROUBLE[trouble] : undefined;

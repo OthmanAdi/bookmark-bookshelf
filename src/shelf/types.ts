@@ -46,6 +46,13 @@ export interface ShelfItem {
   binding?: string;
   /** How the title is put on: `gold`, `silver`, `copper`, `holo`, `blind` or `ink`. Left out, chosen from the binding. */
   stamp?: string;
+  /**
+   * How much the volume has been handled, 0 (never opened) to 1 (read through and returned to). A
+   * renderer that draws materials may show it as wear: rubbed corners, dulled foil. The CSS shelf ignores it.
+   */
+  handled?: number;
+  /** Days since the volume was put on the shelf. A renderer that draws materials may fade its spine a little. */
+  age?: number;
 }
 
 /** One frame of the shelf. */
@@ -256,7 +263,7 @@ export interface ShelfFrame {
   /** Room under the floor line, in px from the bottom of the scene. */
   floorY: number;
   perspective: number;
-  /** Sideways give of the whole row under a pull, in px. */
+  /** Sideways give of the whole row while it is pulled past its first or last volume, in px. */
   rowGive: number;
   /** Space between two resting spines, in px. */
   gap: number;
@@ -291,8 +298,9 @@ export interface ShelfHandle {
   readonly loop: boolean;
   /**
    * True while the row is short enough to stand whole in the middle of the scene. Such a row does not
-   * travel: the position only says which volume is presented. A host that drags through `trackFrom`
-   * need do nothing about it: the row gives a little under the hand and a swipe is reported as a `step`.
+   * travel: the position only says which volume is presented, and part of the way between two volumes
+   * both are partly turned. A host that drags through `trackFrom` need do nothing about it: the position
+   * follows the hand as in any row, and a release is settled by whatever settles a travelling row.
    * Picking a spine, the arrow keys and the arrow buttons move along it as in any row.
    */
   readonly fixed: boolean;
@@ -303,9 +311,15 @@ export interface ShelfHandle {
   /**
    * For a drag that begins: returns a function from pointer x to the row position that keeps the grabbed
    * volume under the hand, whatever the spacing and however the volume turns on the way. It has the shape
-   * a gesture recogniser asks of a tracking function. Null when there are no volumes. On a row that stands
-   * still the position returned never changes: the row gives a little instead and settles back when the
-   * hand lets go, and a swipe is reported as a `step` intent. Reads layout once, when called.
+   * a gesture recogniser asks of a tracking function. Null when there are no volumes. Reads layout once,
+   * when called.
+   *
+   * A row that stands still cannot keep a volume under the hand, because its volumes stay where they are.
+   * There the position goes with the hand one volume for each pitch of travel, never past the first or the
+   * last volume, so the volumes turn as they are pulled and the host can carry the release on at the speed
+   * it had. Pulled past an end, the row itself gives a little (`ShelfFrame.rowGive`) and settles back when
+   * the hand lets go. Under reduced motion nothing follows the hand: the position returned never changes,
+   * and a swipe is reported as a `step` intent.
    */
   trackFrom(start: GrabStart): ((x: number) => number) | null;
   /** Layout size of a cover on the shelf at the current scale, before any turn or lean. */

@@ -40,6 +40,10 @@ export function createShowcaseView(options: ShowcaseViewOptions): ShowcaseView {
   let handle: ShowcaseHandle | null = null;
   let links: Bookmark[] = [];
 
+  /** Forced colours take the classic drawing: the lit one would paint over the colours the person chose. */
+  const forced = typeof matchMedia === 'function' ? matchMedia('(forced-colors: active)') : null;
+  const paintOf = (): 'classic' | 'studio' => (forced?.matches ? 'classic' : bookshelf.paint);
+
   const lookOf = (): ShowcaseLook => {
     const { name, geometry } = bookshelf.shelf.variant;
     return { variant: name, aspect: geometry.coverWidth / geometry.bookHeight };
@@ -104,7 +108,7 @@ export function createShowcaseView(options: ShowcaseViewOptions): ShowcaseView {
         items,
         index: Math.max(0, found),
         look: lookOf(),
-        paint: bookshelf.paint,
+        paint: paintOf(),
         label: 'Showcase',
         onRead: open,
         onEdit: options.edit,
@@ -119,7 +123,7 @@ export function createShowcaseView(options: ShowcaseViewOptions): ShowcaseView {
       return;
     }
     handle.setLook(lookOf());
-    handle.setPaint(bookshelf.paint);
+    handle.setPaint(paintOf());
     handle.setItems(items, found >= 0 ? found : handle.index);
     handle.refresh();
   }

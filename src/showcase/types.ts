@@ -74,8 +74,12 @@ export interface Drawing {
   destroy(): void;
 }
 
-/** How the book in view rests: turned to show its spine, its head tipped a little toward the viewer. Degrees. */
-export const REST = { yaw: 24, pitch: -5, roll: -1.5 } as const;
+/**
+ * How the book in view rests: turned to show its spine, its head tipped toward the viewer so the page
+ * block shows, and rolled a little so it leans toward the rail. Three faces are always in sight. Degrees;
+ * a negative roll is anticlockwise.
+ */
+export const REST = { yaw: 22, pitch: -10, roll: -4 } as const;
 
 /** How thick a book is drawn, as a share of its cover width, from the item's thickness (0 to 1). */
 export function thicknessShare(thickness: number | undefined): number {
@@ -84,8 +88,9 @@ export function thicknessShare(thickness: number | undefined): number {
 }
 
 /** The largest book that fits a stage, keeping room round it for its turn and its shadow. */
-export function fitBook(stageWidth: number, stageHeight: number, aspect: number): BookBox {
+export function fitBook(stageWidth: number, stageHeight: number, aspect: number, viewportHeight = stageHeight / 0.78): BookBox {
   const ratio = aspect > 0 && Number.isFinite(aspect) ? aspect : 0.68;
-  const height = Math.max(120, Math.min(stageHeight * 0.7, (stageWidth * 0.6) / ratio, 620));
+  // Three fifths of the window when the stage allows it: the book is the page, not an item on it.
+  const height = Math.max(120, Math.min(stageHeight * 0.78, viewportHeight * 0.6, (stageWidth * 0.62) / ratio, 720));
   return { width: height * ratio, height, perspective: height * 4.2, stageWidth, stageHeight };
 }

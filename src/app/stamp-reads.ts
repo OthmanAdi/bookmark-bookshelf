@@ -6,10 +6,10 @@
  * file loads three.js with it, so the few figures the test needs are kept here as well.
  */
 
-/** How each foil reads on a shelf, on average over what it mirrors. */
-const FOIL_READS: Readonly<Record<string, string>> = { gold: '#d9b45a', silver: '#d8d6cf', copper: '#c98a5e', holo: '#d8d6cf' };
-/** A spine title is how a link is found: a stamp must stand at least this far off its cloth. */
-const LEGIBLE = 3;
+/** How each foil reads on a resting spine, on average over what it mirrors. The kit's `FOIL_READS`. */
+const FOIL_READS: Readonly<Record<string, string>> = { gold: '#e4c06a', silver: '#e4e1db', copper: '#d49a78', holo: '#dcdce0' };
+/** A spine title is how a link is found: a stamp must stand at least this far off its cloth. The kit's `LEGIBLE`. */
+const LEGIBLE = 4.5;
 /** Boards that are metal themselves, where a foil title has nothing to stand against. */
 const METAL_BOARDS: readonly string[] = ['foil', 'holo'];
 

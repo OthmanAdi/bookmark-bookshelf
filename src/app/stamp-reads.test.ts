@@ -26,6 +26,13 @@ describe('stampTrouble', () => {
     for (const stamp of ['gold', 'silver', 'copper', 'holo']) expect(stampTrouble(stamp, 'linen', BONE_CLOTH)).toBe('cloth');
   });
 
+  it('holds a foil to 4.5:1, as Studio does when it chooses a stamp itself', () => {
+    // Gold on rust was the title a student could not find on the shelf: about 3.6:1.
+    expect(contrast('#e4c06a', '#a4442a')).toBeLessThan(4.5);
+    expect(stampTrouble('gold', 'cloth', '#a4442a')).toBe('cloth');
+    expect(stampTrouble('silver', 'cloth', '#a4442a')).toBeUndefined();
+  });
+
   it('says a foil is hard to read on a board that is metal itself, whatever the cloth', () => {
     expect(stampTrouble('gold', 'foil', INK_CLOTH)).toBe('binding');
     expect(stampTrouble('silver', 'holo', INK_CLOTH)).toBe('binding');

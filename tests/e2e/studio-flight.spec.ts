@@ -197,9 +197,25 @@ test.describe('the flight of a volume in Studio', () => {
     await centredControl(page).focus();
 
     await startWatching(page);
+    // A drawn frame can take long where WebGL runs in software, and the flight is short: the page itself
+    // presses Escape on the first frame on which the volume is on its way, so the turn is never missed.
+    const turned = page.evaluate(
+      () =>
+        new Promise<boolean>((resolve) => {
+          const shelf = document.querySelector('.bb-shelf');
+          const look = (): void => {
+            if (shelf?.getAttribute('data-open') !== 'moving') {
+              requestAnimationFrame(look);
+              return;
+            }
+            (document.activeElement ?? document).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+            resolve(true);
+          };
+          requestAnimationFrame(look);
+        }),
+    );
     await page.keyboard.press('Enter');
-    await expect(shelfOf(page)).toHaveAttribute('data-open', 'moving');
-    await page.keyboard.press('Escape');
+    expect(await turned).toBe(true);
     await expectReaderGone(page);
     const frames = await stopWatching(page);
 
@@ -209,6 +225,53 @@ test.describe('the flight of a volume in Studio', () => {
     await expect(readerOf(page)).toHaveCount(0);
     await expect(page.locator('.bb-flight')).toHaveCount(0);
     await expect(centredControl(page)).toBeFocused();
+  });
+
+  test('five flights there and back make no new WebGL context', async ({ page }) => {
+    // Ten flights, each drawn in software where there is no graphics card.
+    test.slow();
+    // Count every canvas that is given a WebGL context, from before the app starts.
+    await page.addInitScript(() => {
+      const made = new Set<HTMLCanvasElement>();
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, kind: string, ...rest: unknown[]) {
+        const context = (original as (...args: unknown[]) => unknown).call(this, kind, ...rest);
+        if (context && kind.startsWith('webgl')) made.add(this);
+        return context;
+      } as typeof HTMLCanvasElement.prototype.getContext;
+      Reflect.set(window, '__webglCanvases', made);
+    });
+    const contexts = (): Promise<number> => page.evaluate(() => (Reflect.get(window, '__webglCanvases') as Set<HTMLCanvasElement>).size);
+    await openStudio(page);
+    await centredControl(page).focus();
+    await afterTwoFrames(page);
+    const before = await contexts();
+    expect(before).toBeGreaterThan(0);
+    for (let cycle = 0; cycle < 5; cycle++) {
+      await page.keyboard.press('Enter');
+      await expectReaderOpen(page);
+      await page.keyboard.press('Escape');
+      await expectReaderGone(page);
+    }
+    // The volume in the air is drawn by the shelf's own renderer: no context is made for it, so none can be left behind.
+    expect(await contexts()).toBe(before);
+    await expect(page.locator('canvas.bb-studio-flight')).toHaveCount(0);
+  });
+
+  test('under keyboard focus the board opens only a little, so the focus ring still frames the cover', async ({ page }) => {
+    await openStudio(page);
+    await page.mouse.move(2, 2);
+    await centredControl(page).focus();
+    const canvas = page.locator('.bb-shelf__scene canvas.bb-studio');
+    const turn = async (): Promise<number> => Number(await canvas.getAttribute('data-cover'));
+    await expect.poll(turn).toBeGreaterThan(3);
+    // 0.12 rad is 6.9 degrees; the board's spring carries it a tenth further for a moment.
+    let most = 0;
+    for (let look = 0; look < 12; look++) {
+      most = Math.max(most, await turn());
+      await afterTwoFrames(page);
+    }
+    expect(most).toBeLessThan(7.8);
   });
 
   test('under reduced motion nothing flies', async ({ page }) => {
