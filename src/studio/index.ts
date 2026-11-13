@@ -123,6 +123,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   let floorKey = '';
   /** Draws a volume in the air between the row and the page; made for the first flight and kept for the next. */
   let flights: FlightStage | null = null;
+  let leavesReady = false;
 
   /** A volume as the flight draws it: with the same materials as in the row, so nothing changes when it leaves. */
   function bookOf(volume: FrameVolume): FlightBook {
@@ -291,6 +292,19 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
     canvas.dataset.drawn = String(drawn);
     canvas.dataset.volumes = String(current.volumes.filter((volume) => !volume.hidden).length);
     if (moving) invalidate();
+    // The loose leaves are first shown when a volume opens. Their shader is compiled once the row stands, in a
+    // quiet moment, or the first opening would wait for it and jump.
+    if (!leavesReady && current.volumes.length > 0) {
+      leavesReady = true;
+      window.setTimeout(() => {
+        if (!alive) return;
+        try {
+          stage.renderer.compile(stage.scene, stage.camera);
+        } catch {
+          // Without it the first opening compiles the shader itself.
+        }
+      }, 350);
+    }
   }
 
   function placeCanvas(scene: HTMLElement): void {
