@@ -1101,8 +1101,8 @@ describe('mountShelf volumes that travel, arrive and leave', () => {
       now += 16;
       shelf.setPose({ position: 0, open: 0, velocity: 6 });
     }
-    expect(leanOf(5)).toBeGreaterThan(0.5);
-    expect(leanOf(5)).toBeLessThanOrEqual(0.6);
+    expect(leanOf(5)).toBeGreaterThan(1.2);
+    expect(leanOf(5)).toBeLessThanOrEqual(1.8);
     expect(leanOf(-5)).toBeCloseTo(leanOf(5), 6);
     // The presented volume and the one beside it hold still.
     expect(leanOf(0)).toBe(0);
@@ -1112,17 +1112,96 @@ describe('mountShelf volumes that travel, arrive and leave', () => {
       now += 16;
       shelf.setPose({ position: 0, open: 0, velocity: -90 });
     }
-    expect(leanOf(5)).toBeLessThan(-1.4);
-    expect(leanOf(5)).toBeGreaterThanOrEqual(-1.5);
+    expect(leanOf(5)).toBeLessThan(-3);
+    expect(leanOf(5)).toBeGreaterThanOrEqual(-3.2);
     // The row stops: the volumes straighten on frames of the shelf's own, and then it asks for no more.
     shelf.setPose({ position: 0, open: 0, velocity: 0 });
     const stopping = leanOf(5);
-    for (let frame = 0; frame < 6; frame++) step(16);
+    for (let frame = 0; frame < 12; frame++) step(16);
     expect(Math.abs(leanOf(5))).toBeLessThan(Math.abs(stopping));
     expect(Math.abs(leanOf(5))).toBeGreaterThan(0);
-    for (let frame = 0; frame < 80; frame++) step(16);
+    // They rock back past upright once, by a small part of the lean they had, before they stand.
+    let counter = 0;
+    for (let frame = 0; frame < 110; frame++) {
+      step(16);
+      counter = Math.max(counter, leanOf(5));
+    }
+    expect(counter).toBeGreaterThan(0.02);
+    expect(counter).toBeLessThan(Math.abs(stopping) / 4);
     expect(leanOf(5)).toBe(0);
     expect(bySlot(shelf, 5).style.transform).not.toContain('rotateZ');
+    expect(frames).toHaveLength(0);
+  });
+
+  it('passes the lean down the row as a wave: a volume further from the middle takes it up later', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    const leanOf = (slot: number): number => Number(/rotateZ\(([-\d.]+)deg\) rotateY/.exec(bySlot(shelf, slot).style.transform)?.[1] ?? 0);
+    for (let frame = 0; frame < 6; frame++) {
+      now += 16;
+      shelf.setPose({ position: 0, open: 0, velocity: 6 });
+    }
+    expect(leanOf(3)).toBeGreaterThan(0);
+    expect(leanOf(9)).toBe(0);
+    expect(leanOf(-3)).toBeCloseTo(leanOf(3), 6);
+    for (let frame = 0; frame < 8; frame++) {
+      now += 16;
+      shelf.setPose({ position: 0, open: 0, velocity: 6 });
+    }
+    expect(leanOf(9)).toBeGreaterThan(0);
+    expect(leanOf(9)).toBeLessThan(leanOf(3));
+  });
+
+  it('carries the turn of the arriving volume a little past its place, and lets it come back to exactly there', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    const turnOf = (slot: number): number => Math.abs(Number(/rotateY\(([-\d.]+)deg\)/.exec(bySlot(shelf, slot).style.transform)?.[1] ?? 0));
+    const full = turnOf(0);
+    expect(full).toBeGreaterThan(60);
+    // The row runs one place up in 160 ms and stops there.
+    for (let frame = 1; frame <= 10; frame++) {
+      now += 16;
+      shelf.setPose({ position: frame / 10, open: 0, velocity: frame < 10 ? 6.25 : 0 });
+    }
+    let most = turnOf(1);
+    for (let frame = 0; frame < 120; frame++) {
+      step(16);
+      most = Math.max(most, turnOf(1));
+    }
+    expect(most).toBeGreaterThan(full * 1.005);
+    expect(most).toBeLessThanOrEqual(full * 1.03 + 0.001);
+    expect(turnOf(1)).toBe(full);
+    // The volume that left stands as the layout says, and the shelf asks for no more frames.
+    expect(turnOf(0)).toBe(0);
+    expect(frames).toHaveLength(0);
+  });
+
+  it('carries nothing under a hand or through a jump', () => {
+    const { shelf } = mount({ items: makeItems(40) });
+    const turnOf = (slot: number): number => Math.abs(Number(/rotateY\(([-\d.]+)deg\)/.exec(bySlot(shelf, slot).style.transform)?.[1] ?? 0));
+    const full = turnOf(0);
+    // Held: positions come with no speed of the row's own.
+    for (let frame = 1; frame <= 10; frame++) {
+      now += 16;
+      shelf.setPose({ position: frame / 10, open: 0 });
+    }
+    expect(turnOf(1)).toBe(full);
+    expect(frames).toHaveLength(0);
+    // A jump of several places is drawn at once.
+    now += 16;
+    shelf.setPose({ position: 6, open: 0, velocity: 3 });
+    expect(turnOf(6)).toBe(full);
+  });
+
+  it('carries nothing under reduced motion: every pose is drawn as the layout says, whatever the speed', () => {
+    const { shelf } = mount({ items: makeItems(40), pose: { position: 0, open: 0, reduced: true } });
+    const turnOf = (slot: number): number => Math.abs(Number(/rotateY\(([-\d.]+)deg\)/.exec(bySlot(shelf, slot).style.transform)?.[1] ?? 0));
+    const full = turnOf(0);
+    for (let frame = 1; frame <= 10; frame++) {
+      now += 16;
+      shelf.setPose({ position: frame / 10, open: 0, velocity: 6.25, reduced: true });
+      expect(turnOf(1)).toBeLessThanOrEqual(full);
+    }
+    expect(turnOf(1)).toBe(full);
+    expect(turnOf(0)).toBe(0);
     expect(frames).toHaveLength(0);
   });
 
