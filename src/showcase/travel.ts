@@ -40,6 +40,32 @@ export interface Travel {
   /** Reduced motion: the book fading out and how far the fade has got, 0 to 1. Null when nothing fades. */
   fade: { from: number; progress: number } | null;
   settled: boolean;
+  /** A finger holds the row: the camera stays where the finger put it until it lets go. */
+  held?: boolean;
+}
+
+/** Slots the row gives past its first or last book under a finger, as a share of the pull. */
+const END_GIVE = 0.18;
+
+/**
+ * Puts the camera `shift` slots from the book in view, under a finger, with the book before it one slot
+ * above and the one after it one slot below, so the row follows the finger exactly. At an end of the row
+ * there is no neighbour and the book only gives a little.
+ */
+export function hold(travel: Travel, shift: number, before: number | null, after: number | null): Travel {
+  const base = travel.target;
+  const placed: Placed[] = [base];
+  if (before !== null) placed.push({ index: before, slot: base.slot - 1 });
+  if (after !== null) placed.push({ index: after, slot: base.slot + 1 });
+  const open = shift < 0 ? before !== null : after !== null;
+  const moved = Math.min(0.98, Math.max(-0.98, open ? shift : shift * END_GIVE));
+  return { position: base.slot + moved, velocity: 0, target: base, placed, fade: null, settled: false, held: true };
+}
+
+/** The finger let go at `velocity` slots a second: the camera glides on to the book `index`, keeping that speed. */
+export function letGo(travel: Travel, index: number, velocity: number): Travel {
+  const target = travel.placed.find((placed) => placed.index === index) ?? travel.target;
+  return { ...travel, target, velocity, held: false, settled: false };
 }
 
 export function createTravel(index: number): Travel {
@@ -79,7 +105,7 @@ export function jump(travel: Travel, index: number): Travel {
 
 /** Moves time on by `dt` seconds. */
 export function advance(travel: Travel, dt: number): Travel {
-  if (travel.settled) return travel;
+  if (travel.settled || travel.held) return travel;
   if (travel.fade) {
     const progress = Math.min(1, travel.fade.progress + (dt * 1000) / FADE_MS);
     if (progress >= 1) return { ...travel, fade: null, settled: true };

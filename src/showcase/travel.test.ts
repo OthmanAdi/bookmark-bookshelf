@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advance, createTravel, FADE_MS, jump, OMEGA, retarget, shownOf, standAt, TRAVEL_MS, type Travel } from './travel';
+import { advance, createTravel, FADE_MS, hold, jump, letGo, OMEGA, retarget, shownOf, standAt, TRAVEL_MS, type Travel } from './travel';
 
 const FRAME = 1 / 60;
 
@@ -114,6 +114,51 @@ describe('retargeting', () => {
     const there = jump(run(retarget(createTravel(0), 1, 1), 0.2), 7);
     expect(there.settled).toBe(true);
     expect(shownOf(there)).toEqual([{ index: 7, offset: 0, opacity: 1, target: true }]);
+  });
+});
+
+describe('following a finger', () => {
+  it('puts the row exactly where the finger is and waits there', () => {
+    const held = hold(createTravel(3), 0.3, 2, 4);
+    expect(held.position).toBeCloseTo(0.3, 9);
+    // The book before is more than a slot away by now, so only the two the finger is between are drawn.
+    expect(shownOf(held).map((entry) => entry.index).sort()).toEqual([3, 4]);
+    // Time passing moves nothing while the finger is down.
+    expect(advance(held, 0.5)).toBe(held);
+    expect(hold(held, -0.6, 2, 4).position).toBeCloseTo(-0.6, 9);
+  });
+
+  it('shows both books for the whole of the way between them', () => {
+    for (const shift of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+      const shown = shownOf(hold(createTravel(3), shift, 2, 4)).filter((entry) => entry.index !== 2);
+      expect(shown.map((entry) => entry.index).sort()).toEqual([3, 4]);
+    }
+  });
+
+  it('only gives a little at an end of the row', () => {
+    const first = hold(createTravel(0), -0.5, null, 1);
+    expect(first.position).toBeGreaterThan(-0.12);
+    expect(first.position).toBeLessThan(0);
+    expect(hold(createTravel(0), 0.5, null, 1).position).toBe(0.5);
+  });
+
+  it('glides on from where the finger let go, at the speed it had', () => {
+    const free = letGo(hold(createTravel(3), 0.4, 2, 4), 4, 2.5);
+    expect(free.held).toBe(false);
+    expect(free.velocity).toBe(2.5);
+    expect(free.target).toEqual({ index: 4, slot: 1 });
+    const next = advance(free, FRAME);
+    expect(next.position).toBeGreaterThan(0.4);
+    const end = run(free, 3);
+    expect(end.settled).toBe(true);
+    expect(end.position).toBe(1);
+  });
+
+  it('falls back to the book it had when the finger did not go far', () => {
+    const back = letGo(hold(createTravel(3), 0.2, 2, 4), 3, 0);
+    const end = run(back, 3);
+    expect(end.position).toBe(0);
+    expect(shownOf(end)).toEqual([{ index: 3, offset: 0, opacity: 1, target: true }]);
   });
 });
 
