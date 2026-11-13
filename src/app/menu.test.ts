@@ -210,10 +210,12 @@ describe('renderViewMenu drawing', () => {
     expect(panel.querySelectorAll('[role="separator"]')).toHaveLength(1);
   });
 
-  it('puts Classic and Studio in a group named Drawing after the looks, each with its summary', () => {
+  it('puts Classic and Studio first, in a group named Drawing, each with its summary', () => {
     const { panel, item, description } = mount();
     const groups = [...panel.querySelectorAll('[role="group"]')].map((group) => group.getAttribute('aria-label'));
-    expect(groups).toEqual(['View', 'Look', 'Drawing']);
+    expect(groups).toEqual(['Drawing', 'View', 'Look']);
+    const items = [...panel.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+    expect(items.slice(0, 2).map((entry) => entry.dataset.paint)).toEqual(['classic', 'studio']);
     expect(item('classic').getAttribute('role')).toBe('menuitemradio');
     expect(item('studio').querySelector('.bb-menu__label')?.textContent).toBe('Studio');
     expect(description('classic')).toBe('CSS 3D, light and fast.');
@@ -269,7 +271,114 @@ describe('renderViewMenu drawing', () => {
     menu.update({ view: 'shelf', look: 'paper', unavailable: { studio: 'Needs WebGL2.' } });
     menu.update({ view: 'shelf', look: 'paper' });
     expect(item('studio').hasAttribute('aria-disabled')).toBe(false);
-    expect(item('studio').hasAttribute('data-keep-open')).toBe(false);
     expect(description('studio')).toBe('Lit materials, drawn with WebGL.');
+  });
+
+  it('shows under the switch what the drawing in use is, or why Studio cannot be chosen', () => {
+    const { panel, menu } = mount();
+    const note = (): string | null | undefined => panel.querySelector('.bb-menu__switch-note')?.textContent;
+    menu.update({ view: 'shelf', look: 'paper' });
+    expect(note()).toBe('CSS 3D, light and fast.');
+    menu.update({ view: 'shelf', look: 'paper', paint: 'studio' });
+    expect(note()).toBe('Lit materials, drawn with WebGL.');
+    menu.update({ view: 'shelf', look: 'paper', unavailable: { studio: 'Needs WebGL2.' } });
+    expect(note()).toBe('Studio: Needs WebGL2.');
+    // The same words reach a screen reader as each side's description, so the line itself is not read twice.
+    expect(panel.querySelector('.bb-menu__switch-note')?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('marks Studio busy and says it is being prepared until an update leaves that out', () => {
+    const { panel, menu, item, description } = mount();
+    menu.update({ view: 'shelf', look: 'paper', paint: 'studio', preparing: { studio: 'Preparing…' } });
+    expect(item('studio').getAttribute('aria-busy')).toBe('true');
+    expect(item('studio').getAttribute('aria-checked')).toBe('true');
+    expect(description('studio')).toBe('Preparing…');
+    expect(item('studio').querySelector('.bb-menu__label')?.textContent).toBe('Studio');
+    expect(panel.querySelector('.bb-menu__switch-note')?.textContent).toBe('Studio: Preparing…');
+    menu.update({ view: 'shelf', look: 'paper', paint: 'studio' });
+    expect(item('studio').hasAttribute('aria-busy')).toBe(false);
+    expect(description('studio')).toBe('Lit materials, drawn with WebGL.');
+  });
+
+  it('moves between the two sides with the left and right arrow keys', () => {
+    const { panel, menu, item } = mount();
+    const button = document.createElement('button');
+    document.body.prepend(button);
+    createMenu({ button, panel, onOpen: () => menu.update({ view: 'shelf', look: 'paper' }) });
+    button.click();
+    item('classic').focus();
+    key(item('classic'), 'ArrowRight');
+    expect(document.activeElement).toBe(item('studio'));
+    key(item('studio'), 'ArrowRight');
+    expect(document.activeElement).toBe(item('classic'));
+    key(item('classic'), 'ArrowLeft');
+    expect(document.activeElement).toBe(item('studio'));
+    // Outside the switch the keys do nothing.
+    const shelf = panel.querySelector<HTMLElement>('[data-view="shelf"]')!;
+    shelf.focus();
+    key(shelf, 'ArrowRight');
+    expect(document.activeElement).toBe(shelf);
+  });
+});
+
+describe('renderViewMenu staying open', () => {
+  const looks = [
+    { name: 'paper', label: 'Paper Row', summary: 'A paper ground.' },
+    { name: 'night', label: 'Night Study', summary: 'A dark ground.' },
+  ];
+  const paints = [
+    { name: 'classic', label: 'Classic', summary: 'CSS 3D, light and fast.' },
+    { name: 'studio', label: 'Studio', summary: 'Lit materials, drawn with WebGL.' },
+  ];
+
+  function open() {
+    document.body.replaceChildren();
+    const button = document.createElement('button');
+    const panel = document.createElement('div');
+    panel.id = 'view-menu';
+    document.body.append(button, panel);
+    const onLook = vi.fn();
+    const onPaint = vi.fn();
+    const onView = vi.fn();
+    const menu = renderViewMenu({ panel, looks, onView, onLook, paints, onPaint });
+    createMenu({ button, panel, onOpen: () => menu.update({ view: 'shelf', look: 'paper' }) });
+    button.click();
+    const item = (selector: string): HTMLElement => panel.querySelector<HTMLElement>(selector)!;
+    return { button, panel, item, onLook, onPaint, onView };
+  }
+
+  it('stays open when a look is chosen, marks it at once and keeps focus on it', () => {
+    const { panel, item, onLook } = open();
+    const night = item('[data-look="night"]');
+    night.focus();
+    night.click();
+    expect(onLook).toHaveBeenCalledWith('night');
+    expect(panel.hidden).toBe(false);
+    expect(night.getAttribute('aria-checked')).toBe('true');
+    expect(item('[data-look="paper"]').getAttribute('aria-checked')).toBe('false');
+    expect(document.activeElement).toBe(night);
+    item('[data-look="paper"]').click();
+    expect(panel.hidden).toBe(false);
+    expect(onLook).toHaveBeenLastCalledWith('paper');
+  });
+
+  it('stays open when a drawing is chosen', () => {
+    const { panel, item, onPaint } = open();
+    item('[data-paint="studio"]').click();
+    expect(onPaint).toHaveBeenCalledWith('studio');
+    expect(panel.hidden).toBe(false);
+  });
+
+  it('closes when a view is chosen, and on Escape', () => {
+    const { button, panel, item, onView } = open();
+    item('[data-view="list"]').click();
+    expect(onView).toHaveBeenCalledWith('list');
+    expect(panel.hidden).toBe(true);
+    expect(document.activeElement).toBe(button);
+    button.click();
+    item('[data-look="night"]').click();
+    key(item('[data-look="night"]'), 'Escape');
+    expect(panel.hidden).toBe(true);
+    expect(document.activeElement).toBe(button);
   });
 });

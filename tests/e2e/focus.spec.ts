@@ -181,17 +181,21 @@ test.describe('focus never falls to the page', () => {
     await page.keyboard.press('Enter');
     const menu = page.getByRole('menu', { name: 'View' });
     await expect(menu).toBeVisible();
-    const inUse = page.getByRole('group', { name: 'View' }).getByRole('menuitemradio', { checked: true });
-    await expect(inUse).toHaveText('Shelf');
+    // The first choice in use is the drawing, at the top of the menu: focus starts there.
+    const inUse = page.getByRole('group', { name: 'Drawing' }).getByRole('menuitemradio', { checked: true });
+    await expect(inUse).toHaveAccessibleName('Classic');
     await expect(inUse).toBeFocused();
+    await expect(page.getByRole('group', { name: 'View' }).getByRole('menuitemradio', { checked: true })).toHaveAccessibleName('Shelf');
 
-    // Passing over a look does not put it on.
-    for (const name of ['List', 'Paper Row', 'Oak Library', 'Night Study']) {
+    // Passing over a drawing, a view or a look does not put it on.
+    for (const name of ['Studio', 'Shelf', 'List', 'Showcase', 'Paper Row', 'Oak Library', 'Night Study']) {
       await page.keyboard.press('ArrowDown');
       await expect(page.getByRole('menuitemradio', { name, exact: true })).toBeFocused();
     }
     await expect(shelfOf(page)).toHaveAttribute('data-variant', 'paper');
+    await expect(shelfOf(page)).not.toHaveAttribute('data-paint', 'studio');
     await expect(shelfOf(page)).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Drawing' }).getByRole('menuitemradio', { checked: true })).toHaveAccessibleName('Classic');
 
     await page.keyboard.press('Escape');
     await expect(menu).toBeHidden();

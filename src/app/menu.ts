@@ -4,7 +4,11 @@
  *
  * Choosing an item closes the panel and returns focus to the button before the item's own action runs,
  * so an action that opens a dialog hands focus back to the menu button, a control that is still there,
- * when that dialog closes.
+ * when that dialog closes. An item marked `data-keep-open` leaves the panel open and keeps focus, for
+ * choices a person wants to try one after another.
+ *
+ * Items that lie side by side sit in an element marked `data-arrows="row"`: there the left and right
+ * arrow keys move between them too.
  */
 
 export interface MenuOptions {
@@ -120,6 +124,16 @@ export function createMenu(options: MenuOptions): Menu {
     const list = items();
     const index = list.indexOf(document.activeElement as HTMLElement);
     let next: HTMLElement | undefined;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      const side = target.closest<HTMLElement>('[data-arrows="row"]');
+      const sides = side ? list.filter((entry) => side.contains(entry)) : [];
+      const at = sides.indexOf(target);
+      if (at < 0 || sides.length < 2) return;
+      const step = event.key === 'ArrowRight' ? 1 : -1;
+      event.preventDefault();
+      sides[(at + step + sides.length) % sides.length]?.focus({ preventScroll: true });
+      return;
+    }
     if (event.key === 'ArrowDown') next = list[(index + 1) % list.length];
     else if (event.key === 'ArrowUp') next = list[(index - 1 + list.length) % list.length];
     else if (event.key === 'Home') next = list[0];

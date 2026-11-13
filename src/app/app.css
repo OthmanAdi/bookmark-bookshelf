@@ -417,6 +417,85 @@
   line-height: 1.4;
 }
 
+/* ---------- a two-way switch inside a menu: Classic | Studio ---------- */
+
+.bb-menu__switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  margin: var(--bb-s-1) var(--bb-s-2) 0;
+  padding: 2px;
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: var(--bb-r-2);
+}
+
+.bb-menu__switch .bb-menu__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bb-s-1);
+  min-height: 2.125rem;
+  padding: var(--bb-s-1) var(--bb-s-2);
+  text-align: center;
+}
+
+.bb-menu__switch .bb-menu__item[aria-checked='true'] {
+  background: var(--bb-ink);
+  color: var(--bb-paper-raised);
+}
+
+/* Each side keeps its description for a screen reader; the line under the switch shows it. */
+.bb-menu__switch .bb-menu__summary {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A side that is on its way: a thin band runs under its name until the shelf is drawn with it. */
+.bb-menu__switch .bb-menu__item[aria-busy='true']::after {
+  position: absolute;
+  right: var(--bb-s-3);
+  bottom: 3px;
+  left: var(--bb-s-3);
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent, currentColor 50%, transparent) 0 0 / 50% 100% no-repeat;
+  content: '';
+  animation: bb-menu-busy 1.1s var(--bb-ease-in-out) infinite alternate;
+}
+
+@keyframes bb-menu-busy {
+  to {
+    background-position: 100% 0;
+  }
+}
+
+.bb-menu__switch-note {
+  min-height: 1.4em;
+  padding: var(--bb-s-2) var(--bb-s-3) 0;
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  line-height: 1.4;
+}
+
+@media (pointer: coarse) {
+  .bb-menu__switch .bb-menu__item {
+    min-height: 2.75rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .bb-menu__switch .bb-menu__item[aria-checked='true'] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
 .bb-menu__note {
   max-width: 18rem;
   padding: var(--bb-s-2) var(--bb-s-3);
@@ -983,6 +1062,31 @@
     bottom: calc(var(--bb-dock-space) + var(--bb-s-1));
   }
 
+  /* The three views lie side by side here, so the whole menu shows above the dock without scrolling. */
+  .bb-menu__group--row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 2px;
+    padding-inline: var(--bb-s-2);
+  }
+
+  .bb-menu__group--row .bb-menu__heading {
+    grid-column: 1 / -1;
+    padding-inline: var(--bb-s-1);
+  }
+
+  .bb-menu__group--row .bb-menu__item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--bb-s-1);
+    padding-inline: var(--bb-s-2);
+    text-align: center;
+  }
+
+  .bb-menu__group--row .bb-menu__item[aria-checked='true'] {
+    background: var(--bb-rule);
+  }
+
   .bb-app__dock {
     grid-area: dock;
     display: flex;
@@ -1113,6 +1217,12 @@
 
   .bb-menu__panel,
   .bb-drop {
+    animation: none;
+  }
+
+  /* The band stands still under the name: the words under the switch say that Studio is on its way. */
+  .bb-menu__switch .bb-menu__item[aria-busy='true']::after {
+    background-size: 100% 100%;
     animation: none;
   }
 

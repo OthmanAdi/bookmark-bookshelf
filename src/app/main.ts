@@ -15,7 +15,7 @@ import { carriesAddress } from './flow-address';
 import { createFlows } from './flows';
 import { renderList } from './list-view';
 import { createMenu } from './menu';
-import { canUseStudio, PAINT_CHOICES, STUDIO_UNAVAILABLE } from './paint-support';
+import { canUseStudio, FORCED_COLORS_QUERY, forcedColors, PAINT_CHOICES, setPaintControl, STUDIO_PREPARING, studioUnavailable } from './paint-support';
 import { createSearch, findLinks } from './search';
 import { attachDrop } from './shell-drop';
 import { emptyState, READING_NOTE } from './shell-empty';
@@ -87,6 +87,7 @@ const bookshelf = createBookshelf({
   caption: false,
   arrows: false,
   isExample: isExampleId,
+  onPaintFailure: () => studioStopped(),
   onFocusChange: () => {
     if (!ready) return;
     // The row was rebuilt or retargeted: read its links again before describing the centre.
@@ -118,7 +119,8 @@ const bookshelf = createBookshelf({
 
 // A link can ask for a drawing, so a Studio shelf can be shared as it looks: `app.html?paint=studio`.
 const askedPaint = new URLSearchParams(location.search).get('paint');
-if (askedPaint === 'studio' || askedPaint === 'classic') bookshelf.setPaint(askedPaint);
+// Forced colours win over the address: Studio paints its own colours over the ones the system asked for.
+if (askedPaint === 'classic' || (askedPaint === 'studio' && !forcedColors())) bookshelf.setPaint(askedPaint);
 
 const flows = createFlows({ store, bookshelf, refresh: () => renderAll() });
 
@@ -600,10 +602,60 @@ function currentPaint(): Paint {
 }
 
 function setPaint(name: string): void {
-  if (!isPaint(name) || name === currentPaint()) return;
+  if (!isPaint(name)) return;
   if (name === 'studio' && !canUseStudio()) return;
-  bookshelf.setPaint(name);
-  store.setSession({ paint: name });
+  if (name !== currentPaint()) {
+    if (name === 'studio') studioAskedAt = Date.now();
+    bookshelf.setPaint(name);
+  }
+  // Classic may already be drawn because Studio stopped: choosing it then is what makes it the stored drawing.
+  if (store.session().paint !== name) store.setSession({ paint: name });
+  refreshViewMenu();
+}
+
+/** When Studio was last asked for. It loads lazily, so the menu says it is on its way until the shelf is drawn with it. */
+let studioAskedAt = Date.now();
+const STUDIO_WAIT_MS = 20000;
+const STUDIO_POLL_MS = 120;
+let studioWatch: number | undefined;
+
+/**
+ * True from the moment Studio is asked for until its canvas has drawn a frame. The bookshelf reports no
+ * such moment, so the page is asked. A hidden shelf draws nothing: after a while the menu stops waiting.
+ */
+function studioPreparing(): boolean {
+  if (currentPaint() !== 'studio' || store.session().view !== 'shelf') return false;
+  if (Date.now() - studioAskedAt > STUDIO_WAIT_MS) return false;
+  return document.querySelector('canvas.bb-studio[data-drawn]') === null;
+}
+
+function refreshViewMenu(): void {
+  const reason = studioUnavailable();
+  const preparing = studioPreparing();
+  viewMenu.update({
+    view: store.session().view,
+    look: bookshelf.shelf.variant.name,
+    paint: currentPaint(),
+    unavailable: reason ? { studio: reason } : undefined,
+    preparing: preparing ? { studio: STUDIO_PREPARING } : undefined,
+  });
+  if (!preparing || studioWatch !== undefined) return;
+  studioWatch = window.setInterval(() => {
+    if (studioPreparing()) return;
+    window.clearInterval(studioWatch);
+    studioWatch = undefined;
+    refreshViewMenu();
+  }, STUDIO_POLL_MS);
+}
+
+/** Studio could not start, or lost WebGL, and the bookshelf went back to Classic by itself. */
+function studioStopped(): void {
+  if (!ready) return;
+  toast(
+    'Studio stopped. The shelf is drawn in Classic.',
+    canUseStudio() ? { label: 'Try Studio again', run: () => setPaint('studio') } : undefined,
+  );
+  refreshViewMenu();
 }
 
 const viewMenu = renderViewMenu({
@@ -617,13 +669,19 @@ const viewMenu = renderViewMenu({
 createMenu({
   button: must<HTMLButtonElement>('#view-button'),
   panel: must<HTMLElement>('#view-menu'),
-  onOpen: () =>
-    viewMenu.update({
-      view: store.session().view,
-      look: bookshelf.shelf.variant.name,
-      paint: currentPaint(),
-      unavailable: canUseStudio() ? undefined : { studio: STUDIO_UNAVAILABLE },
-    }),
+  onOpen: refreshViewMenu,
+});
+setPaintControl({ current: currentPaint, choose: setPaint });
+
+// Forced colours can be turned on while the page is open: Studio leaves at once and comes back with them off.
+window.matchMedia(FORCED_COLORS_QUERY).addEventListener('change', (event) => {
+  if (event.matches) {
+    if (currentPaint() === 'studio') bookshelf.setPaint('classic');
+  } else if (store.session().paint === 'studio' && canUseStudio() && currentPaint() !== 'studio') {
+    studioAskedAt = Date.now();
+    bookshelf.setPaint('studio');
+  }
+  refreshViewMenu();
 });
 
 must<HTMLButtonElement>('#add').addEventListener('click', () => flows.addLink());

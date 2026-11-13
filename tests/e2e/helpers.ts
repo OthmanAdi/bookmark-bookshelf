@@ -133,13 +133,18 @@ export const viewButton = (page: Page): Locator => page.getByRole('button', { na
 export const libraryButton = (page: Page): Locator => page.locator('#library-button');
 export const shelfMenuButton = (page: Page): Locator => page.getByRole('button', { name: 'Shelf', exact: true });
 
-async function chooseInViewMenu(page: Page, item: string): Promise<void> {
+/** Chooses an item of the View menu. A view closes the menu; a look leaves it open (`stays`), and Escape closes it. */
+async function chooseInViewMenu(page: Page, item: string, stays = false): Promise<void> {
   await viewButton(page).click();
-  await page
-    .getByRole('menu', { name: 'View' })
+  const menu = page.getByRole('menu', { name: 'View' });
+  await menu
     .getByRole('menuitemradio')
     .filter({ has: page.getByText(item, { exact: true }) })
     .click();
+  if (stays) {
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+  }
   await expect(viewButton(page)).toHaveAttribute('aria-expanded', 'false');
 }
 
@@ -157,7 +162,7 @@ export async function showShelf(page: Page): Promise<void> {
 /** Chooses a look from the View menu and waits until the row and the page wear it. */
 export async function chooseLook(page: Page, name: (typeof LOOKS)[number]['name']): Promise<void> {
   const look = LOOKS.find((entry) => entry.name === name);
-  await chooseInViewMenu(page, look?.label ?? name);
+  await chooseInViewMenu(page, look?.label ?? name, true);
   await expect(shelfOf(page)).toHaveAttribute('data-variant', name);
   await expect(page.locator('html')).toHaveAttribute('data-variant', name);
   await expectSettled(page);

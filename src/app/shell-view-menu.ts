@@ -1,7 +1,8 @@
 /**
- * The View menu: shelf, list or showcase, then the four looks, each with its one-line summary in view, then how the
- * shelf is drawn. A look or a drawing is chosen only when its item is activated, never while the arrow keys
- * pass over it.
+ * The View menu: how the shelf is drawn as a two-way switch at the top, then shelf, list or showcase, then
+ * the four looks, each with its one-line summary in view. A look or a drawing is chosen only when its item
+ * is activated, never while the arrow keys pass over it, and choosing one leaves the menu open, so looks
+ * can be compared in one visit. Choosing a view closes it.
  */
 
 export type ViewMode = 'shelf' | 'list' | 'showcase';
@@ -38,6 +39,11 @@ export interface ViewMenuState {
    * reachable with the arrow keys, but is marked unavailable, says why in place of its summary, and does nothing.
    */
   unavailable?: Readonly<Record<string, string>>;
+  /**
+   * A drawing that was asked for and is not on the shelf yet, with what its item says meanwhile. The item
+   * is marked busy until an update leaves this out.
+   */
+  preparing?: Readonly<Record<string, string>>;
 }
 
 export interface ViewMenu {
@@ -127,16 +133,27 @@ export function renderViewMenu(options: ViewMenuOptions): ViewMenu {
     return element;
   });
 
-  const lookItems = options.looks.map((look) => {
+  const mark = (items: readonly HTMLElement[], current: HTMLElement): void => {
+    for (const element of items) element.setAttribute('aria-checked', String(element === current));
+  };
+
+  const lookItems: HTMLButtonElement[] = options.looks.map((look) => {
     const element = item(look.label, look.summary, `${prefix}-${look.name}`);
     element.dataset.look = look.name;
-    element.addEventListener('click', () => options.onLook(look.name));
+    // A look is tried, not committed to: the menu stays for the next one.
+    element.dataset.keepOpen = '';
+    element.addEventListener('click', () => {
+      options.onLook(look.name);
+      // The look itself changes behind a short fade; the menu says what was chosen at once.
+      mark(lookItems, element);
+    });
     return element;
   });
 
   const paintItems = (options.paints ?? []).map((paint) => {
     const element = item(paint.label, paint.summary, `${prefix}-paint-${paint.name}`);
     element.dataset.paint = paint.name;
+    element.dataset.keepOpen = '';
     element.addEventListener('click', () => {
       if (element.getAttribute('aria-disabled') === 'true') return;
       options.onPaint?.(paint.name);
@@ -150,28 +167,50 @@ export function renderViewMenu(options: ViewMenuOptions): ViewMenu {
     element.setAttribute('role', 'separator');
     return element;
   };
-  const parts = [group('View', viewItems), rule(), group('Look', lookItems)];
-  if (paintItems.length > 0) parts.push(rule(), group('Drawing', paintItems.map((entry) => entry.element)));
+
+  // Each side of the switch keeps its own description for a screen reader; the one line under the switch
+  // shows the same words for the side in use, or why the other side cannot be chosen.
+  const switchNote = document.createElement('p');
+  switchNote.className = 'bb-menu__switch-note';
+  switchNote.setAttribute('aria-hidden', 'true');
+
+  const parts: HTMLElement[] = [];
+  if (paintItems.length > 0) {
+    const sides = document.createElement('div');
+    sides.className = 'bb-menu__switch';
+    // Left and right move between the sides, as they lie; up and down still walk the whole menu.
+    sides.dataset.arrows = 'row';
+    sides.append(...paintItems.map((entry) => entry.element));
+    parts.push(group('Drawing', [sides, switchNote]), rule());
+  }
+  const views = group('View', viewItems);
+  // On a phone the views lie in one row; the class says so, the order and the roles stay the same.
+  views.classList.add('bb-menu__group--row');
+  parts.push(views, rule(), group('Look', lookItems));
   panel.replaceChildren(...parts);
 
   return {
     update(state) {
       for (const element of viewItems) element.setAttribute('aria-checked', String(element.dataset.view === state.view));
       for (const element of lookItems) element.setAttribute('aria-checked', String(element.dataset.look === state.look));
+      const current = state.paint ?? paintItems[0]?.paint.name;
+      let note = '';
       for (const { element, paint } of paintItems) {
-        element.setAttribute('aria-checked', String(paint.name === (state.paint ?? paintItems[0]?.paint.name)));
+        const checked = paint.name === current;
+        element.setAttribute('aria-checked', String(checked));
         const reason = state.unavailable?.[paint.name];
+        const waiting = reason ? undefined : state.preparing?.[paint.name];
         const summary = element.querySelector('.bb-menu__summary');
-        if (summary) summary.textContent = reason ?? paint.summary;
-        if (reason) {
-          element.setAttribute('aria-disabled', 'true');
-          // The menu closes on any item it is handed; this one has nothing to do, so the menu stays.
-          element.dataset.keepOpen = '';
-        } else {
-          element.removeAttribute('aria-disabled');
-          delete element.dataset.keepOpen;
-        }
+        if (summary) summary.textContent = reason ?? waiting ?? paint.summary;
+        if (reason) element.setAttribute('aria-disabled', 'true');
+        else element.removeAttribute('aria-disabled');
+        if (waiting) element.setAttribute('aria-busy', 'true');
+        else element.removeAttribute('aria-busy');
+        if (waiting) note = `${paint.label}: ${waiting}`;
+        else if (reason) note = `${paint.label}: ${reason}`;
+        else if (checked && note === '') note = paint.summary;
       }
+      switchNote.textContent = note;
     },
   };
 }
