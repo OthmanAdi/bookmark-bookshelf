@@ -14,6 +14,7 @@ import {
   expectReaderOpen,
   expectSettled,
   focusId,
+  focusIndex,
   mouseDrag,
   openApp,
   openShelf,
@@ -127,7 +128,50 @@ test.describe('mouse', () => {
     await expect(centredControl(page)).toHaveCount(1);
   });
 
-  test('a short shelf does not scroll: a drag leaves the row between its bookends, and a click on a spine presents that volume', async ({
+  test('a row that stands still goes along with a dragging hand: the volumes turn as they are pulled, and it rests on a whole place', async ({
+    page,
+  }) => {
+    await openApp(page);
+    await expect(shelfOf(page)).toHaveAttribute('data-fixed', '1');
+    await expect(shelfOf(page)).toHaveAttribute('data-focus', '0');
+    const restTurn = await centreTurn(page);
+    const scene = await centreOf(page.locator('.bb-shelf__scene'));
+    const from = { x: scene.x + 220, y: scene.y };
+
+    // Held, not let go: the row is already presenting volumes further up, one for each pitch of travel.
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x - 170, from.y, { steps: 8 });
+    await afterTwoFrames(page);
+    const part = await focusIndex(page);
+    expect(part).toBeGreaterThanOrEqual(1);
+    expect(part).toBeLessThanOrEqual(4);
+    await page.mouse.move(from.x - 340, from.y, { steps: 8 });
+    await afterTwoFrames(page);
+    const held = await focusIndex(page);
+    expect(held).toBeGreaterThan(part);
+    await expect(shelfOf(page)).toHaveAttribute('data-settled', '0');
+
+    // Let go, it carries on the way it was going and comes to rest with one volume fully turned.
+    await page.mouse.up();
+    await expectSettled(page);
+    const landed = await focusIndex(page);
+    expect(landed).toBeGreaterThanOrEqual(held);
+    expect(landed).toBeLessThanOrEqual(held + 6);
+    expect(await centreTurn(page)).toBeCloseTo(restTurn, 3);
+    await expect(page.locator('.bb-book.is-centre')).toHaveAttribute('data-id', await focusId(page));
+    await expect(shelfOf(page)).toHaveAttribute('data-fixed', '1');
+    await expect(readerOf(page)).toHaveCount(0);
+
+    // Dragged the other way further than the row is long, it stops on its first volume.
+    await mouseDrag(page, { x: scene.x - 300, y: scene.y }, 1200, 16);
+    await expectSettled(page);
+    await expect(shelfOf(page)).toHaveAttribute('data-focus', '0');
+    expect(await centreTurn(page)).toBeCloseTo(restTurn, 3);
+    await expect(readerOf(page)).toHaveCount(0);
+  });
+
+  test('a short shelf does not scroll: a drag moves along the row and leaves it between its bookends, and a click on a spine presents that volume', async ({
     page,
   }) => {
     await openApp(page);
@@ -163,10 +207,13 @@ test.describe('mouse', () => {
     expect(before.right).toBeLessThan(window - 100);
     expect(Math.abs((before.left + before.right) / 2 - window / 2)).toBeLessThan(60);
 
-    // A drag as long as the row itself: a row that scrolled would be carried off by it.
+    // A drag as long as the row itself: a row that scrolled would be carried off by it. This one is taken
+    // along to its last volume, gives a little there, and stands where it stood.
     const scene = await centreOf(page.locator('.bb-shelf__scene'));
     await mouseDrag(page, { x: scene.x + 200, y: scene.y }, -400);
     const after = await atRest();
+    await expect(shelfOf(page)).toHaveAttribute('data-focus', String(LOOKUPS.count - 1));
+    await expect(page.locator('.bb-shelf__row')).not.toHaveAttribute('style', /translate3d/);
     expect(Math.abs(after.left - before.left)).toBeLessThan(40);
     expect(Math.abs(after.right - before.right)).toBeLessThan(40);
     await expect(page.locator('.bb-book')).toHaveCount(LOOKUPS.count);
