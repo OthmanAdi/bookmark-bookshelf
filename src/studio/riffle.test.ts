@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { leafLine, leafTangent, LEAF_SEGMENTS } from './leaf';
 import {
   ARRIVE_COVER,
@@ -19,6 +19,10 @@ import {
   tidy,
 } from './riffle';
 import { LEAVES, type Opening } from './volume';
+
+// These tests bend every leaf at many moments and check the drawn geometry each time: seconds of work on a
+// busy machine. They assert shapes, not timings, so they get room to run.
+vi.setConfig({ testTimeout: 20_000 });
 
 const DEG = Math.PI / 180;
 const LENGTH = 200;
