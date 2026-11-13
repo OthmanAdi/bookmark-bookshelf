@@ -95,6 +95,12 @@ function statureOf(source: string): number {
 export function toShelfItem(bookmark: Bookmark, percent: number, details: ShelfItemDetails = {}): ShelfItem {
   const source = hostnameOf(bookmark.url);
   const text = bookmark.reading?.text;
+  // How much the volume has passed through hands: mostly how far it was read, a finished one at least
+  // 0.85, and a note counts for a little, since someone held it to write that.
+  const read = Number.isFinite(percent) ? Math.min(1, Math.max(0, percent)) : 0;
+  const handled = Math.min(1, Math.max(read * 0.7, details.done ? 0.85 : 0) + (bookmark.note?.trim() ? 0.15 : 0));
+  const added = Date.parse(bookmark.addedAt);
+  const age = Number.isFinite(added) ? Math.max(0, Math.floor((Date.now() - added) / 86_400_000)) : 0;
   return {
     id: bookmark.id,
     title: bookmark.title,
@@ -113,6 +119,8 @@ export function toShelfItem(bookmark: Bookmark, percent: number, details: ShelfI
     mark: details.mark,
     done: details.done,
     lang: details.lang,
+    handled: Math.round(handled * 100) / 100,
+    age,
   };
 }
 
