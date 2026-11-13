@@ -34,14 +34,18 @@
 }
 
 /*
- * A volume in the air between the row and the page is drawn in its own canvas, over the layer of the CSS
- * flight. The flat cover of that flight is underneath and takes over as the volume lands; the spine edge
- * and highlight the CSS flight paints beside and over a flat cover are not needed while the volume is lit.
+ * A volume in the air between the row and the page is shown in a small canvas that travels with it, over
+ * the layer of the CSS flight. The flat cover of that flight is underneath and takes over as the volume
+ * lands; the spine edge and highlight the CSS flight paints beside and over a flat cover are not needed
+ * while the volume is lit.
  */
 .bb-studio-flight {
   position: absolute;
+  left: 0;
+  top: 0;
   display: block;
   pointer-events: none;
+  will-change: transform;
 }
 
 .bb-flight[data-paint='studio'] .bb-flight__spine,
