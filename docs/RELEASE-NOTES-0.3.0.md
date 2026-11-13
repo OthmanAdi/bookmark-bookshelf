@@ -52,8 +52,6 @@ Nothing was removed and data written by 0.2.0 opens unchanged. The full list is 
 ## Known limits
 
 - Studio needs WebGL 2. Without it the Studio item in the View menu says so and the shelf stays in Classic.
-- If the browser takes the WebGL context away, the shelf goes back to Classic without a message, and the next visit tries Studio again.
-- Under forced colours, Showcase and the homepage keep the CSS drawing. A shelf set to Studio stays in Studio there.
 - The reader never fetches a page, and there is no sync between devices. A backup, a shelf file or a shelf link moves links from one browser to another.
 - The browser tests run in Chromium, on a desktop and on a phone-sized screen with touch, and as a smoke run in WebKit that does not reach Studio or Showcase. Firefox is not covered by them.
 - The skill trials in [SKILL-TRIALS.md](SKILL-TRIALS.md) were run against 0.1.0 and have not been repeated.
