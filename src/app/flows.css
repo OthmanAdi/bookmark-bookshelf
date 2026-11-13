@@ -288,6 +288,11 @@
   rotate: 45deg;
 }
 
+/* Inside the folded section the fields keep the distance they have in the rest of the form. */
+.bb-dialog__more > :is(.bb-field-group, .bb-field-row) + :is(.bb-field-group, .bb-field-row) {
+  margin-top: var(--bb-s-4);
+}
+
 .bb-dialog details[open] > summary {
   margin-bottom: var(--bb-s-3);
 }
