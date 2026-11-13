@@ -7,16 +7,20 @@ import { hash1 } from './noise';
 
 type Weighted<T> = readonly (readonly [T, number])[];
 
-/** A shelf is mostly cloth and linen, with some leather and paper, a few laminates and the odd showpiece. */
+/**
+ * A shelf is mostly cloth and linen, with some leather and paper and a few laminates. A whole board of
+ * metal or holographic foil is a showpiece: about one volume in fifty. Holographic foil mostly comes as
+ * a stamp, on cloth or on gloss, where it has a matt ground to stand against.
+ */
 export const BINDING_WEIGHTS: Weighted<Binding> = [
   ['cloth', 38],
   ['linen', 22],
   ['leather', 13],
   ['paper', 13],
-  ['gloss', 7],
+  ['gloss', 9],
   ['velvet', 3],
-  ['foil', 2],
-  ['holo', 2],
+  ['foil', 1.2],
+  ['holo', 0.8],
 ];
 
 /**
@@ -32,11 +36,11 @@ export const LOOK_BINDING_WEIGHTS: Readonly<Record<string, Weighted<Binding>>> =
 
 /** What a binder would put on each binding. A stamp that cannot be seen on a binding is left out. */
 export const STAMP_WEIGHTS: Record<Binding, Weighted<Stamp>> = {
-  cloth: [['gold', 34], ['ink', 24], ['blind', 16], ['silver', 12], ['copper', 11], ['holo', 3]],
+  cloth: [['gold', 34], ['ink', 24], ['blind', 13], ['silver', 12], ['copper', 10], ['holo', 7]],
   linen: [['ink', 34], ['blind', 22], ['gold', 20], ['copper', 14], ['silver', 10]],
   leather: [['gold', 55], ['blind', 25], ['silver', 10], ['copper', 10]],
   paper: [['ink', 68], ['blind', 14], ['gold', 10], ['copper', 8]],
-  gloss: [['ink', 60], ['silver', 15], ['gold', 15], ['holo', 10]],
+  gloss: [['ink', 52], ['holo', 20], ['silver', 14], ['gold', 14]],
   velvet: [['gold', 60], ['silver', 25], ['copper', 15]],
   foil: [['ink', 55], ['blind', 45]],
   holo: [['ink', 60], ['blind', 40]],

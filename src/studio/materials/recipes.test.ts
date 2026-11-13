@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BINDINGS, STAMPS } from '../types';
 import { softBoxFalloff, STUDIO_LAMPS } from './environment';
-import { BINDING_RECIPES, FILM, STAMP_RECIPES, nearness, reliefAt, stampAt } from './recipes';
+import { BINDING_RECIPES, FILM, RUB_REACH, STAMP_FILM, STAMP_RECIPES, nearness, reliefAt, rubOf, stampAt, sunLift, useOf } from './recipes';
 import { patchFragmentShader } from './shader';
 
 describe('binding recipes', () => {
@@ -23,13 +23,34 @@ describe('binding recipes', () => {
     expect(BINDING_RECIPES.velvet.sheen).toBe(1);
     expect(BINDING_RECIPES.velvet.roughness).toBe(1);
     expect(BINDING_RECIPES.paper.sheen).toBe(0);
-    expect(BINDING_RECIPES.gloss.clearcoat).toBe(1);
+    // A clear film over a matt print: the film mirrors the lamps, the print underneath does not.
+    expect(BINDING_RECIPES.gloss.clearcoat).toBeGreaterThanOrEqual(0.7);
+    expect(BINDING_RECIPES.gloss.clearcoat).toBeLessThan(1);
     expect(BINDING_RECIPES.gloss.clearcoatRoughness).toBeLessThan(0.1);
+    expect(BINDING_RECIPES.gloss.roughness).toBeGreaterThan(0.5);
     expect(BINDING_RECIPES.leather.clearcoat).toBeGreaterThan(0);
     expect(BINDING_RECIPES.foil.metalness).toBe(1);
     expect(BINDING_RECIPES.foil.anisotropy).toBeGreaterThan(0);
-    expect(BINDING_RECIPES.holo.iridescence).toBe(1);
     expect(FILM.thickness[1]).toBeGreaterThan(FILM.thickness[0]);
+  });
+
+  it('keeps holographic foil a pale film that turns a quarter of its colours over a tilt of 7 degrees', () => {
+    const holo = BINDING_RECIPES.holo;
+    expect(holo.iridescence).toBeGreaterThan(0.4);
+    expect(holo.iridescence).toBeLessThan(0.8);
+    expect(holo.pastel).toBeGreaterThanOrEqual(0.8);
+    expect(holo.normalScale).toBeLessThanOrEqual(0.4);
+    // One run of colours is half a wavelength of green light inside the film.
+    const cycle = 550 / (2 * FILM.ior);
+    // A tilt of 7 degrees turns the mirrored direction by 14.
+    const moved = holo.filmShift * Math.sin((14 * Math.PI) / 180);
+    expect(moved / cycle).toBeGreaterThan(0.2);
+    expect(moved / cycle).toBeLessThan(0.3);
+    expect((STAMP_FILM.shift * Math.sin((14 * Math.PI) / 180)) / cycle).toBeGreaterThan(0.2);
+    // Across a board the film drifts by less than one run of colours: no bands of oil.
+    expect(FILM.thickness[1] - FILM.thickness[0]).toBeLessThan(cycle);
+    expect(STAMP_RECIPES.holo.iridescence).toBe(STAMP_FILM.strength);
+    expect(STAMP_FILM.strength).toBeLessThan(1);
   });
 });
 
@@ -78,7 +99,6 @@ describe('stamp recipes', () => {
       expect(recipe.tint).toBe(1);
       expect(recipe.sheen).toBe(0);
     }
-    expect(STAMP_RECIPES.holo.iridescence).toBe(1);
     expect(STAMP_RECIPES.blind.tint).toBe(0);
     expect(STAMP_RECIPES.blind.shade).toBeLessThan(1);
     expect(STAMP_RECIPES.blind.metalness).toEqual([0, 1]);
@@ -122,6 +142,58 @@ describe('a stamp in its bed', () => {
   });
 });
 
+describe('wear from use', () => {
+  it('leaves a new, unread link crisp', () => {
+    expect(useOf()).toEqual({ sun: 0, rub: 0, dull: 0 });
+    expect(useOf(0, 0)).toEqual({ sun: 0, rub: 0, dull: 0 });
+    expect(useOf(Number.NaN, Number.NaN)).toEqual({ sun: 0, rub: 0, dull: 0 });
+    expect(useOf(-3, -40)).toEqual({ sun: 0, rub: 0, dull: 0 });
+  });
+
+  it('grows with handling and with the years, and stays within bounds', () => {
+    expect(useOf(0.5, 0).rub).toBe(0.5);
+    expect(useOf(7, 0).rub).toBe(1);
+    expect(useOf(1, 0).dull).toBe(1);
+    expect(useOf(0, 0).sun).toBe(0);
+    expect(useOf(0, 365).sun).toBeGreaterThan(0.45);
+    expect(useOf(0, 365).sun).toBeLessThan(0.55);
+    expect(useOf(0, 3650).sun).toBeGreaterThan(useOf(0, 365).sun);
+    expect(useOf(0, 1e9).sun).toBeLessThanOrEqual(1);
+    // Handling does not fade a spine and time does not rub a corner.
+    expect(useOf(1, 0).sun).toBe(0);
+    expect(useOf(0, 5000).rub).toBe(0);
+    expect(useOf(0.4, 200)).toEqual(useOf(0.4, 200));
+  });
+
+  it('widens the rubbed edge from the binder\u2019s width to at most 14 px', () => {
+    for (const binding of ['cloth', 'linen', 'leather', 'paper', 'velvet'] as const) {
+      const wear = BINDING_RECIPES[binding].wear;
+      const fresh = rubOf(wear, 0);
+      const worn = rubOf(wear, 1);
+      expect(fresh.reach).toBe(wear[0]);
+      expect(worn.reach).toBeGreaterThan(fresh.reach);
+      expect(worn.reach).toBeLessThanOrEqual(RUB_REACH);
+      expect(Math.abs(fresh.amount)).toBeLessThan(Math.abs(worn.amount));
+      expect(Math.abs(fresh.amount)).toBeLessThan(0.07);
+      expect(Math.abs(worn.amount)).toBeLessThanOrEqual(0.3);
+      expect(Math.sign(worn.amount)).toBe(Math.sign(wear[1]));
+    }
+    expect(RUB_REACH).toBe(14);
+    expect(rubOf([0, 0], 1)).toEqual({ reach: 0, amount: 0 });
+  });
+
+  it('never fades a spine at the cost of its title', () => {
+    // A light title on a dark cloth: the cloth keeps its depth.
+    expect(sunLift(1, 0.8, 0.05)).toBe(0);
+    expect(sunLift(1, 1, 0.3)).toBe(0);
+    // A dark title on a pale cloth: a paler cloth only helps.
+    expect(sunLift(1, 0.02, 0.6)).toBeGreaterThan(0);
+    expect(sunLift(1, 0.02, 0.6)).toBeLessThanOrEqual(0.08);
+    expect(sunLift(0, 0.02, 0.6)).toBe(0);
+    expect(sunLift(0.5, 0.02, 0.6)).toBeLessThan(sunLift(1, 0.02, 0.6));
+  });
+});
+
 describe('binding shader', () => {
   const stock = 'uniform float a;\nvoid main() {\n#include <normal_fragment_maps>\n#include <lights_physical_fragment>\n#include <lights_fragment_maps>\n}';
 
@@ -134,6 +206,7 @@ describe('binding shader', () => {
     expect(patched.indexOf('radiance *=')).toBeGreaterThan(patched.indexOf('#include <lights_fragment_maps>'));
     // Without the place where the room is read, the rest still goes in.
     expect(patchFragmentShader(stock.replace('#include <lights_fragment_maps>\n', ''))).toContain('uniform sampler2D bbStamp;');
+    for (const uniform of ['bbFoil', 'bbCloth', 'bbUse', 'bbRub']) expect(patched).toContain(`${uniform};`);
     // The highlight is spread where the relief is finer than a pixel.
     expect(patched).toMatch(/dFdx\( normal \)/);
     for (const line of stock.split('\n')) expect(patched).toContain(line);

@@ -294,8 +294,8 @@ export interface FlakeTile {
 }
 
 /**
- * Holographic foil. The sheet is made of small flakes; most lie nearly flat and a few lean far enough to
- * flash on their own, which reads as glitter. The film thickness drifts slowly across the tile and steps
+ * Holographic foil. The sheet is made of small flakes that all lie nearly flat; one in twenty is a little
+ * brighter than the sheet, which reads as glitter. None is darker than the sheet. The film thickness drifts slowly across the tile and steps
  * very slightly from flake to flake, so the colour runs in smooth bands with a grain at close range.
  */
 export function flakeTile(size: number, seed = 8): FlakeTile {
@@ -313,7 +313,10 @@ export function flakeTile(size: number, seed = 8): FlakeTile {
       const id = near.id;
       const angle = hash2(Math.floor(id * 65536), 3, seed) * Math.PI * 2;
       const pick = hash2(Math.floor(id * 65536), 5, seed);
-      const lean = pick > 0.93 ? 0.14 + 0.2 * hash2(Math.floor(id * 65536), 7, seed) : 0.008 + 0.03 * pick;
+      const spark = pick > 0.95;
+      // Every flake lies nearly flat. One that leaned far would mirror a dark corner of the room most of
+      // the time and show as a dark speck.
+      const lean = spark ? 0.03 + 0.03 * hash2(Math.floor(id * 65536), 7, seed) : 0.006 + 0.02 * pick;
       const nx = Math.cos(angle) * lean;
       const ny = Math.sin(angle) * lean;
       const nz = Math.sqrt(1 - lean * lean);
@@ -322,9 +325,10 @@ export function flakeTile(size: number, seed = 8): FlakeTile {
       normal[at + 1] = Math.round((ny * 0.5 + 0.5) * 255);
       normal[at + 2] = Math.round((nz * 0.5 + 0.5) * 255);
       normal[at + 3] = 255;
-      const edge = smoothstep(0.0, 0.12, near.f2 - near.f1);
-      detail[at] = Math.round((0.44 + 0.06 * edge + 0.1 * (id - 0.5)) * 255);
-      detail[at + 1] = Math.round((0.8 + 0.2 * hash2(Math.floor(id * 65536), 9, seed)) * 255);
+      // A flake is never darker than the sheet it lies in: the ones that stand out are brighter and smoother.
+      detail[at] = Math.round((0.5 + (spark ? 0.1 + 0.12 * id : 0)) * 255);
+      // All equally smooth: a smoother flake mirrors one spot of the room, which is dark more often than bright.
+      detail[at + 1] = Math.round((0.9 + 0.1 * hash2(Math.floor(id * 65536), 9, seed)) * 255);
       detail[at + 2] = 255;
       detail[at + 3] = 255;
       // A slow run of bands that closes on itself, plus a step per flake.
@@ -373,11 +377,12 @@ export function pagesTile(width = 256, rows = 64, seed = 9): PagesTile {
       const relief = clamp01(Math.sqrt(ridge) * (0.7 + 0.3 * setBack) - gathering * (1 - ridge));
       height[y * width + x] = relief;
       const grain = valueNoise(v * rows * 0.5, x, rows * 0.5, width, seed + 5);
-      const light = 0.66 + 0.26 * relief + 0.08 * (tone - 0.5) + 0.05 * (grain - 0.5) - gathering * 0.25 * (1 - ridge);
+      // Bright paper: the gaps between sheets are a soft line, not a grey one.
+      const light = 0.8 + 0.17 * relief + 0.06 * (tone - 0.5) + 0.04 * (grain - 0.5) - gathering * 0.2 * (1 - ridge);
       const at = (y * width + x) * 4;
-      color[at] = Math.round(clamp01(light * 0.985) * 255);
-      color[at + 1] = Math.round(clamp01(light * 0.95) * 255);
-      color[at + 2] = Math.round(clamp01(light * 0.86) * 255);
+      color[at] = Math.round(clamp01(light * 0.99) * 255);
+      color[at + 1] = Math.round(clamp01(light * 0.955) * 255);
+      color[at + 2] = Math.round(clamp01(light * 0.875) * 255);
       color[at + 3] = 255;
     }
   }

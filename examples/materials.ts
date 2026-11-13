@@ -6,7 +6,8 @@
  * Address parameters, for looking at one thing: `only` (a binding, or `floors`), `stamp`, `ground`
  * (`paper` or `night`), `t` (freeze the clock at this many seconds), `yaw` (hold this angle, radians),
  * `at` (pointer position as `x,y`, each -1 to 1), `quality` (`high` or `low`), `near` (0 draws the
- * materials as on a volume at shelf distance, 1 as on a cover shown large; left out, it follows the size).
+ * materials as on a volume at shelf distance, 1 as on a cover shown large; left out, it follows the size),
+ * `handled` (0 to 1) and `age` (days since saved), which wear the volumes.
  */
 import '../src/styles/base.css';
 import './example.css';
@@ -41,6 +42,9 @@ const SERIF = "'Newsreader Variable', 'Iowan Old Style', 'Palatino Linotype', Ge
 const params = new URLSearchParams(location.search);
 /** `near` in the address holds how near the volumes count as drawn: 0 shelf distance, 1 shown large. */
 const nearOverride = params.has('near') ? Math.min(1, Math.max(0, Number(params.get('near')) || 0)) : undefined;
+/** `handled` (0 to 1) and `age` (days) in the address wear the volumes: rubbed corners, a sunned spine, dulled foil. */
+const handled = Number(params.get('handled')) || 0;
+const age = Number(params.get('age')) || 0;
 const stage = document.querySelector<HTMLElement>('#stage')!;
 const note = document.querySelector<HTMLElement>('#note')!;
 const stampPicker = document.querySelector<HTMLSelectElement>('#stamp')!;
@@ -233,7 +237,7 @@ function buildVolume(binding: Binding, stampOverride: Stamp | undefined, seed: n
   const stamp = stampOverride ?? shown.stamp;
   const scale = Math.min(3, Math.max(2, Math.ceil(window.devicePixelRatio || 1) + 1));
   const materials = kit.volume(
-    { binding, stamp, cloth: shown.cloth, ink: shown.ink, seed, size: SIZE, presented: nearOverride ?? nearness(SIZE.bookHeight * drawnScale) },
+    { binding, stamp, cloth: shown.cloth, ink: shown.ink, seed, size: SIZE, presented: nearOverride ?? nearness(SIZE.bookHeight * drawnScale), handled, age },
     { front: paintFront(shown, scale), spine: paintSpine(shown, scale), back: paintBack(shown, scale) },
   );
   const { spineWidth: d, bookHeight: h, coverWidth: w } = SIZE;

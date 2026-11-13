@@ -74,7 +74,11 @@ export function bindingFor(item: FrameVolume['item'], cloth?: string, needs: Sta
   const binding = resolveBinding(item.binding, seed, needs.look);
   const stamp = resolveStamp(item.stamp, binding, seed);
   // What the person chose stands as chosen, readable or not.
-  return { binding, stamp: isStamp(item.stamp) || cloth === undefined ? stamp : legibleStamp(stamp, cloth, needs) };
+  if (isStamp(item.stamp)) return { binding, stamp };
+  // A board of metal or holographic foil is bright whatever its cloth colour: its title is printed, and
+  // the material lays that print down in a dark ink.
+  if (binding === 'foil' || binding === 'holo') return { binding, stamp: 'ink' };
+  return { binding, stamp: cloth === undefined ? stamp : legibleStamp(stamp, cloth, needs) };
 }
 
 /** Size of the spine title the shelf has set for a volume, in CSS px, or nothing when the spine carries a label. */
@@ -137,6 +141,8 @@ export function createKit(renderer: WebGLRenderer, quality: 'high' | 'low' = qua
           size: { spineWidth: volume.spineWidth, bookHeight: volume.bookHeight, coverWidth: volume.coverWidth },
           spineRound: SPINE_ROUND,
           presented: (volume as ShownVolume).presented,
+          handled: volume.item.handled,
+          age: volume.item.age,
         },
         faces,
       ),

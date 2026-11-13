@@ -76,6 +76,19 @@ describe('choosing a stamp that can be read', () => {
     expect(bindingFor({ id: 'a', title: 'A', seed: 7, binding: 'velvet' }, '#ef5b3a', { look: 'pocket' }).binding).toBe('velvet');
   });
 
+  it('prints the title of a metal or holographic board, which the material lays down dark', () => {
+    let boards = 0;
+    for (let seed = 1; seed < 4000 && boards < 12; seed += 1) {
+      const dress = bindingFor({ id: 'a', title: 'A', seed }, '#1f1e1b');
+      if (dress.binding !== 'foil' && dress.binding !== 'holo') continue;
+      boards += 1;
+      expect(dress.stamp).toBe('ink');
+    }
+    expect(boards).toBeGreaterThan(0);
+    expect(bindingFor({ id: 'a', title: 'A', seed: 3, binding: 'holo', stamp: 'copper' }, '#1f1e1b').stamp).toBe('copper');
+    expect(bindingFor({ id: 'a', title: 'A', seed: 3, binding: 'holo' }).stamp).toBe('ink');
+  });
+
   it('gives the same volume the same dress on every visit', () => {
     const item = { id: 'a', title: 'A', seed: 1234 };
     expect(bindingFor(item, '#1f5a5c')).toEqual(bindingFor(item, '#1f5a5c'));

@@ -31,12 +31,18 @@ export interface FaceUniforms extends BindingUniforms {
   bbStampFx: { value: THREE.Vector4 };
   /** Face size in CSS px. */
   bbFaceSize: { value: THREE.Vector2 };
-  /** x wear width px, y wear darkening, z bevel width px, w bevel lean. */
+  /** x unused, y how the rubbed edge shows (positive burnished darker, negative rubbed pale), z bevel width px, w bevel lean. */
   bbEdge: { value: THREE.Vector4 };
   /** x joint centre px from the left edge, y joint half width px, z joint depth, w round of the spine. */
   bbJoint: { value: THREE.Vector4 };
-  /** x how much more of the room the stamp mirrors (0 none), y darkening at the foot of the pressed wall. */
+  /** x how much more of the room the stamp mirrors (0 none), y darkening at the foot of the pressed wall, z 1 on a metal board, where the print is laid down dark. */
   bbFoil: { value: THREE.Vector4 };
+  /** The plain colour of the covering, to tell the print from it. */
+  bbCloth: { value: THREE.Color };
+  /** x sun on this face, y how rubbed the corners are, z how dull the foil is at the head, w how much the sun has lightened the face. */
+  bbUse: { value: THREE.Vector4 };
+  /** Reach of the rubbed edge in px: x from the left and right edges, y from head and tail. */
+  bbRub: { value: THREE.Vector4 };
 }
 
 const ANCHOR_MAIN = 'void main() {';
@@ -58,11 +64,19 @@ uniform vec4 bbDetail;
 	uniform vec4 bbEdge;
 	uniform vec4 bbJoint;
 	uniform vec4 bbFoil;
+	uniform vec3 bbCloth;
+	uniform vec4 bbUse;
+	uniform vec4 bbRub;
 #endif
 float bbMask = 0.0;
+float bbPrinted = 0.0;
 `;
 
 const SURFACE = /* glsl */ `
+#ifdef BB_FACE
+	// What is printed on the board, as against its plain covering. Only a metal board asks.
+	bbPrinted = bbFoil.z * smoothstep( 0.04, 0.2, distance( diffuseColor.rgb, bbCloth ) );
+#endif
 #ifdef USE_ROUGHNESSMAP
 	// The tile's red channel: hollows and single threads printed into the colour.
 	diffuseColor.rgb *= 1.0 + ( texelRoughness.r * 2.0 - 1.0 ) * bbDetail.x;
@@ -73,7 +87,17 @@ const SURFACE = /* glsl */ `
 	diffuseColor.rgb = min( diffuseColor.rgb * ( pow( bbLuma, bbDetail.y ) / bbLuma ), vec3( 1.0 ) );
 	// A holographic foil is a pale silver that the film colours, whatever is printed on it.
 	diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.93, 0.94, 0.96 ), bbDetail.w );
+	#ifdef USE_ROUGHNESSMAP
+		// Its brighter flakes stay brighter under the silver.
+		diffuseColor.rgb = min( diffuseColor.rgb * ( 1.0 + max( texelRoughness.r * 2.0 - 1.0, 0.0 ) * bbDetail.w ), vec3( 1.0 ) );
+	#endif
 }
+#ifdef BB_FACE
+	// On a metal board the print is laid down in a dark matt ink, so a title can be read against the shine.
+	diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.03, 0.028, 0.026 ), bbPrinted );
+	roughnessFactor = mix( roughnessFactor, 0.62, bbPrinted );
+	metalnessFactor *= 1.0 - bbPrinted;
+#endif
 #if defined( BB_FACE ) && defined( USE_MAP ) && defined( USE_NORMALMAP_TANGENTSPACE )
 {
 	vec2 bbUv = vMapUv;
@@ -82,11 +106,37 @@ const SURFACE = /* glsl */ `
 		texture2D( bbStamp, bbUv + vec2( bbStampTexel.x, 0.0 ) ).r - texture2D( bbStamp, bbUv - vec2( bbStampTexel.x, 0.0 ) ).r,
 		texture2D( bbStamp, bbUv + vec2( 0.0, bbStampTexel.y ) ).r - texture2D( bbStamp, bbUv - vec2( 0.0, bbStampTexel.y ) ).r
 	);
+	vec2 bbPx = bbUv * bbFaceSize;
+	vec2 bbFromEdge = min( bbPx, bbFaceSize - bbPx );
 
-	diffuseColor.rgb = mix( diffuseColor.rgb, bbStampColor, bbMask * bbStampMix.x );
+	// Sun: a spine that has stood in the light for years has lost colour and yellowed a little.
+	float bbDepth = dot( diffuseColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) );
+	diffuseColor.rgb = mix( diffuseColor.rgb, vec3( bbDepth ), 0.3 * bbUse.x ) * mix( vec3( 1.0 ), vec3( 1.04, 1.0, 0.88 ), bbUse.x ) * ( 1.0 + bbUse.w );
+
+	// Hands: edges rub, corners take the knocks, and the high points of the grain go first.
+	vec2 bbReach = max( bbRub.xy, vec2( 0.001 ) );
+	vec2 bbRubbed = 1.0 - smoothstep( vec2( 0.0 ), bbReach, bbFromEdge );
+	vec2 bbKnock = 1.0 - smoothstep( vec2( 0.0 ), bbReach * 2.4, bbFromEdge );
+	float bbWear = min( 1.0, max( bbRubbed.x, bbRubbed.y ) + 2.2 * bbUse.y * bbKnock.x * bbKnock.y );
+	#ifdef USE_ROUGHNESSMAP
+		bbWear *= mix( 1.0, smoothstep( 0.4, 0.52, texelRoughness.r ), 0.5 * bbUse.y );
+	#endif
+	if ( bbEdge.y >= 0.0 ) {
+		// Burnished: darker and smoother, as leather goes.
+		diffuseColor.rgb *= 1.0 - bbEdge.y * bbWear;
+		roughnessFactor *= 1.0 - 0.6 * bbEdge.y * bbWear;
+	} else {
+		// Rubbed pale, toward the thread or the card.
+		diffuseColor.rgb += - bbEdge.y * bbWear * ( 0.25 + bbDepth ) * vec3( 1.0, 0.96, 0.88 );
+	}
+
+	// Foil thins and dulls at the head of a spine, where a finger hooks the volume out.
+	float bbHook = bbUse.z * smoothstep( 0.8, 0.96, bbUv.y );
+	float bbLaid = bbMask * ( 1.0 - 0.3 * bbHook );
+	diffuseColor.rgb = mix( diffuseColor.rgb, bbStampColor, bbLaid * bbStampMix.x );
 	diffuseColor.rgb *= mix( 1.0, bbStampMix.y, bbMask );
-	roughnessFactor = mix( roughnessFactor, bbStampPbr.x + bbStampPbr.y * roughnessFactor, bbMask );
-	metalnessFactor = mix( metalnessFactor, bbStampPbr.z + bbStampPbr.w * metalnessFactor, bbMask );
+	roughnessFactor = mix( roughnessFactor, min( 1.0, bbStampPbr.x + bbStampPbr.y * roughnessFactor + 0.25 * bbHook ), bbMask );
+	metalnessFactor = mix( metalnessFactor, bbStampPbr.z + bbStampPbr.w * metalnessFactor, bbLaid );
 
 	// Pressed flat inside the stamp: a bed, with a hairline wall at its edge that leans toward the inside
 	// and is dark at its foot.
@@ -94,10 +144,6 @@ const SURFACE = /* glsl */ `
 	vec2 bbLean = bbSlope * bbStampMix.w;
 	diffuseColor.rgb *= 1.0 - bbFoil.y * min( 1.0, abs( bbSlope.x ) + abs( bbSlope.y ) );
 
-	vec2 bbPx = bbUv * bbFaceSize;
-	vec2 bbFromEdge = min( bbPx, bbFaceSize - bbPx );
-	float bbWear = 1.0 - smoothstep( 0.0, max( bbEdge.x, 0.001 ), min( bbFromEdge.x, bbFromEdge.y ) );
-	diffuseColor.rgb *= 1.0 - bbEdge.y * bbWear;
 	// The covering turns over the edge of the board.
 	bbLean += ( 1.0 - smoothstep( vec2( 0.0 ), vec2( max( bbEdge.z, 0.001 ) ), bbFromEdge ) ) * sign( bbUv - 0.5 ) * bbEdge.w;
 	// A spine is rounded across its width.
@@ -133,7 +179,7 @@ const LAYERS = /* glsl */ `
 		material.clearcoat *= mix( 1.0, bbStampFx.y, bbMask );
 	#endif
 	#ifdef USE_IRIDESCENCE
-		material.iridescence *= mix( bbStampFx.z, bbStampFx.w, bbMask );
+		material.iridescence *= mix( bbStampFx.z, bbStampFx.w, bbMask ) * ( 1.0 - bbPrinted );
 	#endif
 #endif
 #ifdef USE_IRIDESCENCE
@@ -161,7 +207,7 @@ export function patchFragmentShader(source: string): string {
 }
 
 /** Every patched material compiles to the same program as the others with the same features. */
-export const PROGRAM_KEY = 'bb-binding-3';
+export const PROGRAM_KEY = 'bb-binding-4';
 
 /**
  * Adds the binding code to a physical material. `face` materials carry a stamp mask and read the

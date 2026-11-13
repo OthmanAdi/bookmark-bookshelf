@@ -27,6 +27,9 @@ describe('resolveBinding', () => {
     }
     expect(share('cloth') + share('linen')).toBeGreaterThan(0.5);
     expect(share('velvet') + share('foil') + share('holo')).toBeLessThan(0.12);
+    // A whole board of metal or holographic foil is a showpiece: about one volume in fifty.
+    expect(share('foil') + share('holo')).toBeLessThan(0.035);
+    expect(share('holo')).toBeLessThan(0.016);
     expect(share('cloth')).toBeGreaterThan(share('leather'));
     expect(share('leather')).toBeGreaterThan(share('gloss'));
   });
@@ -78,6 +81,21 @@ describe('resolveStamp', () => {
     expect(count('leather', 'gold')).toBeGreaterThan(0.45);
     expect(count('paper', 'ink')).toBeGreaterThan(0.58);
     expect(count('foil', 'gold')).toBe(0);
+  });
+
+  it('puts holographic foil on a shelf as a stamp far more often than as a board', () => {
+    let boards = 0;
+    let stamps = 0;
+    for (const seed of seeds) {
+      const binding = resolveBinding(undefined, seed);
+      if (binding === 'holo') boards += 1;
+      else if (resolveStamp(undefined, binding, seed) === 'holo') stamps += 1;
+    }
+    expect(stamps).toBeGreaterThan(boards * 3);
+    const weight = (binding: Binding) => STAMP_WEIGHTS[binding].find(([stamp]) => stamp === 'holo')?.[1] ?? 0;
+    expect(weight('cloth')).toBeGreaterThan(0);
+    expect(weight('gloss')).toBeGreaterThan(weight('cloth'));
+    for (const binding of ['linen', 'leather', 'paper', 'velvet', 'foil', 'holo'] as const) expect(weight(binding)).toBe(0);
   });
 
   it('chooses the stamp apart from the binding', () => {

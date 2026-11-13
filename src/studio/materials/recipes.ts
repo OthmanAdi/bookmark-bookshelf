@@ -41,7 +41,11 @@ export interface BindingRecipe {
   lift: number;
   /** How far the print is paled toward silver, 0 to 1. Holographic foil is pastel whatever its colour. */
   pastel: number;
-  /** Rubbed edges: width in CSS px and how much darker (positive) or lighter (negative) they are. */
+  /**
+   * Rubbed edges on a volume fresh from the binder: width in CSS px and how they show. Positive is
+   * burnished darker and smoother (leather), negative rubbed pale toward the thread or the card (cloth,
+   * paper). Both grow with handling, see `rubOf`.
+   */
   wear: readonly [number, number];
   /** Turn of the covering over the board edge: width in CSS px and how far the surface leans there. */
   bevel: readonly [number, number];
@@ -76,7 +80,7 @@ const cloth: BindingRecipe = {
   shade: 0.35,
   lift: 1,
   pastel: 0,
-  wear: [5, -0.05],
+  wear: [5, -0.2],
   bevel: [2.2, 0.55],
   joint: 0.9,
   pressed: 0.65,
@@ -85,7 +89,7 @@ const cloth: BindingRecipe = {
 export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
   cloth,
   // Linen book cloth is finer than buckram: 56 threads to 76 px, with slubs and threads of uneven colour.
-  linen: { ...cloth, tile: 'linen', span: 76, normalScale: 0.9, roughness: 0.93, sheen: 0.32, sheenLift: 0.3, sheenRoughness: 0.7, shade: 0.3, wear: [5, -0.04], pressed: 0.55 },
+  linen: { ...cloth, tile: 'linen', span: 76, normalScale: 0.9, roughness: 0.93, sheen: 0.32, sheenLift: 0.3, sheenRoughness: 0.7, shade: 0.3, wear: [5, -0.18], pressed: 0.55 },
   leather: {
     ...cloth,
     tile: 'leather',
@@ -98,28 +102,30 @@ export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
     clearcoat: 0.1,
     clearcoatRoughness: 0.4,
     shade: 0.25,
-    wear: [9, 0.2],
+    wear: [6, 0.26],
     bevel: [3, 0.7],
     joint: 1.1,
     pressed: 0.97,
   },
-  paper: { ...cloth, tile: 'paper', span: 96, normalScale: 0.4, roughness: 0.72, sheen: 0, shade: 0.4, wear: [3, -0.03], bevel: [1.6, 0.45], joint: 0.7, pressed: 0.9 },
+  paper: { ...cloth, tile: 'paper', span: 96, normalScale: 0.4, roughness: 0.72, sheen: 0, shade: 0.4, wear: [3, -0.22], bevel: [1.6, 0.45], joint: 0.7, pressed: 0.9 },
   gloss: {
     ...cloth,
     tile: 'gloss',
     span: 220,
     normalScale: 0.12,
-    roughness: 0.42,
+    // A matt print under a clear film: the film alone mirrors the lamps, as a window with an edge. A
+    // full, perfectly smooth coat over a half-polished print lays a milky veil over the whole board.
+    roughness: 0.58,
     sheen: 0,
-    clearcoat: 1,
-    clearcoatRoughness: 0.04,
+    clearcoat: 0.75,
+    clearcoatRoughness: 0.08,
     shade: 0,
     wear: [0, 0],
     bevel: [1.6, 0.5],
     joint: 0.8,
     pressed: 0.9,
   },
-  velvet: { ...cloth, tile: 'velvet', span: 150, normalScale: 0.3, roughness: 1, sheen: 1, sheenLift: 0.7, sheenRoughness: 0.5, shade: 1, wear: [6, 0.08], bevel: [3.2, 0.6], joint: 0.6, pressed: 0.95 },
+  velvet: { ...cloth, tile: 'velvet', span: 150, normalScale: 0.3, roughness: 1, sheen: 1, sheenLift: 0.7, sheenRoughness: 0.5, shade: 1, wear: [6, 0.14], bevel: [3.2, 0.6], joint: 0.6, pressed: 0.95 },
   foil: {
     ...cloth,
     tile: 'brushed',
@@ -139,16 +145,20 @@ export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
   holo: {
     ...cloth,
     tile: 'flake',
-    span: 110,
-    normalScale: 1,
-    roughness: 0.2,
+    // A flake of about a pixel and a half: glitter, not confetti.
+    span: 80,
+    normalScale: 0.35,
+    roughness: 0.26,
     metalness: 0.95,
     sheen: 0,
-    iridescence: 1,
-    filmShift: 120,
+    // A pale film, not an oil slick: the film colours a little over half of what the foil mirrors, and
+    // a tilt of 7 degrees turns the mirrored direction by 14, which moves the film by about 41 nm, a
+    // quarter of the 170 nm one full run of colours takes at this index.
+    iridescence: 0.6,
+    filmShift: 170,
     shade: 0.5,
     lift: 0.28,
-    pastel: 0.62,
+    pastel: 0.8,
     wear: [0, 0],
     bevel: [1.6, 0.5],
     joint: 0.8,
@@ -176,7 +186,9 @@ export function reliefAt(near: number): number {
 }
 
 /** Index of refraction and thickness range, in nanometres, of the film on holographic foil. */
-export const FILM = { ior: 1.6, thickness: [250, 520] as const, span: 260 };
+export const FILM = { ior: 1.6, thickness: [430, 580] as const, span: 260 };
+/** The film of a holographic stamp: how far it runs with the angle, in nm, and how much of it shows. */
+export const STAMP_FILM = { shift: 170, strength: 0.7 };
 
 export interface StampRecipe {
   /** Colour laid over the print inside the mask: a metal, the ink (taken from the look), or nothing. */
@@ -232,7 +244,7 @@ export const STAMP_RECIPES: Record<Stamp, StampRecipe> = {
   gold: { ...metal, color: [1, 0.74, 0.3], roughness: [0.36, 0.06], roughnessNear: [0.12, 0.04] },
   silver: { ...metal, color: [0.93, 0.94, 0.95], roughness: [0.32, 0.06], roughnessNear: [0.12, 0.04] },
   copper: { ...metal, color: [0.97, 0.58, 0.4], roughness: [0.36, 0.06], roughnessNear: [0.16, 0.04] },
-  holo: { ...metal, color: [0.93, 0.93, 0.95], roughness: [0.3, 0.04], roughnessNear: [0.12, 0.04], iridescence: 1 },
+  holo: { ...metal, color: [0.93, 0.93, 0.95], roughness: [0.3, 0.04], roughnessNear: [0.12, 0.04], iridescence: STAMP_FILM.strength },
   blind: {
     color: null,
     tint: 0,
@@ -266,6 +278,44 @@ export const STAMP_RECIPES: Record<Stamp, StampRecipe> = {
     iridescence: 0,
   },
 };
+
+/** What time and hands have done to a volume, each 0 (new, untouched) to 1. */
+export interface Use {
+  /** How far the spine has faded and yellowed in the light. The boards, shut between their neighbours, stay fresh. */
+  sun: number;
+  /** How far edges and corners are rubbed. */
+  rub: number;
+  /** How dull the foil has gone at the head of the spine, where a finger hooks the volume out. */
+  dull: number;
+}
+
+/**
+ * Wear from `handled` (0 never opened to 1 read through and returned to) and `age` (days since the link
+ * was saved). A new, unread link is crisp: all three are 0. Sun follows 1 - exp(-days / 540): about half
+ * after a year, and it never quite finishes.
+ */
+export function useOf(handled?: number, age?: number): Use {
+  const hands = handled !== undefined && Number.isFinite(handled) ? Math.min(1, Math.max(0, handled)) : 0;
+  const days = age !== undefined && Number.isFinite(age) ? Math.max(0, age) : 0;
+  return { sun: 1 - Math.exp(-days / 540), rub: hands, dull: hands };
+}
+
+/** Rubbed edges reach this far at most, in CSS px. */
+export const RUB_REACH = 14;
+
+/** Width of the rubbed edge in px and how strongly it shows, for a binding's own `wear` after this much use. */
+export function rubOf(wear: readonly [number, number], rub: number): { reach: number; amount: number } {
+  return { reach: Math.min(RUB_REACH, wear[0] * (1 + 1.6 * rub)), amount: wear[1] * (0.25 + 0.75 * rub) };
+}
+
+/**
+ * How much a sunned spine may lighten, as a share of its colour. A faded cloth is paler, which helps a
+ * dark title and would cost a light one some of its contrast: under a light title the spine only loses
+ * colour and keeps its depth.
+ */
+export function sunLift(sun: number, titleLuminance: number, clothLuminance: number): number {
+  return titleLuminance < clothLuminance ? 0.07 * Math.min(1, Math.max(0, sun)) : 0;
+}
 
 /** A stamp as it is pressed into one binding and seen from one distance. */
 export interface Pressed {
