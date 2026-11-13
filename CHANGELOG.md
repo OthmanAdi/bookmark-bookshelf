@@ -1,5 +1,63 @@
 # Changelog
 
+## 0.3.0 (unreleased)
+
+This release adds Studio, a second drawing of the shelf in WebGL with lit materials, and Showcase, a view of one large book at a time. The CSS shelf stays the default under the name Classic. A visit that never chooses Studio never downloads three.js.
+
+Nothing was removed, and a library, a backup, a shelf file or a shelf link written by 0.2.0 opens unchanged. People who reuse a module should read the last part of "Added" and of "Changed".
+
+### Added
+
+In the app:
+
+- A Drawing group in the View menu with two choices: Classic ("CSS 3D, light and fast.") and Studio ("Lit materials, drawn with WebGL."). The choice is kept with the session. `app.html?paint=studio` opens the shelf in Studio and `app.html?paint=classic` in Classic, for that visit only.
+- Studio paints the row in a canvas behind the DOM shelf, with a camera that repeats the CSS perspective. The DOM volumes stay where they are with transparent faces, so every control, focus ring, gesture and announcement is the one Classic has.
+- Eight bindings (book cloth, linen, leather, paper over boards, gloss laminate, velvet, metal foil, holographic foil) and six title stamps (gold foil, silver foil, copper foil, holographic foil, blind deboss, printed ink). All surfaces are generated in code when the page runs. Each volume has a contact shadow and stands on a floor in the material of its look: paper-covered board, oiled oak, dark lacquered wood or painted pine. The light follows the pointer.
+- A link without a choice of its own gets a binding and a stamp from its seed, so it looks the same on every visit. A foil that does not reach a contrast of 4.5 to 1 on its cloth gives way to one that does, or to printed ink. A spine title under 14 px is printed, and so is every title under `prefers-contrast: more`. In Pocket Paperbacks such a volume is bound in paper or gloss laminate.
+- The editor has two new rows, Binding and Title stamp, each starting with Automatic. A choice made there shows when the shelf is drawn in Studio, is kept as it is, and travels in backups, shelf files and shelf links.
+- A volume in Studio shows its use. The spine fades and yellows a little with the days since the link was saved. Edges and corners rub, and foil dulls at the head of the spine, as the link is read, marked as read or given a note.
+- Page motion in Studio. Under the pointer the presented cover opens, a quarter of the way at the hinge and fully at the fore-edge, and its leaves fan behind it with a lag. A volume that arrives at the centre flutters its pages for a moment. Opening a link flies the lit volume to the page with its cover opening and its pages fanning, and it lands as the flat cover the reader shows. With reduced motion none of this moves.
+- Showcase, a third view in the View menu. It shows one large book beside its title, byline, note, reading state, progress and tags, with the same actions as the caption under the row, and a rail of ticks for all books of the shelf. The wheel, the up and down arrow keys (or `j` and `k`), Page Up and Page Down, Home and End, a vertical swipe, the ticks and two buttons move between books. The book turns toward the pointer, can be spun by dragging, and opens a little under the pointer or keyboard focus. It is lit when the drawing is Studio. With reduced motion one book fades into the next in 150 ms.
+- The homepage opens on one large book beside the title. It is painted with CSS at once. Where WebGL 2 is available and reduced motion, data saving and forced colours are all off, the lit drawing is fetched afterwards, the book turns into its pose over 1350 ms, and after that it tilts toward the pointer.
+- Two examples. `examples/studio-shelf.html` is the shelf and the motion engine with Studio over them, a binding and a stamp for the whole row, and a switch that takes Studio away again. `examples/materials.html` is a material lab with one volume for each binding.
+
+For people who reuse a module:
+
+- Shelf: `ShelfHandle.onFrame(listener)` reports every frame the shelf draws, after the DOM is written, so that a second renderer can paint the same row. The listener gets a `ShelfFrame`: the scene element, its size and perspective, the light, `gap`, `rowGive`, the volumes as `FrameVolume` (item, element, sizes and each term of the transform) and the bookends as `FrameBookend`. It is called once straight away, and nothing is collected while no one listens. The three types are exported from `src/shelf/index.ts`.
+- Shelf: `ShelfItem.binding`, `stamp`, `handled` (0 to 1) and `age` (days on the shelf), for a renderer that draws materials. The CSS shelf ignores all four.
+- Store: `CoverSpec.binding` and `CoverSpec.stamp`, lower-case names of at most 16 letters. The store does not check them against a list, so a library from a newer version keeps names this one does not know. An empty name in a patch removes the choice. Shelf files and shelf links write both, and only for links that have them.
+- Store: `Session.paint` (`'classic'` or `'studio'`, absent means Classic), with `PAINT_NAMES` and `PaintName`.
+- Studio, a new folder `src/studio` that needs `three`: `mountStudio(shelf, { kit, onFailure })` returns a `StudioHandle` with `canvas`, `setKit()`, `createFlight()` and `destroy()`. It throws without WebGL 2, which `webglAvailable()` tells beforehand. `createKit(renderer)` in `src/studio/kit.ts` makes the materials. Without a kit, volumes are drawn in plain lit cloth. `BINDINGS`, `STAMPS` and their labels are in `src/studio/types.ts`, which imports nothing, so a page can list them without loading three.js. Studio imports from `src/shelf` and from `src/app/flight.ts`.
+- Showcase, a new folder `src/showcase`: `mountShowcase(host, options)` returns a `ShowcaseHandle` with `setItems()`, `show()`, `setLook()`, `setPaint()`, `refresh()`, `focus()` and `destroy()`. It draws with CSS and imports its WebGL drawing, and with it Studio and three.js, only when the `studio` paint is asked for.
+- Composition: the object `createBookshelf()` returns has `paint` and `setPaint()`, and the options take `onPaintFailure`. The bookshelf hands each shelf item its `binding`, `stamp`, `handled` and `age`.
+
+### Changed
+
+- A row that stands still between its bookends follows the hand: one volume for each pitch of travel, as far as its first and last volume, and a release carries on at the speed it had. In 0.2.0 such a row gave 28 px under a pull and counted any swipe as one step. With reduced motion it still does.
+- A spine rises for a pointer that stays. The way up waits 70 ms and takes 200 ms, and a mouse moving faster than 0.4 px per millisecond raises nothing until it slows down. In 0.2.0 a sweep along the row raised every spine in turn.
+- The package has its first runtime dependency, `three` 0.187.0 (MIT), with `@types/three` for development. The build puts three.js in a chunk of its own: 541 kB, or 132 kB gzipped. Choosing Studio also loads 81 kB of Studio code (32 kB gzipped). Without Studio the app page loads 268 kB of JavaScript before compression (98 kB gzipped). In 0.2.0 that was about 234 kB (85 kB gzipped).
+
+For people who reuse a module:
+
+- Shelf: on a row that stands still, the function `trackFrom()` returns now gives positions that go with the hand. It used to return the same position throughout. A host that passes it to `motion.attach` as `track` gets the new behaviour with no change, and a host that disables the drag with `enabled: () => !shelf.fixed` keeps a row that a drag does not move.
+- Store: `Session.view` has a third value, `'showcase'`. Code that handles every view needs a branch for it.
+- Composition: `src/app/bookshelf.ts` imports `src/studio` on demand, so a copy of it needs that folder and `three`, or the `setPaint` function taken out.
+
+### Fixed
+
+- A hard throw let go just after a slow frame was released with no speed at all. The speed is now measured against the move before it.
+- A row that a hand had drawn more than six volumes along slid back to the sixth on release. It now settles where it was let go, and the limit of six only bounds what a throw adds.
+- A raised spine dipped under the floor line on its way down. It now comes down in 150 ms without going past its rest.
+
+### Known limits
+
+- Studio needs WebGL 2. Without it the Studio item in the View menu is marked unavailable ("Needs WebGL2, which this browser does not offer.") and the shelf stays in Classic.
+- When the browser takes the WebGL context away, the shelf goes back to Classic without a message. The stored choice stays Studio, so the next visit tries it again.
+- Under forced colours, Showcase and the homepage keep the CSS drawing. The shelf does not switch by itself: a shelf set to Studio stays in Studio there.
+- Studio and Showcase are covered by the browser tests in Chromium only. The WebKit smoke run does not reach them, and Firefox is not covered at all.
+- The reader never fetches pages, and there is no sync between devices, as before.
+- The skill trials were run against 0.1.0 and have not been repeated.
+
 ## 0.2.0 (2026-11-11)
 
 The first public release. It makes the shelf useful for more than a handful of links: many links come in at once, one can be found again, and a shelf can be handed to someone else. The volumes, their covers, the lighting and the move between shelf and page were rebuilt.

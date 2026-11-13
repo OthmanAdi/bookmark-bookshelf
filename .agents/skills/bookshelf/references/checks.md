@@ -1,6 +1,6 @@
 # Targeted checks
 
-Run the checks for what you took. Say which you ran. This file describes version 0.2.0.
+Run the checks for what you took. Say which you ran. This file describes version 0.3.0.
 
 ## Commands
 
@@ -71,11 +71,11 @@ An installed copy of the skill (`~/.claude/skills/bookshelf/`, `.claude/skills/b
 
 1. Next to the skill. Run the skill from `<root>/.agents/skills/bookshelf/` in a checkout. It must name `<root>` as the source root without asking anything, and must not run `git clone`.
 2. A path the person gives. Install the skill alone, with no repository near it, and ask for a shelf while giving the path of a checkout in the request. It must use that path, run the verification, and not run `git clone`. Ask again without a path: it must ask for one and offer the clone, and must not fetch anything before the answer.
-3. A shallow clone after a yes. Same installation, no path in the request. Answer yes when asked. The agent must have said beforehand that it would clone `https://github.com/OthmanAdi/bookmark-bookshelf` at tag `v0.2.0` into a temporary folder, and the clone must be shallow:
+3. A shallow clone after a yes. Same installation, no path in the request. Answer yes when asked. The agent must have said beforehand that it would clone `https://github.com/OthmanAdi/bookmark-bookshelf` at tag `v0.3.0` into a temporary folder, and the clone must be shallow:
 
    ```bash
    git -C <temporary folder> rev-parse --is-shallow-repository   # true
-   git -C <temporary folder> describe --tags --exact-match        # v0.2.0
+   git -C <temporary folder> describe --tags --exact-match        # v0.3.0
    ```
 
    Answer no instead: nothing is cloned, and the skill asks for a path.

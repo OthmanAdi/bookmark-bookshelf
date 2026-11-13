@@ -1,6 +1,6 @@
 # Module contracts
 
-Read the section for each module you take. The authoritative types are in the module's `types.ts` (for motion, `shelf-motion.ts`). This file describes version 0.2.0 and explains how to use them. The blocks here are sketches of a signature or a shape, not code to paste. Code to paste is in composition.md.
+Read the section for each module you take. The authoritative types are in the module's `types.ts` (for motion, `shelf-motion.ts`). This file describes version 0.3.0 and explains how to use them. The blocks here are sketches of a signature or a shape, not code to paste. Code to paste is in composition.md.
 
 Contents: [shelf](#shelf), [motion](#motion), [store](#store), [reader](#reader), [changed since 0.1.0](#changed-since-010)
 
@@ -51,7 +51,9 @@ Handle
 | `setItems(items, change?)` | Changes what stands in the row. A volume whose item stays (same `id`) keeps its element and travels to its new place, and under reduced motion it is there at once. `change.arrive` lists ids the person has just added, which the shelf brings in from above. Follow with `motion.setCount(n, index)` |
 | `setVariant(name)` | Switches the look. Follow with `motion.setLoop(shelf.loop)` and `motion.setTiming(shelf.variant.motion)` |
 | `loop` | whether the row repeats endlessly right now |
-| `fixed` | true while the row is short enough to stand whole in the scene. Do not let a drag or the wheel move such a row |
+| `fixed` | true while the row is short enough to stand whole in the scene. Do not let the wheel move such a row. A drag either is disabled (`enabled: () => !shelf.fixed`) or goes through `trackFrom`, which lets the row follow the hand as far as its first and last volume |
+| `trackFrom(start)` | for a drag that begins: a function from pointer x to row position that keeps the grabbed volume under the hand. It has the shape `motion.attach` asks of `track` |
+| `onFrame(listener)` | calls the listener with a `ShelfFrame` for every frame the shelf draws, after the DOM is written, and once straight away. It is how a second renderer such as Studio paints the same row. Returns a function that stops it |
 | `pitch()` | mean px between two resting volumes at the current scale. Hand it to the motion module |
 | `pitchAt(position)` | px the row moves for one unit of position near `position`, for rows whose volumes differ in thickness |
 | `coverSize()` | layout width and height of a cover at the current scale |
@@ -220,6 +222,16 @@ Markdown-lite: `#` and `##` headings (rendered as h2), `###` (h3), paragraphs, `
 `percent` in progress is 0 to 1. `labels.progress` receives a whole number from 0 to 100.
 
 Also exported: `parseMarkdownLite`, `renderBlocks`, `positionFromMetrics`, `scrollTopFor`, `estimateMinutes`, `defaultReaderLabels`.
+
+## Added in 0.3.0
+
+Nothing in 0.3.0 breaks a host written against 0.2.0, with one exception: `Session.view` has a third value, `'showcase'`, so code that handles every view needs a branch for it.
+
+- Shelf: `onFrame()` with the types `ShelfFrame`, `FrameVolume` and `FrameBookend`. `ShelfItem` has `binding`, `stamp`, `handled` (0 to 1) and `age` (days), which the CSS shelf ignores.
+- Shelf: on a standing row the function from `trackFrom()` follows the hand. In 0.2.0 it returned the same position throughout.
+- Store: `CoverSpec.binding` and `CoverSpec.stamp` are lower-case names of at most 16 letters, kept without a check against a list. An empty name in a patch removes the choice. Shelf files and shelf links carry both. `Session.paint` is `'classic'` or `'studio'`, and absent means classic.
+- Studio (`src/studio`, needs `three`): `mountStudio(shelf, { kit, onFailure })` returns `{ canvas, setKit(), createFlight(), destroy() }` and throws without WebGL 2. `webglAvailable()` tells beforehand. `createKit(renderer)` is in `src/studio/kit.ts`.
+- Showcase (`src/showcase`): `mountShowcase(host, options)` returns `{ element, index, paint, setItems(), show(), setLook(), setPaint(), refresh(), focus(), destroy() }`.
 
 ## Changed since 0.1.0
 
