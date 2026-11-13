@@ -35,11 +35,15 @@ export interface FaceUniforms extends BindingUniforms {
   bbEdge: { value: THREE.Vector4 };
   /** x joint centre px from the left edge, y joint half width px, z joint depth, w round of the spine. */
   bbJoint: { value: THREE.Vector4 };
+  /** x how much more of the room the stamp mirrors (0 none), y darkening at the foot of the pressed wall. */
+  bbFoil: { value: THREE.Vector4 };
 }
 
 const ANCHOR_MAIN = 'void main() {';
 const ANCHOR_SURFACE = '#include <normal_fragment_maps>';
 const ANCHOR_LAYERS = '#include <lights_physical_fragment>';
+/** Optional: where the mirrored room has been read and not yet used. Without it foil keeps the plain room. */
+const ANCHOR_ROOM = '#include <lights_fragment_maps>';
 
 const PARS = /* glsl */ `
 uniform vec4 bbDetail;
@@ -53,6 +57,7 @@ uniform vec4 bbDetail;
 	uniform vec2 bbFaceSize;
 	uniform vec4 bbEdge;
 	uniform vec4 bbJoint;
+	uniform vec4 bbFoil;
 #endif
 float bbMask = 0.0;
 `;
@@ -83,9 +88,11 @@ const SURFACE = /* glsl */ `
 	roughnessFactor = mix( roughnessFactor, bbStampPbr.x + bbStampPbr.y * roughnessFactor, bbMask );
 	metalnessFactor = mix( metalnessFactor, bbStampPbr.z + bbStampPbr.w * metalnessFactor, bbMask );
 
-	// Pressed flat inside the stamp, with a wall at its edge that leans toward the inside.
+	// Pressed flat inside the stamp: a bed, with a hairline wall at its edge that leans toward the inside
+	// and is dark at its foot.
 	normal = normalize( mix( normal, nonPerturbedNormal, bbMask * bbStampMix.z ) );
 	vec2 bbLean = bbSlope * bbStampMix.w;
+	diffuseColor.rgb *= 1.0 - bbFoil.y * min( 1.0, abs( bbSlope.x ) + abs( bbSlope.y ) );
 
 	vec2 bbPx = bbUv * bbFaceSize;
 	vec2 bbFromEdge = min( bbPx, bbFaceSize - bbPx );
@@ -108,6 +115,12 @@ const SURFACE = /* glsl */ `
 	vec3 bbTurn = max( abs( dFdx( normal ) ), abs( dFdy( normal ) ) );
 	roughnessFactor = min( 1.0, roughnessFactor + min( 0.18, 0.5 * max( bbTurn.x, max( bbTurn.y, bbTurn.z ) ) ) );
 }
+#endif
+`;
+
+const ROOM = /* glsl */ `
+#if defined( BB_FACE ) && defined( RE_IndirectSpecular )
+	radiance *= 1.0 + bbFoil.x * bbMask;
 #endif
 `;
 
@@ -143,11 +156,12 @@ export function patchFragmentShader(source: string): string {
   return source
     .replace(ANCHOR_MAIN, `${PARS}\n${ANCHOR_MAIN}`)
     .replace(ANCHOR_SURFACE, `${ANCHOR_SURFACE}\n${SURFACE}`)
-    .replace(ANCHOR_LAYERS, `${ANCHOR_LAYERS}\n${LAYERS}`);
+    .replace(ANCHOR_LAYERS, `${ANCHOR_LAYERS}\n${LAYERS}`)
+    .replace(ANCHOR_ROOM, `${ANCHOR_ROOM}\n${ROOM}`);
 }
 
 /** Every patched material compiles to the same program as the others with the same features. */
-export const PROGRAM_KEY = 'bb-binding-2';
+export const PROGRAM_KEY = 'bb-binding-3';
 
 /**
  * Adds the binding code to a physical material. `face` materials carry a stamp mask and read the

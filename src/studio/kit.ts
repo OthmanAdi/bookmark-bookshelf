@@ -28,33 +28,68 @@ export function contrast(a: string, b: string): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
-/** How each foil reads on a shelf, on average over what it mirrors: the colour to test its legibility with. */
-const FOIL_READS: Partial<Record<Stamp, string>> = { gold: '#d9b45a', silver: '#d8d6cf', copper: '#c98a5e', holo: '#d8d6cf' };
+/**
+ * How each foil reads on a resting spine, on average over what it mirrors: the colour to test its
+ * legibility with. Sampled from spine titles painted in the four looks, the letters' brightest twenty-fifth.
+ */
+export const FOIL_READS: Record<'gold' | 'silver' | 'copper' | 'holo', string> = { gold: '#e4c06a', silver: '#e4e1db', copper: '#d49a78', holo: '#dcdce0' };
 /** A spine title is how a link is found, so a stamp chosen for the person must stand at least this far off its cloth. */
-const LEGIBLE = 3;
+export const LEGIBLE = 4.5;
+/** Foil letters smaller than this, in CSS px, break up into glints: such a title is printed. */
+export const FOIL_TITLE_SIZE = 14;
+
+/** What else decides a stamp besides the cloth. */
+export interface StampNeeds {
+  /** The colour the look prints on this cloth. Given it, a foil is kept in the last resort only if it reads better than ink. */
+  ink?: string;
+  /** Size of the spine title in CSS px. */
+  titleSize?: number;
+  /** The person asked their system for more contrast. */
+  contrastMore?: boolean;
+}
 
 /**
  * The stamp a volume gets when its item names none: the binder's first choice if its title can be read
  * on this cloth, else the first foil that can, else printed ink, which every look pairs with its cloth.
- * Blind stamping is never chosen for anyone: a title pressed without colour cannot be read from a spine.
+ * A small spine title and a person who asked for more contrast always get ink. Blind stamping is never
+ * chosen for anyone: a title pressed without colour cannot be read from a spine.
  */
-export function legibleStamp(first: Stamp, cloth: string): Stamp {
-  const reads = (stamp: Stamp): boolean => {
-    const foil = FOIL_READS[stamp];
-    return foil !== undefined && contrast(foil, cloth) >= LEGIBLE;
-  };
-  if (first === 'ink' || reads(first)) return first;
-  for (const stamp of ['gold', 'silver', 'copper'] as const) if (reads(stamp)) return stamp;
-  return 'ink';
+export function legibleStamp(first: Stamp, cloth: string, needs: StampNeeds = {}): Stamp {
+  if (needs.contrastMore || (needs.titleSize !== undefined && needs.titleSize < FOIL_TITLE_SIZE)) return 'ink';
+  const reads = (stamp: Stamp): number => (stamp === 'ink' || stamp === 'blind' ? 0 : contrast(FOIL_READS[stamp], cloth));
+  if (first === 'ink' || reads(first) >= LEGIBLE) return first;
+  const foils = ['gold', 'silver', 'copper'] as const;
+  for (const stamp of foils) if (reads(stamp) >= LEGIBLE) return stamp;
+  if (needs.ink === undefined) return 'ink';
+  // Nothing reaches the mark. Ink still wins unless a foil clearly reads better than this look's ink does.
+  let best: Stamp = 'ink';
+  let most = contrast(needs.ink, cloth);
+  if (most >= LEGIBLE) return 'ink';
+  for (const stamp of foils) if (reads(stamp) > most) [best, most] = [stamp, reads(stamp)];
+  return best;
 }
 
-export function bindingFor(item: FrameVolume['item'], cloth?: string): { binding: Binding; stamp: Stamp } {
+export function bindingFor(item: FrameVolume['item'], cloth?: string, needs: StampNeeds & { look?: string } = {}): { binding: Binding; stamp: Stamp } {
   const seed = Math.abs(Math.floor(item.seed ?? 0));
   const binding = resolveBinding(item.binding, seed);
   const stamp = resolveStamp(item.stamp, binding, seed);
   // What the person chose stands as chosen, readable or not.
-  return { binding, stamp: isStamp(item.stamp) || cloth === undefined ? stamp : legibleStamp(stamp, cloth) };
+  return { binding, stamp: isStamp(item.stamp) || cloth === undefined ? stamp : legibleStamp(stamp, cloth, needs) };
 }
+
+/** Size of the spine title the shelf has set for a volume, in CSS px, or nothing when the spine carries a label. */
+function titleSizeOf(element: HTMLElement): number | undefined {
+  const title = element.querySelector('.bb-spine__title');
+  if (!title) return undefined;
+  const size = parseFloat(getComputedStyle(title).fontSize);
+  return Number.isFinite(size) && size > 0 ? size : undefined;
+}
+
+/**
+ * A volume that says how near it is shown: 0 standing in the row, 1 shown large (the Showcase). The
+ * shelf's own volumes leave it out; their spines count as far off and their boards as taken in the hand.
+ */
+export type ShownVolume = FrameVolume & { presented?: number };
 
 /** Half-size textures where memory is short or the screen is small: a phone shows no more detail anyway. */
 export function qualityFor(): 'high' | 'low' {
@@ -73,14 +108,18 @@ export function createKit(renderer: WebGLRenderer, quality: 'high' | 'low' = qua
   const materials = createMaterialKit(renderer, { quality });
   // Asked for every volume in every frame, so the cloth is read from the page once per volume and look.
   const chosen = new Map<string, { binding: Binding; stamp: Stamp }>();
+  const contrastMore = typeof matchMedia === 'function' ? matchMedia('(prefers-contrast: more)') : null;
   return {
     bindingOf(volume, variant = '') {
       const item = volume.item;
-      const key = `${item.id}|${variant}|${item.cloth ?? ''}|${item.binding ?? ''}|${item.stamp ?? ''}|${item.seed ?? 0}`;
+      const more = contrastMore?.matches ?? false;
+      // The title is set to fit the spine, so its size can change with the spine's width.
+      const key = `${item.id}|${variant}|${item.cloth ?? ''}|${item.binding ?? ''}|${item.stamp ?? ''}|${item.seed ?? 0}|${Math.round(volume.spineWidth)}|${more ? 1 : 0}`;
       let choice = chosen.get(key);
       if (!choice) {
         if (chosen.size > 600) chosen.clear();
-        choice = bindingFor(item, styleOf(volume.element).cloth);
+        const style = styleOf(volume.element);
+        choice = bindingFor(item, style.cloth, { look: variant, ink: style.ink, titleSize: titleSizeOf(volume.element), contrastMore: more });
         chosen.set(key, choice);
       }
       return choice;
@@ -97,6 +136,7 @@ export function createKit(renderer: WebGLRenderer, quality: 'high' | 'low' = qua
           seed: Math.abs(Math.floor(volume.item.seed ?? 0)),
           size: { spineWidth: volume.spineWidth, bookHeight: volume.bookHeight, coverWidth: volume.coverWidth },
           spineRound: SPINE_ROUND,
+          presented: (volume as ShownVolume).presented,
         },
         faces,
       ),

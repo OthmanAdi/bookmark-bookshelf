@@ -47,6 +47,11 @@ export interface BindingRecipe {
   bevel: readonly [number, number];
   /** Depth of the joint, the groove where the board hinges on the spine. */
   joint: number;
+  /**
+   * How flat a hot die irons the binding, 0 to 1. Leather and velvet come out smooth, so foil lies in a
+   * flat bed; cloth and linen keep a trace of the weave, which breathes through the foil.
+   */
+  pressed: number;
 }
 
 const cloth: BindingRecipe = {
@@ -74,12 +79,13 @@ const cloth: BindingRecipe = {
   wear: [5, -0.05],
   bevel: [2.2, 0.55],
   joint: 0.9,
+  pressed: 0.65,
 };
 
 export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
   cloth,
   // Linen book cloth is finer than buckram: 56 threads to 76 px, with slubs and threads of uneven colour.
-  linen: { ...cloth, tile: 'linen', span: 76, normalScale: 0.9, roughness: 0.93, sheen: 0.32, sheenLift: 0.3, sheenRoughness: 0.7, shade: 0.3, wear: [5, -0.04] },
+  linen: { ...cloth, tile: 'linen', span: 76, normalScale: 0.9, roughness: 0.93, sheen: 0.32, sheenLift: 0.3, sheenRoughness: 0.7, shade: 0.3, wear: [5, -0.04], pressed: 0.55 },
   leather: {
     ...cloth,
     tile: 'leather',
@@ -95,8 +101,9 @@ export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
     wear: [9, 0.2],
     bevel: [3, 0.7],
     joint: 1.1,
+    pressed: 0.97,
   },
-  paper: { ...cloth, tile: 'paper', span: 96, normalScale: 0.4, roughness: 0.72, sheen: 0, shade: 0.4, wear: [3, -0.03], bevel: [1.6, 0.45], joint: 0.7 },
+  paper: { ...cloth, tile: 'paper', span: 96, normalScale: 0.4, roughness: 0.72, sheen: 0, shade: 0.4, wear: [3, -0.03], bevel: [1.6, 0.45], joint: 0.7, pressed: 0.9 },
   gloss: {
     ...cloth,
     tile: 'gloss',
@@ -110,8 +117,9 @@ export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
     wear: [0, 0],
     bevel: [1.6, 0.5],
     joint: 0.8,
+    pressed: 0.9,
   },
-  velvet: { ...cloth, tile: 'velvet', span: 150, normalScale: 0.3, roughness: 1, sheen: 1, sheenLift: 0.7, sheenRoughness: 0.5, shade: 1, wear: [6, 0.08], bevel: [3.2, 0.6], joint: 0.6 },
+  velvet: { ...cloth, tile: 'velvet', span: 150, normalScale: 0.3, roughness: 1, sheen: 1, sheenLift: 0.7, sheenRoughness: 0.5, shade: 1, wear: [6, 0.08], bevel: [3.2, 0.6], joint: 0.6, pressed: 0.95 },
   foil: {
     ...cloth,
     tile: 'brushed',
@@ -126,6 +134,7 @@ export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
     wear: [0, 0],
     bevel: [1.6, 0.5],
     joint: 0.8,
+    pressed: 0.9,
   },
   holo: {
     ...cloth,
@@ -143,6 +152,7 @@ export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
     wear: [0, 0],
     bevel: [1.6, 0.5],
     joint: 0.8,
+    pressed: 0.9,
   },
 };
 
@@ -152,7 +162,7 @@ export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
  */
 export function nearness(bookHeight: number, presented?: number): number {
   if (presented !== undefined && Number.isFinite(presented)) return Math.min(1, Math.max(0, presented));
-  const t = Math.min(1, Math.max(0, (bookHeight - 380) / 260));
+  const t = Math.min(1, Math.max(0, (bookHeight - 520) / 380));
   return t * t * (3 - 2 * t);
 }
 
@@ -175,14 +185,28 @@ export interface StampRecipe {
   tint: number;
   /** What is left of the colour inside the mask: pressed cloth is a little darker. */
   shade: number;
-  /** How flat the binding's own relief is pressed, 0 to 1. Foil still shows a trace of the weave. */
+  /** Share of the binding's `pressed` this stamp reaches: all of it under a hot die, little under printed ink. */
   flatten: number;
-  /** Depth of the pressed edge. */
+  /** Lean of the wall at the edge of the pressed bed: a hairline for foil, a real step for a blind stamp. */
   deboss: number;
-  /** Roughness inside the mask is `[a, b]`: a + b times the binding's roughness. */
+  /** How much darker the foot of that wall is, where no light reaches. */
+  wall: number;
+  /**
+   * Roughness inside the mask is `[a, b]`: a + b times the binding's roughness. This is the stamp at shelf
+   * distance, where a title has to be read: a foil scatters broadly there and holds one even tone.
+   */
   roughness: readonly [number, number];
-  /** Metalness inside the mask, written the same way. */
+  /** The same on a cover shown large, where foil may be sharp and flash as the book turns. */
+  roughnessNear: readonly [number, number];
+  /** Metalness inside the mask, written the same way, at shelf distance and shown large. */
   metalness: readonly [number, number];
+  metalnessNear: readonly [number, number];
+  /**
+   * How much more of the room a foil mirrors than the environment map holds, at shelf distance and shown
+   * large. The map is a dark studio with a few lamps; a real foil also mirrors pale walls and a ceiling,
+   * which is what keeps gold yellow and silver white instead of olive and brown.
+   */
+  gain: readonly [number, number];
   /** Share of the binding's sheen and clearcoat left inside the mask. */
   sheen: number;
   clearcoat: number;
@@ -190,14 +214,84 @@ export interface StampRecipe {
   iridescence: number | null;
 }
 
-const metal = { tint: 1, shade: 1, flatten: 0.72, deboss: 1.1, metalness: [1, 0] as const, sheen: 0, clearcoat: 0, iridescence: 0 };
+const metal = {
+  tint: 1,
+  shade: 1,
+  flatten: 1,
+  deboss: 0.45,
+  wall: 0.3,
+  metalness: [0.8, 0] as const,
+  metalnessNear: [0.94, 0] as const,
+  gain: [2, 1.25] as const,
+  sheen: 0,
+  clearcoat: 0,
+  iridescence: 0,
+};
 
 export const STAMP_RECIPES: Record<Stamp, StampRecipe> = {
-  // A little deeper than the measured metals, which look pale once a white lamp is mirrored in them.
-  gold: { ...metal, color: [1, 0.68, 0.24], roughness: [0.2, 0.06] },
-  silver: { ...metal, color: [0.96, 0.95, 0.91], roughness: [0.16, 0.06] },
-  copper: { ...metal, color: [0.95, 0.52, 0.33], roughness: [0.26, 0.06] },
-  holo: { ...metal, color: [0.93, 0.93, 0.95], roughness: [0.14, 0.04], iridescence: 1 },
-  blind: { color: null, tint: 0, shade: 0.8, flatten: 0.6, deboss: 1.7, roughness: [0, 0.8], metalness: [0, 1], sheen: 0.35, clearcoat: 1, iridescence: null },
-  ink: { color: 'ink', tint: 1, shade: 1, flatten: 0.2, deboss: 0.2, roughness: [0.3, 0.55], metalness: [0, 0], sheen: 0.4, clearcoat: 1, iridescence: 0 },
+  gold: { ...metal, color: [1, 0.74, 0.3], roughness: [0.36, 0.06], roughnessNear: [0.12, 0.04] },
+  silver: { ...metal, color: [0.93, 0.94, 0.95], roughness: [0.32, 0.06], roughnessNear: [0.12, 0.04] },
+  copper: { ...metal, color: [0.97, 0.58, 0.4], roughness: [0.36, 0.06], roughnessNear: [0.16, 0.04] },
+  holo: { ...metal, color: [0.93, 0.93, 0.95], roughness: [0.3, 0.04], roughnessNear: [0.12, 0.04], iridescence: 1 },
+  blind: {
+    color: null,
+    tint: 0,
+    shade: 0.8,
+    flatten: 1,
+    deboss: 1.7,
+    wall: 0.45,
+    roughness: [0, 0.8],
+    roughnessNear: [0, 0.8],
+    metalness: [0, 1],
+    metalnessNear: [0, 1],
+    gain: [1, 1],
+    sheen: 0.35,
+    clearcoat: 1,
+    iridescence: null,
+  },
+  ink: {
+    color: 'ink',
+    tint: 1,
+    shade: 1,
+    flatten: 0.2,
+    deboss: 0.2,
+    wall: 0,
+    roughness: [0.3, 0.55],
+    roughnessNear: [0.3, 0.55],
+    metalness: [0, 0],
+    metalnessNear: [0, 0],
+    gain: [1, 1],
+    sheen: 0.4,
+    clearcoat: 1,
+    iridescence: 0,
+  },
 };
+
+/** A stamp as it is pressed into one binding and seen from one distance. */
+export interface Pressed {
+  flatten: number;
+  deboss: number;
+  wall: number;
+  roughness: readonly [number, number];
+  metalness: readonly [number, number];
+  gain: number;
+}
+
+/**
+ * What a stamp does on `binding` at `near` (0 shelf distance, 1 shown large). Shown large, each binding
+ * is ironed as flat as a die leaves it, so the weave still breathes through foil on cloth. Far off a
+ * thread inside a letter is only noise, so there every bed is nearly flat.
+ */
+export function stampAt(stamp: StampRecipe, binding: BindingRecipe, near: number): Pressed {
+  const t = Math.min(1, Math.max(0, near));
+  const mix = (far: number, close: number): number => far + (close - far) * t;
+  const die = mix(Math.max(binding.pressed, 0.9), binding.pressed);
+  return {
+    flatten: stamp.flatten * die,
+    deboss: stamp.deboss,
+    wall: stamp.wall,
+    roughness: [mix(stamp.roughness[0], stamp.roughnessNear[0]), mix(stamp.roughness[1], stamp.roughnessNear[1])],
+    metalness: [mix(stamp.metalness[0], stamp.metalnessNear[0]), mix(stamp.metalness[1], stamp.metalnessNear[1])],
+    gain: mix(stamp.gain[0], stamp.gain[1]),
+  };
+}

@@ -13,7 +13,7 @@
 import * as THREE from 'three';
 import type { Binding, PaintedFace, Stamp } from '../types';
 import { createStudioEnvironment } from './environment';
-import { BINDING_RECIPES, FILM, STAMP_RECIPES, nearness, reliefAt, type BindingRecipe, type StampRecipe, type TileName } from './recipes';
+import { BINDING_RECIPES, FILM, STAMP_RECIPES, nearness, reliefAt, stampAt, type BindingRecipe, type StampRecipe, type TileName } from './recipes';
 import { applyBindingShader, type BindingUniforms, type FaceUniforms } from './shader';
 import {
   brushedSurface,
@@ -33,7 +33,7 @@ import {
 } from './tiles';
 
 export { resolveBinding, resolveStamp, BINDING_WEIGHTS, STAMP_WEIGHTS } from './resolve';
-export { BINDING_RECIPES, STAMP_RECIPES, nearness, reliefAt, type BindingRecipe, type StampRecipe } from './recipes';
+export { BINDING_RECIPES, STAMP_RECIPES, nearness, reliefAt, stampAt, type BindingRecipe, type StampRecipe } from './recipes';
 
 export interface VolumeLook {
   binding: Binding;
@@ -147,6 +147,11 @@ const FLOORS: Record<string, { wood?: WoodOptions; color: string; span: number; 
 
 /** The height in CSS px of the volume the recipes' spans are written for: the shelf's default book. */
 const REFERENCE_HEIGHT = 340;
+/**
+ * A volume in the row shows its spine; its boards are only seen once it is taken out and turned to the
+ * reader. So unless the caller says how near the volume is, its boards count as at least this near.
+ */
+const BOARD_NEAR = 0.5;
 
 let probe: CanvasRenderingContext2D | null | undefined;
 
@@ -237,8 +242,9 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     return copy;
   }
 
-  function canvasTexture(canvas: HTMLCanvasElement, colorSpace: THREE.ColorSpace, into: Set<{ dispose(): void }>): THREE.CanvasTexture {
+  function canvasTexture(canvas: HTMLCanvasElement, colorSpace: THREE.ColorSpace, into: Set<{ dispose(): void }>, format?: THREE.PixelFormat): THREE.CanvasTexture {
     const texture = new THREE.CanvasTexture(canvas);
+    if (format !== undefined) texture.format = format;
     texture.colorSpace = colorSpace;
     texture.anisotropy = anisotropy;
     texture.wrapS = THREE.ClampToEdgeWrapping;
@@ -302,7 +308,9 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     const holoStamp = stamp.iridescence === 1;
     if (recipe.iridescence > 0 || holoStamp) film(material, spec.width / spec.grain, spec.height / spec.grain, into);
 
-    const mask = canvasTexture(spec.face.mask, THREE.NoColorSpace, into);
+    // The shader reads one channel of the mask, so one channel is all the GPU is given: a quarter of the memory.
+    const mask = canvasTexture(spec.face.mask, THREE.NoColorSpace, into, THREE.RedFormat);
+    const pressed = stampAt(stamp, recipe, spec.near);
     const filmOutside = recipe.iridescence;
     const filmInside = stamp.iridescence ?? recipe.iridescence;
     const stampColor = stamp.color === 'ink' ? ink : stamp.color ? new THREE.Color(stamp.color[0], stamp.color[1], stamp.color[2]) : new THREE.Color(0, 0, 0);
@@ -312,8 +320,9 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
       bbStamp: { value: mask },
       bbStampTexel: { value: new THREE.Vector2(1.25 / Math.max(1, spec.face.mask.width), 1.25 / Math.max(1, spec.face.mask.height)) },
       bbStampColor: { value: stampColor },
-      bbStampMix: { value: new THREE.Vector4(stamp.tint, stamp.shade, stamp.flatten, stamp.deboss) },
-      bbStampPbr: { value: new THREE.Vector4(stamp.roughness[0], stamp.roughness[1], stamp.metalness[0], stamp.metalness[1]) },
+      bbStampMix: { value: new THREE.Vector4(stamp.tint, stamp.shade, pressed.flatten, pressed.deboss) },
+      bbStampPbr: { value: new THREE.Vector4(pressed.roughness[0], pressed.roughness[1], pressed.metalness[0], pressed.metalness[1]) },
+      bbFoil: { value: new THREE.Vector4(pressed.gain - 1, pressed.wall, 0, 0) },
       bbStampFx: { value: new THREE.Vector4(stamp.sheen, stamp.clearcoat, filmOutside, filmInside) },
       bbFaceSize: { value: new THREE.Vector2(spec.width, spec.height) },
       bbEdge: { value: new THREE.Vector4(recipe.wear[0], recipe.wear[1], recipe.bevel[0], recipe.bevel[1]) },
@@ -349,9 +358,10 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     const round = look.spineRound ?? 0.35;
     const grain = Math.max(0.25, bookHeight / REFERENCE_HEIGHT);
     const near = nearness(bookHeight, look.presented);
+    const boardNear = look.presented === undefined ? Math.max(near, BOARD_NEAR) : near;
 
-    const front = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.front, width: coverWidth, height: bookHeight, joint: jointAt, round: 0, grain, near }, own);
-    const back = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.back, width: coverWidth, height: bookHeight, joint: coverWidth - jointAt, round: 0, grain, near }, own);
+    const front = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.front, width: coverWidth, height: bookHeight, joint: jointAt, round: 0, grain, near: boardNear }, own);
+    const back = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.back, width: coverWidth, height: bookHeight, joint: coverWidth - jointAt, round: 0, grain, near: boardNear }, own);
     const spine = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.spine, width: spineWidth, height: bookHeight, joint: -1, round, grain, near }, own);
 
     // The board edges are a few px wide: the binding's colour and finish, without its relief.
