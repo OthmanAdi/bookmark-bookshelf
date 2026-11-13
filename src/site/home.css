@@ -116,6 +116,13 @@ body.bb-home {
   line-height: var(--bb-leading-read);
 }
 
+/* The way in sits on the first screen, under the words: a visitor should not have to scroll to start. */
+.bb-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bb-s-3);
+}
+
 /* Title and deck share a last baseline, so the hero is two short columns, not a tall stack. */
 @media (min-width: 64rem) {
   /* The book takes the left of the first screen, about two thirds of its height; the words stand beside it. */
