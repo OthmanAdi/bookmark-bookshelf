@@ -15,6 +15,24 @@ export interface LeafShape {
   angle: number;
   /** Extra turn, in radians, gained between the root and the free edge. Negative trails behind the root. */
   curl: number;
+  /**
+   * Extra turn gained over the outer part of the leaf only, from `LEAF_KNEE` to the free edge. It lets the
+   * edge trail or flick on its own while the inner part, held by the binding, keeps its line.
+   */
+  flick?: number;
+}
+
+/** Share of a leaf's length at which its outer, freer part begins. */
+export const LEAF_KNEE = 0.55;
+
+/**
+ * Direction of travel along a leaf at `s` (0 root, 1 free edge), in radians from shut. It is linear from
+ * the root to the knee and from the knee to the edge, so the leaf has no kink: the direction is continuous
+ * and only the curvature changes at the knee.
+ */
+export function leafTangent(shape: LeafShape, s: number): number {
+  const outer = s > LEAF_KNEE ? (s - LEAF_KNEE) / (1 - LEAF_KNEE) : 0;
+  return shape.angle + shape.curl * s + (shape.flick ?? 0) * outer;
 }
 
 /**
@@ -30,13 +48,13 @@ export function leafLine(length: number, shape: LeafShape): { x: number[]; z: nu
   for (let i = 0; i <= LEAF_SEGMENTS; i++) {
     const s = i / LEAF_SEGMENTS;
     // Direction of travel along the leaf at s: (sin a, -cos a) in (x, z).
-    const a = shape.angle + shape.curl * s;
+    const a = leafTangent(shape, s);
     // The face that looks toward +x when the leaf is shut.
     nx.push(Math.cos(a));
     nz.push(Math.sin(a));
     if (i === LEAF_SEGMENTS) break;
     // Midpoint rule over the segment keeps the arc length exact enough for a few degrees per step.
-    const mid = shape.angle + shape.curl * (s + 0.5 / LEAF_SEGMENTS);
+    const mid = leafTangent(shape, s + 0.5 / LEAF_SEGMENTS);
     x.push(x[i]! + Math.sin(mid) * step);
     z.push(z[i]! - Math.cos(mid) * step);
   }

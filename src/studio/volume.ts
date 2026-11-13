@@ -124,10 +124,13 @@ const hiddenMaterial: Material = new MeshBasicMaterial({ visible: false });
 /** Loose leaves a volume can lift when it opens or riffles; the rest of the block stays a solid. */
 export const LEAVES = 7;
 
-/** Paper of the loose leaves: both sides lit, a warm white a little brighter than the block's edge. */
+/**
+ * Paper of the loose leaves: both sides lit, a warm white a little brighter than the block's edge. Paper
+ * lets light through, so a leaf in the shade of its own board still glows a little instead of going dark.
+ */
 let leafPaper: MeshStandardMaterial | null = null;
 function leafMaterial(): MeshStandardMaterial {
-  leafPaper ??= new MeshStandardMaterial({ color: '#f4ecdb', roughness: 0.93, side: DoubleSide });
+  leafPaper ??= new MeshStandardMaterial({ color: '#f4ecdb', roughness: 0.93, side: DoubleSide, emissive: '#d9c9a6', emissiveIntensity: 0.42 });
   return leafPaper;
 }
 
@@ -180,7 +183,8 @@ export class VolumeMesh {
     const cover = opening?.cover ?? 0;
     // The board turns outward, away from the pages: a negative turn about y at the hinge.
     this.hinge.rotation.y = -cover;
-    const lifted = opening !== null && opening.leaves.some((leaf) => leaf.angle > 0.002 || Math.abs(leaf.curl) > 0.002);
+    const lifted =
+      opening !== null && opening.leaves.some((leaf) => leaf.angle > 0.002 || Math.abs(leaf.curl) > 0.002 || Math.abs(leaf.flick ?? 0) > 0.002);
     if (!lifted && !this.opened) return;
     this.opened = lifted;
     const thickness = boardThickness(this.size);
@@ -196,6 +200,11 @@ export class VolumeMesh {
       leaf.position.set(w / 2 - thickness - 0.35 - index * Math.min(0.9, (w - thickness * 2) / (LEAVES * 3)), square, -0.4);
       bendLeaf(leaf.geometry, length, height, shape);
     });
+  }
+
+  /** How much of the spine's round stands out, 1 as bound and 0 drawn flat into the plane of its edges. */
+  setSpineRound(share: number): void {
+    this.spine.scale.z = Math.min(1, Math.max(0.001, share));
   }
 
   /** Rebuilds the solid when the volume's size changed; cheap to call every frame. */

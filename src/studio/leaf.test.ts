@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bendLeaf, leafGeometry, leafLine, LEAF_SEGMENTS } from './leaf';
+import { bendLeaf, leafGeometry, leafLine, leafTangent, LEAF_KNEE, LEAF_SEGMENTS } from './leaf';
 
 const lengthOf = (line: { x: number[]; z: number[] }) => {
   let total = 0;
@@ -24,6 +24,16 @@ describe('a bent leaf', () => {
     for (const shape of [{ angle: 0.4, curl: 1.2 }, { angle: 1.2, curl: -0.9 }, { angle: 2.6, curl: 0.5 }]) {
       expect(lengthOf(leafLine(180, shape))).toBeCloseTo(180, 0);
     }
+  });
+
+  it('turns its outer part on its own without a kink and without stretching', () => {
+    const shape = { angle: 0.3, curl: -0.1, flick: 0.4 };
+    // Up to the knee the flick changes nothing; at the edge all of it has been gained.
+    expect(leafTangent(shape, LEAF_KNEE)).toBeCloseTo(0.3 - 0.1 * LEAF_KNEE, 9);
+    expect(leafTangent(shape, 1)).toBeCloseTo(0.3 - 0.1 + 0.4, 9);
+    // The direction is continuous across the knee.
+    expect(leafTangent(shape, LEAF_KNEE + 1e-6) - leafTangent(shape, LEAF_KNEE - 1e-6)).toBeCloseTo(0, 5);
+    expect(lengthOf(leafLine(180, shape))).toBeCloseTo(180, 0);
   });
 
   it('writes unit normals and both edges of the leaf', () => {
