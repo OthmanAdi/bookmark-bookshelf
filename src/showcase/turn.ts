@@ -38,8 +38,11 @@ export const CATCH_DAMPING = 2 * 0.8 * Math.sqrt(CATCH_STIFFNESS);
 export const SPIN_OPEN = 8;
 /** A drag can tip the book this far and no further; it can turn it all the way round. */
 export const PITCH_LIMIT = 55;
-/** The idle turn on a touch screen: this far each way, once in this many seconds, for this long and no longer. */
-export const IDLE_SWING = 3;
+/**
+ * The idle turn on a touch screen: this far each way, once in this many seconds, for this long and no
+ * longer. Just enough for the light to move on the cover; more reads as the book floating about.
+ */
+export const IDLE_SWING = 0.6;
 export const IDLE_PERIOD_S = 7;
 export const IDLE_FOR_S = 20;
 

@@ -19,7 +19,7 @@ describe('the move between two books', () => {
     expect(shownOf(travel)).toEqual([{ index: 3, offset: 0, opacity: 1, target: true }]);
   });
 
-  it('arrives in about the measured time, starts gently and never overshoots', () => {
+  it('arrives in about half a second, starts gently and never overshoots', () => {
     const start = retarget(createTravel(0), 1, 1);
     let furthest = 0;
     let fastestAt = 0;
@@ -38,8 +38,9 @@ describe('the move between two books', () => {
     expect(furthest).toBeLessThanOrEqual(1);
     expect(arrived * 1000).toBeGreaterThan(TRAVEL_MS - 60);
     expect(arrived * 1000).toBeLessThan(TRAVEL_MS + 60);
-    expect(TRAVEL_MS).toBeGreaterThanOrEqual(730);
-    expect(TRAVEL_MS).toBeLessThanOrEqual(860);
+    // Quicker than the 730 to 860 ms measured on the reference site: this view is moved through many times a day.
+    expect(TRAVEL_MS).toBeGreaterThanOrEqual(450);
+    expect(TRAVEL_MS).toBeLessThanOrEqual(560);
     // The top speed comes after the start, not at it: the move eases in.
     expect(fastestAt).toBeGreaterThan(0.08);
     expect(run(start, 2).settled).toBe(true);

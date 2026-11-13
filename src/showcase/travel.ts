@@ -8,10 +8,11 @@
  */
 
 /**
- * Stiffness of the glide, per second. The measured reference settles to within one percent in about
- * 820 ms without overshoot; a critically damped spring does that when `omega * t` is about 6.64.
+ * Stiffness of the glide, per second. A critically damped spring comes within one percent when
+ * `omega * t` is about 6.64. The reference site takes about 820 ms; a reading queue moved many times a
+ * day wants less: at 13 the glide is nine tenths done by about 300 ms and settled by about 510 ms.
  */
-export const OMEGA = 8.1;
+export const OMEGA = 13;
 /** Milliseconds of the glide, for anyone who needs a number: the time to come within one percent. */
 export const TRAVEL_MS = Math.round((6.64 / OMEGA) * 1000);
 /** The reduced-motion crossfade. */
