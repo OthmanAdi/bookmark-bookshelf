@@ -1,10 +1,11 @@
 import './studio.css';
-import { BoxGeometry, Matrix4, Mesh, MeshStandardMaterial, type WebGLRenderer } from 'three';
+import { BoxGeometry, Euler, Matrix4, Mesh, MeshStandardMaterial, Vector3, type WebGLRenderer } from 'three';
 import type { Flight, FlightOptions } from '../app/flight';
 import type { FrameVolume, ShelfFrame, ShelfHandle } from '../shelf/types';
 import { fromCssMatrix, volumeMatrix } from './camera';
 import { type DressKit, Dresser } from './dress';
 import { ContactShadows } from './ground';
+import { IDLE_MS, pointerPlace, type Spring, spring, TILT_PITCH, TILT_YAW } from './pointer';
 import { roomOf, Stage, webglAvailable } from './stage';
 import { type FlightBook, FlightStage } from './flight';
 import { leafTangent } from './leaf';
@@ -45,6 +46,9 @@ export interface StudioHandle {
 /** How long a volume keeps being read from the DOM after a pointer touched it: its CSS reaction runs this long. */
 const LIVELY_MS = 900;
 
+/** How long the canvas takes to come up over the CSS drawing when Studio first draws, in ms. Also in studio.css. */
+const ARRIVE_FADE_MS = 250;
+
 /** Nearer the centre than this, a volume counts as presented: it has arrived. */
 const PRESENTED = 0.98;
 
@@ -57,6 +61,8 @@ interface Peek {
   since: number;
   from: Opening;
 }
+
+const DEG = Math.PI / 180;
 
 const reducedMotion = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -71,7 +77,6 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   canvas.className = 'bb-studio';
   canvas.setAttribute('aria-hidden', 'true');
   const root = shelf.element;
-  root.dataset.paint = 'studio';
 
   const meshes = new Map<number, VolumeMesh>();
   const bookendMaterial = new MeshStandardMaterial({ color: '#4b4842', roughness: 0.45, metalness: 0.35 });
@@ -100,6 +105,23 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   let hovered: Element | null = null;
   const matrix = new Matrix4();
   const body = new Matrix4();
+  /** Where the hand is over the scene, -1 to 1 each way, while it is there and moving; null once it left or lies still. */
+  let hand: { x: number; y: number } | null = null;
+  let idle: number | null = null;
+  /** The lean of the presented volume toward the hand, 1 being the most it turns. */
+  const yaw: Spring = { value: 0, velocity: 0 };
+  const pitch: Spring = { value: 0, velocity: 0 };
+  let leaned = 0;
+  const lean = new Matrix4();
+  const turn = new Euler();
+  const middle = new Vector3();
+  const turned = new Vector3();
+  /** The frame the shadows were last drawn for, and whether anything was moving in it. */
+  let shaded: ShelfFrame | null = null;
+  let wasMoving = false;
+  /** Studio shows itself once its first whole frame is drawn: 'no', then 'compiling', then 'ready', then 'shown'. */
+  let arrival: 'no' | 'compiling' | 'ready' | 'shown' = 'no';
+  let arriving: number | null = null;
   let kit: DressKit = typeof options.kit === 'function' ? options.kit(stage.renderer) : (options.kit ?? plainKit);
   const dresser = new Dresser(kit, () => invalidate());
   stage.setEnvironment(kit.environment ?? null);
@@ -164,8 +186,28 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
 
   /** Detail of the painted faces: more for a large shelf on a sharp screen, never more than the canvas shows. */
   function density(volume: FrameVolume): number {
-    const screen = Math.min(2, window.devicePixelRatio || 1);
-    return volume.weight > 0 || volume.centre ? Math.min(2.5, screen * 1.25) : screen;
+    const ratio = window.devicePixelRatio || 1;
+    const screen = Math.min(2, ratio);
+    const near = Math.min(2.5, screen * 1.25);
+    // The presented volume is the one that gets read: it keeps up with a zoomed page, up to four device px per px.
+    if (volume.centre) return Math.max(near, Math.min(4, ratio));
+    return volume.weight > 0 ? near : screen;
+  }
+
+  /** Studio takes over from the CSS drawing: the canvas comes up behind the row while the CSS faces fade away over it. */
+  function arrive(): void {
+    arrival = 'shown';
+    canvas.classList.add('is-shown');
+    if (reducedMotion()) {
+      root.dataset.paint = 'studio';
+      return;
+    }
+    root.dataset.studio = 'arriving';
+    arriving = window.setTimeout(() => {
+      arriving = null;
+      root.dataset.paint = 'studio';
+      delete root.dataset.studio;
+    }, ARRIVE_FADE_MS);
   }
 
   function draw(): void {
@@ -180,9 +222,19 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       ground.setStrength(roomOf(variant).contact);
       floorKey = '';
     }
+    const now = performance.now();
+    const still = reducedMotion();
+    let moving = false;
+    // The light follows the hand with a lag and keeps the frames coming until it has arrived.
+    if (still) stage.pin();
+    else if (stage.advance(now)) moving = true;
     let deepest = 0;
-    for (const volume of current.volumes) deepest = Math.max(deepest, volume.coverWidth);
-    stage.fit(current, deepest);
+    let tallest = 0;
+    for (const volume of current.volumes) {
+      deepest = Math.max(deepest, volume.coverWidth);
+      tallest = Math.max(tallest, volume.bookHeight);
+    }
+    stage.fit(current, deepest, tallest);
     const origin = { x: current.rowGive, y: current.floorY - current.height / 2 };
     const board = stage.boardSize();
     if (floorKey !== `${variant}:${board.width}:${board.depth}`) {
@@ -190,9 +242,6 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       stage.setBoardMaterial(kit.floor?.(variant, board) ?? null);
     }
     ground.update(current, origin, stage.front);
-    const now = performance.now();
-    const still = reducedMotion();
-    let moving = false;
     const seen = new Set<number>();
     for (const volume of current.volumes) {
       seen.add(volume.slot);
@@ -223,6 +272,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
         const moved = home !== null && current.volumes.some((other) => other.id === home?.id);
         if (moved && !still && home) arrivals.set(volume.slot, { since: now, steps: Math.max(1, Math.abs(volume.slot - home.slot)) });
         home = { id: volume.id, slot: volume.slot };
+        yaw.value = yaw.velocity = pitch.value = pitch.velocity = 0;
         warmFlight();
       }
       const arrival = arrivals.get(volume.slot);
@@ -262,6 +312,26 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       if (presented) {
         canvas.dataset.cover = shown ? ((shown.cover * 180) / Math.PI).toFixed(2) : '0';
         canvas.dataset.edge = shown ? ((leafTangent(shown.leaves[0]!, 1) * 180) / Math.PI).toFixed(2) : '0';
+        // The presented volume leans toward the hand on a spring, about its own middle, while it stands shut.
+        if (still) yaw.value = yaw.velocity = pitch.value = pitch.velocity = 0;
+        else {
+          const calm = hand !== null && !shown;
+          const place = (origin.x + volume.x) / Math.max(1, current.width / 2);
+          const dt = leaned === 0 ? 16 : Math.min(64, Math.max(0, now - leaned));
+          const turning = spring(yaw, calm && hand ? Math.max(-1, Math.min(1, (hand.x - place) * 1.4)) : 0, dt);
+          const nodding = spring(pitch, calm && hand ? Math.max(-1, Math.min(1, hand.y * 1.2)) : 0, dt);
+          leaned = turning || nodding ? now : 0;
+          if (turning || nodding) moving = true;
+        }
+        if (yaw.value !== 0 || pitch.value !== 0) {
+          // A turn about the middle of the volume: the middle stays where it is, so the control over it still fits.
+          middle.set(0, volume.bookHeight / 2, -volume.coverWidth / 2).applyMatrix4(matrix);
+          lean.makeRotationFromEuler(turn.set(pitch.value * TILT_PITCH * DEG, yaw.value * TILT_YAW * DEG, 0, 'YXZ'));
+          turned.copy(middle).applyMatrix4(lean);
+          lean.setPosition(middle.sub(turned));
+          matrix.premultiply(lean);
+        }
+        canvas.dataset.tilt = `${(yaw.value * TILT_YAW).toFixed(2)},${(pitch.value * TILT_PITCH).toFixed(2)}`;
       }
       mesh.group.matrix.copy(matrix);
       mesh.group.matrixWorldNeedsUpdate = true;
@@ -280,7 +350,24 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       bookend.scale.set(end.width, end.height, end.depth);
       bookend.position.set(origin.x + end.x, origin.y, 0);
     });
+    // Shadows are drawn again only when the shelf sent a new frame, a volume is in motion, or the light moved.
+    if (current !== shaded || moving || wasMoving) stage.touch();
+    shaded = current;
+    wasMoving = moving;
+    // Before the first frame the programs are built off the main thread where the browser can, so the page stays in hand.
+    if (arrival === 'no') {
+      arrival = 'compiling';
+      const ready = () => {
+        if (arrival !== 'compiling') return;
+        arrival = 'ready';
+        invalidate();
+      };
+      stage.renderer.compileAsync(stage.scene, stage.camera).then(ready, ready);
+      window.setTimeout(ready, 3000);
+    }
+    if (arrival === 'compiling') return;
     stage.render();
+    if (arrival === 'ready') arrive();
     // What was drawn, for tests and for anyone checking Studio in the inspector.
     drawn++;
     canvas.dataset.drawn = String(drawn);
@@ -298,11 +385,41 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
     invalidate();
   });
 
-  // The light leans toward the pointer, so moving over the shelf moves the reflections on the covers.
+  // The light leans toward the pointer, so moving over the shelf moves the highlights on the covers. It
+  // follows with a lag (in the stage), goes back to rest when the hand leaves or lies still, and stays at
+  // rest for a person who asked for less motion, while a reader covers the shelf, and for a pointer elsewhere on the page.
   const scene = shelf.surface;
+  const rest = () => {
+    if (idle !== null) clearTimeout(idle);
+    idle = null;
+    if (hand === null) return;
+    hand = null;
+    stage.home();
+    // With a reader over the shelf nobody sees the light go home, so it is put there without a frame.
+    if (root.dataset.open !== '0' && root.dataset.open !== undefined) stage.pin();
+    else invalidate();
+  };
   const onMove = (event: PointerEvent) => {
-    const box = scene.getBoundingClientRect();
-    stage.setPointer(((event.clientX - box.left) / Math.max(1, box.width)) * 2 - 1, ((event.clientY - box.top) / Math.max(1, box.height)) * 2 - 1);
+    if (reducedMotion() || (root.dataset.open !== '0' && root.dataset.open !== undefined)) return;
+    const place = pointerPlace(event.clientX, event.clientY, scene.getBoundingClientRect());
+    if (!place) {
+      rest();
+      return;
+    }
+    if (hand && hand.x === place.x && hand.y === place.y) return;
+    hand = place;
+    stage.setPointer(place.x, place.y);
+    if (idle !== null) clearTimeout(idle);
+    idle = window.setTimeout(rest, IDLE_MS);
+    invalidate();
+  };
+  const onLeave = () => rest();
+  const lessMotion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const onMotionChoice = () => {
+    if (idle !== null) clearTimeout(idle);
+    idle = null;
+    hand = null;
+    stage.home();
     invalidate();
   };
   const onTouch = (event: Event) => {
@@ -317,6 +434,8 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   };
   const ringed = (element: HTMLElement): boolean => element.querySelector('.bb-book__control:focus-visible') !== null;
   window.addEventListener('pointermove', onMove, { passive: true });
+  document.documentElement.addEventListener('pointerleave', onLeave, { passive: true });
+  lessMotion?.addEventListener('change', onMotionChoice);
   const reactions = ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout'] as const;
   for (const type of reactions) scene.addEventListener(type, onTouch, { passive: true });
 
@@ -338,11 +457,15 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
     destroy() {
       alive = false;
       if (warming !== null) clearTimeout(warming);
+      if (idle !== null) clearTimeout(idle);
+      if (arriving !== null) clearTimeout(arriving);
       flights?.dispose();
       flights = null;
       if (queued !== null) cancelAnimationFrame(queued);
       stopFrames();
       window.removeEventListener('pointermove', onMove);
+      document.documentElement.removeEventListener('pointerleave', onLeave);
+      lessMotion?.removeEventListener('change', onMotionChoice);
       for (const type of reactions) scene.removeEventListener(type, onTouch);
       canvas.removeEventListener('webglcontextlost', onLost);
       for (const mesh of meshes.values()) mesh.dispose();
@@ -354,6 +477,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       kit.dispose?.();
       stage.dispose();
       delete root.dataset.paint;
+      delete root.dataset.studio;
     },
   };
 }
