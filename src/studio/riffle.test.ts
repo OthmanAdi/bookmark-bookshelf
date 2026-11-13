@@ -13,6 +13,8 @@ import {
   PEEK_REST_MS,
   peekAt,
   peekRest,
+  peekShare,
+  scaled,
   shut,
   tidy,
 } from './riffle';
@@ -21,7 +23,7 @@ import { LEAVES, type Opening } from './volume';
 const DEG = Math.PI / 180;
 const LENGTH = 200;
 /** Leaves stand a little apart at the root, the first nearest the board, as the volume places them. */
-const ROOT_GAP = 0.6;
+const ROOT_GAP = 0.3;
 
 /** x of a leaf's centre line at a depth behind the spine, or null where the leaf does not reach. */
 function xAtDepth(line: { x: number[]; z: number[] }, depth: number): number | null {
@@ -80,48 +82,74 @@ describe('tidy', () => {
 });
 
 describe('the presented volume under the hand', () => {
-  it('starts shut, opens without overshoot and comes to rest', () => {
+  it('starts shut, swings a tenth too far like a thing with mass, and settles', () => {
     expect(isShut(peekAt(0, true))).toBe(true);
-    let last = 0;
+    let most = 0;
+    let mostAt = 0;
     for (let ms = 0; ms <= PEEK_REST_MS + 50; ms += 5) {
       const opening = peekAt(ms, true);
-      expect(opening.cover).toBeGreaterThanOrEqual(last - 1e-9);
-      expect(opening.cover).toBeLessThanOrEqual(PEEK_COVER + 1e-9);
-      last = opening.cover;
+      if (opening.cover > most) [most, mostAt] = [opening.cover, ms];
       expectPaper(opening, `opening at ${ms} ms`);
     }
+    // About ten percent of overshoot, at its widest after a third of a second.
+    expect(most / PEEK_COVER).toBeGreaterThan(1.06);
+    expect(most / PEEK_COVER).toBeLessThan(1.14);
+    expect(mostAt).toBeGreaterThan(250);
+    expect(mostAt).toBeLessThan(400);
+    // Settled: within two percent from 600 ms on, and exactly at rest in the end.
+    for (let ms = 600; ms < PEEK_REST_MS; ms += 20) expect(Math.abs(peekAt(ms, true).cover / PEEK_COVER - 1)).toBeLessThan(0.02);
     expect(peekAt(PEEK_REST_MS, true)).toEqual(peekRest());
     expect(peekRest().cover / DEG).toBeGreaterThan(11);
     expect(peekRest().cover / DEG).toBeLessThan(19);
   });
 
-  it('is nine tenths open after about a quarter of a second', () => {
+  it('is nine tenths open well inside a quarter of a second', () => {
     const reached = (ms: number): number => peekAt(ms, true).cover / PEEK_COVER;
-    expect(reached(180)).toBeLessThan(0.9);
-    expect(reached(260)).toBeGreaterThan(0.9);
-    expect(reached(70)).toBeGreaterThan(0.45);
+    expect(reached(100)).toBeLessThan(0.9);
+    expect(reached(250)).toBeGreaterThan(0.9);
   });
 
-  it('fans the leaves one after another, each less than the one in front', () => {
-    const early = peekAt(60, true);
-    const rest = peekRest();
-    for (let index = 1; index < LEAVES; index++) {
-      // A leaf further down the stack has done a smaller share of its own way.
-      const share = rootOf(early, index) / rootOf(rest, index);
-      const shareBefore = rootOf(early, index - 1) / rootOf(rest, index - 1);
-      if (rootOf(rest, index) > 1e-4) expect(share).toBeLessThan(shareBefore);
-      expect(rootOf(rest, index)).toBeLessThan(rootOf(rest, index - 1));
+  it('opens less for a hand near the hinge, and stays paper at every share', () => {
+    const full = peekAt(300, true);
+    expect(scaled(full, 1)).toBe(full);
+    for (const share of [0.25, 0.43, 0.7]) {
+      const part = scaled(full, share);
+      expect(part.cover).toBeCloseTo(full.cover * share, 9);
+      expectPaper(part, `a share of ${share}`);
     }
   });
 
-  it('lets the free edge trail the root while the leaf lifts', () => {
-    for (const ms of [40, 80, 140]) {
-      const opening = peekAt(ms, true);
-      for (let index = 0; index < 4; index++) {
-        expect(edgeOf(opening, index), `leaf ${index} at ${ms} ms`).toBeLessThan(rootOf(opening, index));
-        // Later it has caught up to where it rests.
-        expect(edgeOf(opening, index) / rootOf(opening, index)).toBeLessThan(edgeOf(peekRest(), index) / rootOf(peekRest(), index) + 1e-9);
+  it('can be asked for by the share of the way the board has turned', () => {
+    expect(isShut(peekShare(0))).toBe(true);
+    expect(peekShare(1).cover).toBeCloseTo(peekRest().cover, 9);
+    for (const share of [0.1, 0.35, 0.6, 0.9]) {
+      expect(peekShare(share).cover).toBeCloseTo(PEEK_COVER * share, 6);
+      expectPaper(peekShare(share), `a share of ${share}`);
+    }
+  });
+
+  it('fans the leaves one after another: a deeper leaf is always later, never earlier', () => {
+    const rest = peekRest();
+    for (const ms of [160, 200, 300]) {
+      const now = peekAt(ms, true);
+      for (let index = 1; index < LEAVES; index++) {
+        expect(rootOf(rest, index)).toBeLessThan(rootOf(rest, index - 1));
+        if (rootOf(rest, index) < 1e-3) continue;
+        // A leaf further down the stack has done a smaller share of its own way.
+        expect(rootOf(now, index) / rootOf(rest, index), `leaf ${index} at ${ms} ms`).toBeLessThan(rootOf(now, index - 1) / rootOf(rest, index - 1));
       }
+    }
+  });
+
+  it('bends a leaf by how fast it turns: the free edge trails while it lifts and relaxes when it rests', () => {
+    const rest = peekRest();
+    const hangs = (opening: Opening, index: number): number => rootOf(opening, index) - edgeOf(opening, index);
+    for (let index = 0; index < 4; index++) {
+      // While it turns, the edge is further behind the root than it will be at rest.
+      for (const ms of [150, 200, 260]) expect(hangs(peekAt(ms, true), index), `leaf ${index} at ${ms} ms`).toBeGreaterThan(hangs(rest, index) + 0.005);
+      // And the faster it turns the more: the bend dies away with the turning.
+      expect(hangs(peekAt(150, true), index)).toBeGreaterThan(hangs(peekAt(400, true), index));
+      expect(hangs(rest, index)).toBeGreaterThan(0);
     }
   });
 
@@ -205,8 +233,10 @@ describe('the pages of a volume in the air', () => {
     expect(most).toBeCloseTo(FLIGHT_COVER, 3);
     expect(most / DEG).toBeGreaterThan(13);
     expect(most / DEG).toBeLessThan(18);
-    expect(at).toBeGreaterThan(0.33);
-    expect(at).toBeLessThan(0.48);
+    expect(at).toBeGreaterThan(0.42);
+    expect(at).toBeLessThan(0.56);
+    // The riffle sits in the middle of the way: before a quarter and after three quarters the board is all but shut.
+    for (const time of [0, 0.1, 0.2, 0.25, 0.75, 0.8, 0.9, 1]) expect(flightOpening(time).cover, `at ${time}`).toBeLessThan(most * 0.1);
   });
 
   it('lets the free edges follow the board: they are widest after it is', () => {
