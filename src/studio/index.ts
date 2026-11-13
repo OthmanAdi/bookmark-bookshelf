@@ -8,7 +8,7 @@ import { ContactShadows } from './ground';
 import { Stage, webglAvailable } from './stage';
 import { type FlightBook, FlightStage } from './flight';
 import { leafTangent } from './leaf';
-import { arrivalAt, ARRIVE_MS, isShut, layer, PEEK_COVER, PEEK_REST_MS, peekAt, shut } from './riffle';
+import { arrivalAt, ARRIVE_MS, isShut, layer, PEEK_COVER, PEEK_REST_MS, peekAt, scaled, shut } from './riffle';
 import { type Opening, VolumeMesh } from './volume';
 
 export type { Binding, Paint, PaintedFace, PaintedVolume, Stamp } from './types';
@@ -56,7 +56,22 @@ interface Peek {
   open: boolean;
   since: number;
   from: Opening;
+  /** Share of the full opening the hand asks for, and how far the volume shows its fore-edge, both eased. */
+  reach: number;
+  turn: number;
+  /** When `reach` and `turn` were last stepped. */
+  stepped: number;
 }
+
+/** A hand at the hinge opens the volume this share of the way; at the fore-edge it opens it fully. */
+const REACH_AT_HINGE = 0.25;
+/**
+ * Under keyboard focus the board opens only this far, in radians, and the volume does not turn: the focus
+ * ring is drawn round the cover as it stands, and must still frame it.
+ */
+const FOCUS_COVER = 0.12;
+/** Time constant with which the opening follows the hand along the cover, in ms. */
+const REACH_TAU_MS = 90;
 
 const reducedMotion = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -207,10 +222,14 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
         }
       }
       // The presented volume opens while the hand rests on it, as the CSS one lifts, and closes when it leaves.
-      const wanted = !still && presented && (hovered === volume.element || ringed(volume.element));
+      const underHand = hovered === volume.element;
+      const wanted = !still && presented && (underHand || ringed(volume.element));
       let peek = peeks.get(volume.slot);
+      // How far the hand asks the volume to open: more the nearer it is to the fore-edge; a little for the keyboard.
+      let reach = FOCUS_COVER / PEEK_COVER;
+      if (wanted && underHand) reach = REACH_AT_HINGE + (1 - REACH_AT_HINGE) * alongCover(volume.element);
       if (!peek && wanted) {
-        peek = { open: true, since: now, from: shut() };
+        peek = { open: true, since: now, from: shut(), reach, turn: underHand ? 1 : 0, stepped: now };
         peeks.set(volume.slot, peek);
       } else if (peek && peek.open !== wanted) {
         peek.from = peekAt(now - peek.since, peek.open, peek.from);
@@ -222,7 +241,16 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
         const age = now - peek.since;
         if (!peek.open && (age >= PEEK_REST_MS || still)) peeks.delete(volume.slot);
         else {
-          opening = peekAt(age, peek.open, peek.from);
+          // While the hand is there the opening follows it along the cover; once it has left, it closes from where it was.
+          if (peek.open) {
+            const step = 1 - Math.exp(-Math.min(100, Math.max(0, now - peek.stepped)) / REACH_TAU_MS);
+            const turn = underHand ? 1 : 0;
+            peek.reach = Math.abs(reach - peek.reach) < 0.003 ? reach : peek.reach + (reach - peek.reach) * step;
+            peek.turn = Math.abs(turn - peek.turn) < 0.003 ? turn : peek.turn + (turn - peek.turn) * step;
+            if (peek.reach !== reach || peek.turn !== turn) moving = true;
+          }
+          peek.stepped = now;
+          opening = scaled(peekAt(age, peek.open, peek.from), peek.reach);
           if (age < PEEK_REST_MS) moving = true;
         }
       }
@@ -230,7 +258,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       const shown = opening && !isShut(opening) ? opening : null;
       mesh.setOpening(shown);
       // An open volume turns its fore-edge a little toward the viewer, or the board would hide its own pages.
-      if (shown) matrix.multiply(body.makeRotationY(-SHOW_TURN * Math.min(1, shown.cover / PEEK_COVER)));
+      if (shown) matrix.multiply(body.makeRotationY(-SHOW_TURN * (peek?.turn ?? 1) * Math.min(1, shown.cover / PEEK_COVER)));
       if (presented) {
         canvas.dataset.cover = shown ? ((shown.cover * 180) / Math.PI).toFixed(2) : '0';
         canvas.dataset.edge = shown ? ((leafTangent(shown.leaves[0]!, 1) * 180) / Math.PI).toFixed(2) : '0';
@@ -282,6 +310,19 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
     stage.setPointer(((event.clientX - box.left) / Math.max(1, box.width)) * 2 - 1, ((event.clientY - box.top) / Math.max(1, box.height)) * 2 - 1);
     invalidate();
   };
+  // Where the hand is along the presented cover, for how far the volume opens under it.
+  let handX: number | null = null;
+  const onHand = (event: PointerEvent) => {
+    handX = event.clientX;
+    if (hovered) invalidate();
+  };
+  /** Share of the way from the hinge to the fore-edge at which the hand is over a volume's cover; the middle when unknown. */
+  const alongCover = (element: HTMLElement): number => {
+    const cover = element.querySelector('.bb-book__cover');
+    if (handX === null || !cover) return 0.5;
+    const box = cover.getBoundingClientRect();
+    return box.width > 0 ? Math.min(1, Math.max(0, (handX - box.left) / box.width)) : 0.5;
+  };
   const onTouch = (event: Event) => {
     const book = (event.target as Element | null)?.closest?.('.bb-book') ?? null;
     if (book) lively.set(book, performance.now() + LIVELY_MS);
@@ -296,6 +337,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   window.addEventListener('pointermove', onMove, { passive: true });
   const reactions = ['pointerover', 'pointerout', 'pointerdown', 'pointerup', 'focusin', 'focusout'] as const;
   for (const type of reactions) scene.addEventListener(type, onTouch, { passive: true });
+  scene.addEventListener('pointermove', onHand, { passive: true });
 
   return {
     canvas,
@@ -321,6 +363,7 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       stopFrames();
       window.removeEventListener('pointermove', onMove);
       for (const type of reactions) scene.removeEventListener(type, onTouch);
+      scene.removeEventListener('pointermove', onHand);
       canvas.removeEventListener('webglcontextlost', onLost);
       for (const mesh of meshes.values()) mesh.dispose();
       meshes.clear();
