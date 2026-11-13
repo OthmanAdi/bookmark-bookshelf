@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Bookmark, Store } from '../store';
 import { BINDING_LABELS, BINDINGS, STAMP_LABELS, STAMPS } from '../studio/types';
-import { createEditor } from './editor';
+import { createEditor, LOOK_NOTES } from './editor';
 import { makeStore, mountPage, tick } from './flow-test-helpers';
 
 let store: Store;
@@ -332,5 +332,187 @@ describe('binding and title stamp', () => {
     dialog().dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await tick();
     expect(document.querySelector('dialog[open].bb-dialog--small')).not.toBeNull();
+  });
+});
+
+describe('how it looks', () => {
+  const radio = (name: string, value: string): HTMLInputElement =>
+    document.querySelector(`#editor input[type="radio"][name="${name}"][value="${value}"]`) as HTMLInputElement;
+  const group = (): HTMLElement => document.getElementById('editor-look') as HTMLElement;
+  const stage = (): HTMLElement => document.getElementById('look-stage') as HTMLElement;
+  const note = (): HTMLElement => document.getElementById('hint-materials') as HTMLElement;
+  const chosen = (name: string): string | null | undefined =>
+    document.querySelector(`#field-${name} .bb-swatches__chosen`)?.textContent;
+  const noteOf = (input: HTMLInputElement): string | null | undefined =>
+    document.getElementById(input.getAttribute('aria-describedby') ?? '')?.textContent;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  it('stands in a named group of its own, after the shelf and outside the section that folds away', () => {
+    editor().add();
+    expect(group().getAttribute('role')).toBe('group');
+    expect(document.getElementById(group().getAttribute('aria-labelledby') ?? '')?.textContent).toBe('How it looks');
+    expect(radio('binding', 'leather').closest('details')).toBeNull();
+    expect(radio('stamp', 'gold').closest('details')).toBeNull();
+    const order = [...document.querySelectorAll('#editor-form > *')];
+    const at = (element: Element | null | undefined): number => order.indexOf(element as Element);
+    expect(at(group())).toBeGreaterThan(at(input('shelfId').closest('.bb-field-group')));
+    expect(at(group())).toBeLessThan(at(input('note').closest('.bb-field-group')));
+    expect(at(group())).toBeLessThan(at(document.querySelector('#editor details')));
+  });
+
+  it('keeps the rest folded behind its summary, closed for a new link and open for a saved one', () => {
+    const ed = editor();
+    ed.add();
+    const more = document.querySelector('#editor details') as HTMLDetailsElement;
+    expect(more.querySelector('summary')?.textContent).toBe('Cover, author and tags');
+    expect(more.open).toBe(false);
+    expect(more.contains(input('cloth'))).toBe(true);
+    (document.getElementById('editor-cancel') as HTMLButtonElement).click();
+    ed.edit((store.bookmarks()[0] as Bookmark).id);
+    expect(more.open).toBe(true);
+  });
+
+  it('writes the name of the checked swatch beside its legend', () => {
+    editor().add();
+    expect(chosen('binding')).toBe('Automatic');
+    radio('binding', 'leather').click();
+    radio('stamp', 'copper').click();
+    expect(chosen('binding')).toBe('Leather');
+    expect(chosen('stamp')).toBe('Copper foil');
+    // The line repeats what the checked radio says, so a screen reader is not told twice.
+    expect(document.querySelector('#field-binding .bb-swatches__chosen')?.getAttribute('aria-hidden')).toBe('true');
+    expect(radio('binding', 'leather').closest('label')?.title).toBe('Leather');
+  });
+
+  it('shows the link as a small book that follows every change before anything is saved', () => {
+    const target = store.bookmarks()[0] as Bookmark;
+    const before = JSON.stringify(store.get(target.id));
+    editor().edit(target.id);
+    expect(stage().getAttribute('aria-hidden')).toBe('true');
+    expect(stage().querySelector('.bb-cover__title')?.textContent).toBe(target.title);
+    expect(stage().querySelector(`.bb-showcase__book.bb-cloth--${target.cover.cloth}`)).not.toBeNull();
+    const other = target.cover.cloth === 'moss' ? 'rust' : 'moss';
+    input('cloth').value = other;
+    input('cloth').dispatchEvent(new Event('change', { bubbles: true }));
+    expect(stage().querySelector(`.bb-showcase__book.bb-cloth--${other}`)).not.toBeNull();
+    expect(JSON.stringify(store.get(target.id))).toBe(before);
+  });
+
+  it('follows the title as it is typed, after a short pause', async () => {
+    editor().add();
+    input('url').value = 'https://example.org/essays/on-shelves';
+    input('title').value = 'On shelves';
+    input('title').dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(stage().querySelector('.bb-cover__title')?.textContent).toBe('On shelves');
+  });
+
+  it('takes the small book away when the dialog closes', () => {
+    editor().add();
+    expect(stage().querySelector('.bb-showcase__book')).not.toBeNull();
+    (document.getElementById('editor-cancel') as HTMLButtonElement).click();
+    expect(stage().querySelector('.bb-showcase__book')).toBeNull();
+  });
+
+  it('says why there is no lit preview where WebGL2 is missing, and still takes the choices', () => {
+    editor().add();
+    expect(note().textContent).toBe(LOOK_NOTES.noWebgl);
+    expect(note().getAttribute('role')).toBe('status');
+    expect((document.getElementById('look-studio') as HTMLElement).hidden).toBe(true);
+    input('url').value = 'https://example.org/bound';
+    radio('binding', 'velvet').click();
+    (document.getElementById('editor-save') as HTMLButtonElement).click();
+    expect(saved[0]?.bookmark.cover.binding).toBe('velvet');
+  });
+
+  it('marks a stamp that would be hard to read, says why, and still lets it be chosen', () => {
+    editor().add();
+    const blind = radio('stamp', 'blind');
+    expect(blind.closest('label')?.hasAttribute('data-weak')).toBe(true);
+    expect(noteOf(blind)).toMatch(/hard to read/i);
+    expect(blind.closest('label')?.title).toContain('hard to read');
+    expect(blind.disabled).toBe(false);
+    expect(radio('stamp', 'ink').hasAttribute('aria-describedby')).toBe(false);
+    expect(radio('stamp', '').closest('label')?.hasAttribute('data-weak')).toBe(false);
+
+    radio('binding', 'foil').click();
+    expect(noteOf(radio('stamp', 'gold'))).toBe('Hard to read on this binding.');
+    radio('stamp', 'gold').click();
+    expect(chosen('stamp')).toBe('Gold foilHard to read on this binding.');
+    radio('binding', 'leather').click();
+    expect(radio('stamp', 'gold').hasAttribute('aria-describedby')).toBe(false);
+    expect(chosen('stamp')).toBe('Gold foil');
+
+    input('url').value = 'https://example.org/pressed';
+    radio('stamp', 'blind').click();
+    (document.getElementById('editor-save') as HTMLButtonElement).click();
+    expect(saved[0]?.bookmark.cover.stamp).toBe('blind');
+  });
+
+  describe('where Studio can be drawn', () => {
+    /** The editor with a browser that offers WebGL2 and a shell that draws the shelf in `paint`. */
+    async function withStudio(paint: 'classic' | 'studio') {
+      vi.resetModules();
+      vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ getExtension: () => null } as never);
+      // The lit book itself needs a real WebGL2: a stand-in takes its place on the stage.
+      vi.doMock('../showcase/studio', () => ({
+        createStudioDrawing: () => {
+          const element = document.createElement('div');
+          element.className = 'fake-studio';
+          const nothing = (): void => undefined;
+          return { kind: 'studio', element, setLook: nothing, resize: nothing, setPointer: nothing, draw: nothing, reset: nothing, destroy: () => element.remove() };
+        },
+      }));
+      const support = await import('./paint-support');
+      let current = paint;
+      const choose = vi.fn((next: 'classic' | 'studio') => {
+        current = next;
+      });
+      support.setPaintControl({ current: () => current, choose });
+      const module = await import('./editor');
+      const ed = module.createEditor(store, () => undefined);
+      return { ed, choose, notes: module.LOOK_NOTES };
+    }
+
+    afterEach(() => {
+      vi.doUnmock('../showcase/studio');
+    });
+
+    it('says in Classic where the choices show, and offers Studio right there', async () => {
+      const { ed, choose, notes } = await withStudio('classic');
+      ed.add();
+      expect(note().textContent).toBe(notes.classic);
+      const offer = document.getElementById('look-studio') as HTMLButtonElement;
+      expect(offer.hidden).toBe(false);
+      expect(offer.textContent).toBe('Switch to Studio');
+      offer.focus();
+      offer.click();
+      expect(choose).toHaveBeenCalledWith('studio');
+      expect(offer.hidden).toBe(true);
+      expect(note().textContent).toBe(notes.preparing);
+      // The button went away under the press: focus is on the choices it was offered for.
+      expect(document.activeElement).toBe(radio('binding', ''));
+      expect(dialog().open).toBe(true);
+      await vi.waitFor(() => expect(note().textContent).toBe(notes.studio));
+      expect(stage().querySelector('.fake-studio')).not.toBeNull();
+      expect(stage().querySelector('.bb-showcase__book')).toBeNull();
+    });
+
+    it('prepares the lit book at once when the shelf is already drawn in Studio', async () => {
+      const { ed, notes } = await withStudio('studio');
+      ed.add();
+      expect(note().textContent).toBe(notes.preparing);
+      expect((document.getElementById('look-studio') as HTMLElement).hidden).toBe(true);
+      // Until it arrives the CSS book stands in.
+      expect(stage().querySelector('.bb-showcase__book')).not.toBeNull();
+      await vi.waitFor(() => expect(note().textContent).toBe(notes.studio));
+      // The lit book goes with the dialog, and with it its WebGL context.
+      (document.getElementById('editor-cancel') as HTMLButtonElement).click();
+      expect(stage().querySelector('.fake-studio')).toBeNull();
+    });
   });
 });

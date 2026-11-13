@@ -1,14 +1,20 @@
-import { CLOTHS, PATTERNS } from '../shelf';
-import type { Bookmark, BookmarkInput, CoverSpec, Store } from '../store';
+import { CLOTHS, listVariants, outlineOf, PATTERNS, type ShelfItem } from '../shelf';
+import { type Bookmark, type BookmarkInput, type CoverSpec, defaultCover, normalizeUrl, type Store } from '../store';
+import { resolveBinding } from '../studio/materials/resolve';
 import { BINDING_LABELS, BINDINGS, STAMP_LABELS, STAMPS } from '../studio/types';
 import { button, make, must, option, toast } from './dom';
+import { createEditorPreview, type PreviewState } from './editor-preview';
 import { askToDiscard, closeDialog, leaveOnEscape } from './flow-dialog';
 import { clearErrorOnInput, ensureHint, errorElement, groupOf, markRequired, setFieldError } from './flow-fields';
 import { titleFromAddress } from './flow-title';
+import { canUseStudio, forcedColors, paintControl } from './paint-support';
+import { clothColor, STAMP_TROUBLE, stampTrouble } from './stamp-reads';
 
 /**
  * Add and edit dialog. One native <dialog> with a plain form. Every rule lives
  * in the store: this file only collects values and shows the store's answer.
+ *
+ * How the book looks is chosen high in the form, beside a small book that shows the choice at once.
  */
 export interface LinkPreset {
   url?: string;
@@ -24,12 +30,17 @@ export interface Editor {
 
 const capitalise = (word: string): string => word.charAt(0).toUpperCase() + word.slice(1);
 
-/** A row of radios, each with a small swatch and its name, inside a fieldset whose legend names the row. */
+/**
+ * A row of radios, each a small swatch, inside a fieldset whose legend names the row. Every radio keeps
+ * its name for a screen reader and as a tooltip; the name of the checked one is written beside the legend.
+ */
 interface SwatchGroup {
   /** The chosen name, `''` for Automatic, or undefined when the link has a name this version does not offer. */
   value(): string | undefined;
   /** Checks the radio for a name; a name that has no radio leaves every radio unchecked. */
   set(value: string | undefined): void;
+  /** Gives each choice a short note, or none. A choice with a note is marked, and says it when it is checked. */
+  note(of: (value: string) => string | undefined): void;
 }
 
 function swatchGroup(
@@ -43,11 +54,20 @@ function swatchGroup(
     fieldset = make('fieldset', 'bb-swatches');
     fieldset.id = `field-${name}`;
     fieldset.append(make('legend', 'bb-swatches__legend', legend));
-    form.querySelector('details')?.append(fieldset);
+    (form.querySelector('.bb-look__choices') ?? form.querySelector('details'))?.append(fieldset);
   }
+  // The checked radio says its own name and note; this line shows them to the eye.
+  const chosen = make('span', 'bb-swatches__chosen');
+  chosen.setAttribute('aria-hidden', 'true');
+  const chosenName = make('span', 'bb-swatches__chosen-name');
+  const chosenNote = make('span', 'bb-swatches__chosen-note');
+  chosen.append(chosenName, chosenNote);
   const list = make('div', 'bb-swatches__list');
-  const inputs = [{ value: '', label: 'Automatic' }, ...choices].map((choice) => {
+  const notes = make('div', 'bb-swatches__notes');
+  notes.hidden = true;
+  const rows = [{ value: '', label: 'Automatic' }, ...choices].map((choice) => {
     const row = make('label', 'bb-swatch');
+    row.title = choice.label;
     const input = make('input', 'bb-swatch__input');
     input.type = 'radio';
     input.name = name;
@@ -57,17 +77,57 @@ function swatchGroup(
     chip.setAttribute('aria-hidden', 'true');
     row.append(input, chip, make('span', 'bb-swatch__name', choice.label));
     list.append(row);
-    return input;
+    const note = make('span');
+    note.id = `note-${name}-${choice.value || 'auto'}`;
+    notes.append(note);
+    return { input, row, note, label: choice.label };
   });
-  fieldset.querySelector('.bb-swatches__list')?.remove();
-  fieldset.append(list);
+  const sync = (): void => {
+    const checked = rows.find((row) => row.input.checked);
+    chosenName.textContent = checked?.label ?? '';
+    chosenNote.textContent = checked?.note.textContent ?? '';
+  };
+  list.addEventListener('change', sync);
+  for (const old of fieldset.querySelectorAll('.bb-swatches__chosen, .bb-swatches__list, .bb-swatches__notes')) old.remove();
+  fieldset.append(chosen, list, notes);
   return {
-    value: () => inputs.find((input) => input.checked)?.value,
+    value: () => rows.find((row) => row.input.checked)?.input.value,
     set(value) {
-      for (const input of inputs) input.checked = input.value === (value ?? '');
+      for (const row of rows) row.input.checked = row.input.value === (value ?? '');
+      sync();
+    },
+    note(of) {
+      for (const row of rows) {
+        const text = row.input.value === '' ? undefined : of(row.input.value);
+        row.note.textContent = text ?? '';
+        row.row.toggleAttribute('data-weak', text !== undefined);
+        row.row.title = text ? `${row.label}. ${text}` : row.label;
+        if (text) row.input.setAttribute('aria-describedby', row.note.id);
+        else row.input.removeAttribute('aria-describedby');
+      }
+      sync();
     },
   };
 }
+
+/** The part of an address a cover prints as its source. */
+function hostOf(address: string): string | undefined {
+  try {
+    return new URL(address).hostname.replace(/^www\./, '') || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The words beside the small book: where the choice shows, and why there is or is not a lit preview. */
+export const LOOK_NOTES = {
+  classic: 'Binding and title stamp show when the shelf is drawn in Studio.',
+  noWebgl: 'Binding and title stamp show in Studio, which needs WebGL2. This browser does not offer it, so there is no lit preview.',
+  forcedColors: 'Binding and title stamp show in Studio, which is not drawn in forced colours, so there is no lit preview.',
+  preparing: 'Preparing the Studio preview…',
+  studio: 'Lit as on your Studio shelf.',
+  stopped: 'The Studio preview could not start. Your choices are still saved with the link.',
+} as const;
 
 export function createEditor(
   store: Store,
@@ -104,6 +164,106 @@ export function createEditor(
   pattern.replaceChildren(option('', 'Chosen for you'), ...PATTERNS.map((name) => option(name, capitalise(name))));
   const binding = swatchGroup(form, 'binding', 'Binding', BINDINGS.map((value) => ({ value, label: BINDING_LABELS[value] })));
   const stamp = swatchGroup(form, 'stamp', 'Title stamp', STAMPS.map((value) => ({ value, label: STAMP_LABELS[value] })));
+
+  /* ---------- the small book beside the choices ---------- */
+
+  const lookStage = form.querySelector<HTMLElement>('#look-stage');
+  const lookNote = form.querySelector<HTMLElement>('#hint-materials');
+  const lookSwitch = form.querySelector<HTMLButtonElement>('#look-studio');
+  const reduced = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const lookOf = (): { variant: string; aspect: number } => {
+    const looks = listVariants();
+    const look = looks.find((entry) => entry.name === document.documentElement.dataset.variant) ?? looks[0];
+    return { variant: look?.name ?? 'paper', aspect: look ? look.geometry.coverWidth / look.geometry.bookHeight : 0.68 };
+  };
+
+  function sayLook(state: PreviewState): void {
+    if (!lookNote) return;
+    let words: string = LOOK_NOTES[state];
+    let offer = false;
+    if (state === 'classic') {
+      if (forcedColors()) words = LOOK_NOTES.forcedColors;
+      else if (!canUseStudio()) words = LOOK_NOTES.noWebgl;
+      // Studio is one press away, and the shell knows how to switch to it.
+      else offer = paintControl() !== undefined;
+    }
+    if (lookNote.textContent !== words) lookNote.textContent = words;
+    if (lookSwitch) lookSwitch.hidden = !offer;
+  }
+
+  const preview = lookStage ? createEditorPreview({ stage: lookStage, look: lookOf, reduced, onState: sayLook }) : null;
+
+  /** The link as the form has it right now, saved or not, as the shelf would draw it. */
+  function draft(): ShelfItem {
+    const stored = editingId ? store.get(editingId) : undefined;
+    const address = normalizeUrl(url.value);
+    const base = stored?.cover ?? defaultCover(address.ok ? address.value : url.value.trim());
+    const chosenBinding = binding.value();
+    const chosenStamp = stamp.value();
+    return {
+      id: stored?.id ?? 'editor-draft',
+      title: titleInput.value.trim() || titleFromAddress(url.value) || 'Untitled',
+      source: hostOf(address.ok ? address.value : url.value.trim()),
+      author: author.value.trim() || undefined,
+      cloth: cloth.value || base.cloth,
+      pattern: pattern.value || base.pattern,
+      seed: base.seed,
+      binding: chosenBinding === undefined ? base.binding : chosenBinding || undefined,
+      stamp: chosenStamp === undefined ? base.stamp : chosenStamp || undefined,
+      // A link with a text prints the shape of that text on its cover.
+      outline: readingText.value.trim() ? outlineOf(readingText.value) : undefined,
+    };
+  }
+
+  /** Redraws the small book and says which stamps would be hard to read on the cover as it now is. */
+  function showLook(turn: boolean): void {
+    const item = draft();
+    const colour = clothColor(dialog, item.cloth ?? '');
+    const bound = resolveBinding(item.binding, Math.abs(Math.floor(item.seed ?? 0)));
+    stamp.note((value) => {
+      const trouble = stampTrouble(value, bound, colour);
+      return trouble ? STAMP_TROUBLE[trouble] : undefined;
+    });
+    preview?.show(item, turn);
+  }
+
+  function openLook(): void {
+    const lit = paintControl()?.current() === 'studio' && canUseStudio();
+    if (preview) preview.open(lit);
+    else sayLook('classic');
+    showLook(false);
+  }
+
+  let typing: number | undefined;
+  form.addEventListener('change', (event) => {
+    // A swatch or a cloth is a change to look at: the book turns once. Leaving a text field is not.
+    const target = event.target;
+    showLook(target instanceof HTMLSelectElement || (target instanceof HTMLInputElement && target.type === 'radio'));
+  });
+  form.addEventListener('input', (event) => {
+    const target = event.target;
+    if (target instanceof HTMLSelectElement || (target instanceof HTMLInputElement && target.type === 'radio')) return;
+    window.clearTimeout(typing);
+    typing = window.setTimeout(() => showLook(false), 250);
+  });
+
+  lookSwitch?.addEventListener('click', () => {
+    const control = paintControl();
+    if (!control) return;
+    control.choose('studio');
+    if (control.current() !== 'studio') return;
+    // The button goes away with the press: focus moves on to the choices it was offered for.
+    (form.querySelector<HTMLInputElement>('input[name="binding"]:checked') ?? form.querySelector<HTMLInputElement>('input[name="binding"]'))?.focus();
+    openLook();
+  });
+
+  /** Marks the dialog while more of the form lies below the fold, so the bar over the buttons can say so. */
+  const syncMore = (): void => {
+    dialog.toggleAttribute('data-more', dialog.scrollHeight - dialog.scrollTop - dialog.clientHeight > 8);
+  };
+  dialog.addEventListener('scroll', syncMore, { passive: true });
+  window.addEventListener('resize', syncMore);
+  more?.addEventListener('toggle', syncMore);
 
   url.setAttribute('autocapitalize', 'off');
   url.setAttribute('autocorrect', 'off');
@@ -216,6 +376,8 @@ export function createEditor(
     showTitleHint();
     checkKnown();
     untouched = values();
+    // Saving and adding another fills the open form again: the small book follows.
+    if (dialog.open) showLook(false);
   }
 
   function collect(): BookmarkInput {
@@ -243,6 +405,8 @@ export function createEditor(
     opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialog.showModal();
     focus.focus();
+    openLook();
+    syncMore();
   }
 
   form.addEventListener('submit', (event) => {
@@ -297,6 +461,9 @@ export function createEditor(
   });
 
   dialog.addEventListener('close', () => {
+    window.clearTimeout(typing);
+    // The small book gives back its WebGL context with the dialog.
+    preview?.close();
     const active = document.activeElement;
     if (opener?.isConnected && (!active || active === document.body || dialog.contains(active))) opener.focus({ preventScroll: true });
   });

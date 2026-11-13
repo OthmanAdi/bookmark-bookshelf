@@ -196,6 +196,22 @@
           </label>
           <p id="error-shelfId" class="bb-field__error" hidden></p>
         </div>
+        <div id="editor-look" class="bb-look" role="group" aria-labelledby="look-title">
+          <h3 id="look-title" class="bb-look__title">How it looks</h3>
+          <div id="look-stage" class="bb-look__stage" aria-hidden="true"></div>
+          <div class="bb-look__choices">
+            <fieldset id="field-binding" class="bb-swatches" aria-describedby="hint-materials">
+              <legend class="bb-swatches__legend">Binding</legend>
+            </fieldset>
+            <fieldset id="field-stamp" class="bb-swatches" aria-describedby="hint-materials">
+              <legend class="bb-swatches__legend">Title stamp</legend>
+            </fieldset>
+          </div>
+          <p class="bb-look__note">
+            <span id="hint-materials" role="status">Binding and title stamp show when the shelf is drawn in Studio.</span>
+            <button id="look-studio" type="button" class="bb-button" hidden>Switch to Studio</button>
+          </p>
+        </div>
         <div class="bb-field-group">
           <label class="bb-field">
             <span class="bb-label">Why you saved it</span>
@@ -244,13 +260,6 @@
               <p id="error-pattern" class="bb-field__error" hidden></p>
             </div>
           </div>
-          <p id="hint-materials" class="bb-field__hint bb-swatches__hint">Binding and title stamp show when the shelf is drawn in Studio.</p>
-          <fieldset id="field-binding" class="bb-swatches" aria-describedby="hint-materials">
-            <legend class="bb-swatches__legend">Binding</legend>
-          </fieldset>
-          <fieldset id="field-stamp" class="bb-swatches" aria-describedby="hint-materials">
-            <legend class="bb-swatches__legend">Title stamp</legend>
-          </fieldset>
         </details>
 
         <div class="bb-dialog__actions">

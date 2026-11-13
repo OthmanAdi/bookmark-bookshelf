@@ -235,6 +235,8 @@
 .bb-dialog {
   overflow: auto;
   overscroll-behavior: contain;
+  /* A field brought into view by focus stops clear of the bar of buttons that stays at the bottom. */
+  scroll-padding-bottom: 5.5rem;
 }
 
 .bb-dialog form {
@@ -256,9 +258,34 @@
 .bb-dialog details > summary {
   display: flex;
   align-items: center;
+  gap: var(--bb-s-2);
   min-height: 2.5rem;
   cursor: pointer;
   font-size: var(--bb-text-small);
+  font-weight: 500;
+  list-style: none;
+}
+
+.bb-dialog details > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The triangle that says the section opens: it points right when closed and down when open. */
+.bb-dialog details > summary::before {
+  flex: none;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  margin: 0 0.1875rem 0.125rem 0.125rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: '';
+  rotate: -45deg;
+  transition: rotate var(--bb-dur-1) var(--bb-ease-out);
+}
+
+.bb-dialog details[open] > summary::before {
+  margin-bottom: 0.25rem;
+  rotate: 45deg;
 }
 
 .bb-dialog details[open] > summary {
@@ -375,54 +402,147 @@
   gap: var(--bb-s-4);
 }
 
-/* ---------- binding and title stamp ---------- */
+/* ---------- how the book looks: a small live book beside binding and title stamp ---------- */
 
-.bb-swatches__hint {
-  margin-top: var(--bb-s-4);
+/* The editor is a little wider than the other dialogs, so each row of swatches stays on one line beside the book. */
+#editor {
+  width: min(100% - 2rem, 40rem);
+}
+
+.bb-look {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'title title'
+    'stage choices'
+    'stage note';
+  gap: var(--bb-s-3) var(--bb-s-4);
+  align-items: start;
+  padding: var(--bb-s-3) var(--bb-s-4) var(--bb-s-4);
+  border: var(--bb-hairline) solid var(--bb-rule);
+  border-radius: var(--bb-r-2);
+  background: var(--bb-paper-raised);
+}
+
+.bb-look__title {
+  grid-area: title;
+  font-size: var(--bb-text-small);
+  font-weight: 600;
+  line-height: var(--bb-line-small);
+  letter-spacing: 0;
+}
+
+/* The book stands on the ground of the look, as on the shelf. */
+.bb-look__stage {
+  position: relative;
+  grid-area: stage;
+  width: 9.5rem;
+  height: 11.5rem;
+  overflow: hidden;
+  border-radius: var(--bb-r-2);
+  background: var(--bb-paper);
+  isolation: isolate;
+}
+
+.bb-look__stage::before {
+  position: absolute;
+  right: 12%;
+  bottom: 6%;
+  left: 16%;
+  height: 7%;
+  background: radial-gradient(closest-side, rgba(18, 12, 6, 0.42), rgba(18, 12, 6, 0.16) 55%, rgba(18, 12, 6, 0));
+  filter: blur(3px);
+  content: '';
+}
+
+/* The book is drawn at twice its size and shown at half, so its cover keeps the title a very small cover leaves out. */
+.bb-look__plate {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 200%;
+  transform: scale(0.5);
+  transform-origin: 0 0;
+}
+
+.bb-look__choices {
+  display: grid;
+  grid-area: choices;
+  gap: var(--bb-s-3);
+  min-width: 0;
+}
+
+.bb-look__note {
+  display: flex;
+  flex-wrap: wrap;
+  grid-area: note;
+  align-items: center;
+  gap: var(--bb-s-2) var(--bb-s-3);
   color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  line-height: var(--bb-line-small);
+}
+
+.bb-look__note > span {
+  flex: 1 1 11rem;
+  font-style: italic;
 }
 
 .bb-swatches {
   min-width: 0;
-  margin: var(--bb-s-3) 0 0;
+  margin: 0;
   padding: 0;
   border: 0;
 }
 
+/* The legend floats, so the name of the checked swatch can stand on its line. */
 .bb-swatches__legend {
-  margin-bottom: var(--bb-s-2);
+  float: left;
+  margin: 0 var(--bb-s-2) var(--bb-s-1) 0;
   padding: 0;
   color: var(--bb-ink);
   font-family: var(--bb-font-serif);
   font-size: var(--bb-text-small);
   font-weight: 500;
+  line-height: var(--bb-line-small);
+}
+
+.bb-swatches__chosen {
+  display: block;
+  min-height: var(--bb-line-small);
+  margin-bottom: var(--bb-s-1);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  line-height: var(--bb-line-small);
+}
+
+.bb-swatches__chosen-note:not(:empty)::before {
+  content: ' \00b7 ';
+}
+
+.bb-swatches__chosen-note {
+  font-style: italic;
 }
 
 .bb-swatches__list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--bb-s-1);
+  clear: both;
 }
 
-/* The whole row is the radio's label; the radio itself is invisible but stays in place for keys, touch and screen readers. */
+/* The whole cell is the radio's label; the radio itself is invisible but stays in place for keys, touch and screen readers. */
 .bb-swatch {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--bb-s-2);
-  min-height: 2.5rem;
-  padding: var(--bb-s-1) var(--bb-s-2);
-  border: var(--bb-hairline) solid transparent;
+  display: block;
+  padding: 0.3125rem;
   border-radius: var(--bb-r-2);
-  color: var(--bb-ink-soft);
-  font-size: var(--bb-text-small);
-  line-height: 1.25;
   cursor: pointer;
 }
 
 .bb-swatch:hover {
-  background: color-mix(in srgb, var(--bb-ink) 6%, transparent);
-  color: var(--bb-ink);
+  background: color-mix(in srgb, var(--bb-ink) 8%, transparent);
 }
 
 .bb-swatch__input {
@@ -436,9 +556,8 @@
 }
 
 .bb-swatch:has(.bb-swatch__input:checked) {
-  border-color: var(--bb-rule-strong);
-  background: var(--bb-paper-raised);
-  color: var(--bb-ink);
+  background: var(--bb-sheet);
+  box-shadow: inset 0 0 0 var(--bb-hairline) var(--bb-rule-strong);
 }
 
 .bb-swatch:has(.bb-swatch__input:focus-visible) {
@@ -446,20 +565,43 @@
   outline-offset: var(--bb-focus-offset);
 }
 
+/* Each swatch keeps its name for a screen reader and as a tooltip; the checked one is written beside the legend. */
 .bb-swatch__name {
-  min-width: 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-.bb-swatch__input:checked ~ .bb-swatch__name {
-  font-weight: 600;
+/* A stamp that would be hard to read on this cover can still be chosen; a small mark says to look twice. */
+.bb-swatch[data-weak]::after {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  display: grid;
+  width: 0.8125rem;
+  height: 0.8125rem;
+  place-items: center;
+  border: var(--bb-hairline) solid var(--bb-rule-strong);
+  border-radius: 50%;
+  background: var(--bb-sheet);
+  color: var(--bb-ink);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  content: '!';
+  content: '!' / '';
+  pointer-events: none;
 }
 
 /* A small upright board, lit from the upper left like the shelf. The checked one wears a ring. */
 .bb-swatch__chip {
   position: relative;
-  flex: none;
-  width: 1.25rem;
-  height: 1.75rem;
+  display: block;
+  width: 1.625rem;
+  height: 2.375rem;
   border-radius: 1px 3px 3px 1px;
   background: #6b5a48;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28);
@@ -468,8 +610,8 @@
 .bb-swatch__input:checked + .bb-swatch__chip {
   box-shadow:
     inset 0 0 0 1px rgba(0, 0, 0, 0.28),
-    0 0 0 2px var(--bb-sheet),
-    0 0 0 3px var(--bb-ink);
+    0 0 0 1px var(--bb-sheet),
+    0 0 0 2.5px var(--bb-ink);
 }
 
 .bb-swatch__chip:is([data-binding='auto'], [data-stamp='auto']) {
@@ -583,6 +725,39 @@
   padding: var(--bb-s-3) var(--bb-s-5) calc(var(--bb-s-3) + env(safe-area-inset-bottom, 0px));
   border-top: var(--bb-hairline) solid var(--bb-rule);
   background: var(--bb-sheet);
+}
+
+/* While more of the form lies below the fold, the bar casts a shade upward and says so. */
+.bb-dialog[data-more] .bb-dialog__actions::before {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: var(--bb-s-5);
+  background: linear-gradient(to top, color-mix(in srgb, var(--bb-ink) 14%, transparent), transparent);
+  content: '';
+  pointer-events: none;
+}
+
+/* The words stand in the bar itself, in the room its buttons leave, so they cover neither a field nor a button. */
+.bb-dialog[data-more] .bb-dialog__actions::after {
+  position: absolute;
+  top: 50%;
+  left: var(--bb-s-5);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small);
+  line-height: var(--bb-line-small);
+  white-space: nowrap;
+  content: 'More below \2193';
+  content: 'More below \2193' / '';
+  translate: 0 -50%;
+  pointer-events: none;
+}
+
+/* With Remove at the left, the room is in the middle. */
+.bb-dialog[data-more] .bb-dialog__actions:has(> #editor-delete:not([hidden]))::after {
+  left: 45%;
+  translate: -50% -50%;
 }
 
 /* Actions sit at the right; a button that must stay at the left (Remove) takes the free space after it. */
@@ -1052,6 +1227,26 @@
     padding-inline: var(--bb-s-4);
   }
 
+  /* On a narrow screen the book stands beside its note and the swatches take the full width under both. */
+  .bb-look {
+    grid-template-areas:
+      'title title'
+      'stage note'
+      'choices choices';
+    gap: var(--bb-s-3);
+    align-items: center;
+    padding: var(--bb-s-3);
+  }
+
+  .bb-look__stage {
+    width: 8rem;
+    height: 10rem;
+  }
+
+  .bb-look__note > span {
+    flex-basis: 100%;
+  }
+
   .bb-dialog__actions {
     margin-inline: calc(-1 * var(--bb-s-4));
     padding-inline: var(--bb-s-4);
@@ -1059,6 +1254,20 @@
 
   .bb-dialog__actions .bb-button {
     padding-inline: var(--bb-s-3);
+  }
+
+  /* Here the buttons fill the bar: the words sit across its upper edge, inside the shade. */
+  .bb-dialog[data-more] .bb-dialog__actions::after,
+  .bb-dialog[data-more] .bb-dialog__actions:has(> #editor-delete:not([hidden]))::after {
+    top: auto;
+    bottom: calc(100% - var(--bb-s-3));
+    left: 50%;
+    padding: 1px var(--bb-s-3);
+    border: var(--bb-hairline) solid var(--bb-rule-strong);
+    border-radius: var(--bb-r-2);
+    background: var(--bb-sheet);
+    color: var(--bb-ink);
+    translate: -50% 0;
   }
 }
 
@@ -1074,6 +1283,10 @@
   .bb-dialog.is-closing,
   .bb-dialog.is-closing::backdrop {
     animation: none;
+  }
+
+  .bb-dialog details > summary::before {
+    transition: none;
   }
 
   .bb-toast {
