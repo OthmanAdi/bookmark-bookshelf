@@ -3,8 +3,8 @@ import { createClassicDrawing } from './classic';
 import { createDetails } from './details';
 import { createRail } from './rail';
 import { applyMove, clampIndex, createWheelStepper, keyToMove, swipeToStep, type Move } from './scroll';
-import { advance, createTravel, jump, retarget, shownOf, standAt, type Travel } from './travel';
-import { advanceTurn, aim, anglesOf, createTurn, dragBy, grab, release, tiltToward, turning, type Turn } from './turn';
+import { advance, createTravel, hold, jump, letGo, retarget, shownOf, standAt, type Travel } from './travel';
+import { advanceTurn, aim, anglesOf, createTurn, dragBy, grab, release, spinOpening, tiltToward, turning, type Turn } from './turn';
 import { type BookBox, type BookFrame, type Drawing, fitBook, type ShowcaseItem, type ShowcaseLook } from './types';
 
 export type { BookBox, BookFrame, Drawing, ShowcaseItem, ShowcaseLook } from './types';
@@ -67,6 +67,10 @@ const PEEK_OPEN_S = 0.22;
 const PEEK_CLOSE_S = 0.16;
 /** A press that moved less than this is a click. */
 const DRAG_SLOP = 5;
+/** The speed of a release is read from this much of the movement before it. */
+const RELEASE_WINDOW_MS = 80;
+/** A spin opens the book, and the book shuts again, over about this long. */
+const SPIN_SMOOTH_S = 0.1;
 /** Under this width the book stands above the details and the rail lies across. Matches showcase.css. */
 export const NARROW_QUERY = '(max-width: 40rem)';
 
@@ -107,6 +111,9 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
   let travel: Travel = createTravel(index);
   let turn: Turn = createTurn();
   let peek = 0;
+  /** How far a spin has thrown the book open, 0 to 1, and the yaw it was last seen at. */
+  let spin = 0;
+  let lastYaw = 0;
   let box: BookBox | null = null;
   let drawing: Drawing = createClassicDrawing();
   let wanted: ShowcasePaint = 'classic';
@@ -115,12 +122,12 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
   let last = 0;
   let alive = true;
   let hovering = false;
-  let pointer = { x: 0, y: 0 };
 
   const current = (): ShowcaseItem | undefined => items[index];
 
   const details = createDetails(
     {
+      step: (by) => move({ type: 'step', by }),
       primary: () => {
         const item = current();
         if (item) options.onRead(item.book.id);
@@ -167,8 +174,14 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
       peek += (open - peek) * (1 - Math.exp(-dt / (pace / 3)));
       if (Math.abs(open - peek) < 0.002) peek = open;
     }
+    // A book that is spun opens by its speed, so a throw fans the pages; it shuts as the spin dies.
+    const speed = turn.phase === 'rest' || dt === 0 ? 0 : Math.abs(turn.drag.yaw - lastYaw) / dt;
+    lastYaw = turn.phase === 'rest' ? 0 : turn.drag.yaw;
+    const thrown = still ? 0 : spinOpening(speed);
+    spin += (thrown - spin) * (dt === 0 ? 0 : 1 - Math.exp(-dt / SPIN_SMOOTH_S));
+    if (thrown === 0 && spin < 0.002) spin = 0;
     paint();
-    const more = !travel.settled || peek !== open || (!still && turning(turn, { idle: sway }));
+    const more = (!travel.settled && !travel.held) || peek !== open || spin > 0 || (!still && turning(turn, { idle: sway }));
     if (more && root.isConnected && !host.hidden) invalidate();
     else last = 0;
   }
@@ -188,10 +201,13 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
         stand: standAt(shown.offset),
         turn: shown.target ? angles : { yaw: 0, pitch: 0 },
         opacity: shown.opacity,
-        peek: shown.target ? peek : 0,
+        peek: shown.target ? Math.max(peek, spin) : 0,
         target: shown.target,
       });
     }
+    // The light stands still in the room. Only the move between books sweeps it, by its speed, so the
+    // highlight crosses the cover on each change and is back in place when the book has arrived.
+    drawing.setPointer(Math.max(-1, Math.min(1, travel.velocity / 3.2)), 0);
     drawing.draw(frames);
     // One shadow on the ground: it fades as a book leaves and comes back under the next.
     const lit = Math.max(0, 1 - nearest * 2.6);
@@ -205,7 +221,7 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
     const width = stage.clientWidth;
     const height = stage.clientHeight;
     if (width <= 0 || height <= 0) return;
-    box = fitBook(width, height, look.aspect);
+    box = fitBook(width, height, look.aspect, window.innerHeight || undefined);
     stage.style.setProperty('--bb-book-w', `${box.width}px`);
     stage.style.setProperty('--bb-book-h', `${box.height}px`);
     drawing.resize(box);
@@ -264,6 +280,12 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
     if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
     // Stacked on a narrow screen the page itself scrolls; only the book takes the wheel there.
     if (media(NARROW_QUERY) && !stage.contains(event.target as Node)) return;
+    // Past the first or the last book the wheel belongs to the page again.
+    const way = event.deltaY > 0 ? 1 : -1;
+    if (applyMove(index, items.length, { type: 'step', by: way }) === index) {
+      stepper.reset();
+      return;
+    }
     event.preventDefault();
     const step = stepper.push(event, event.timeStamp || performance.now());
     if (step !== 0) move({ type: 'step', by: step });
@@ -288,8 +310,33 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
 
   /* ---------- the hand on the book ---------- */
 
-  let press: { id: number; x: number; y: number; at: number; touch: boolean; axis: 'x' | 'y' | null; moved: boolean; lastX: number; lastY: number; lastAt: number; vx: number; vy: number } | null =
-    null;
+  interface Press {
+    id: number;
+    x: number;
+    y: number;
+    at: number;
+    touch: boolean;
+    axis: 'x' | 'y' | null;
+    moved: boolean;
+    lastX: number;
+    lastY: number;
+    /** Where the pointer has been lately, newest last, for its speed at the moment it lets go. */
+    trail: Array<{ x: number; y: number; at: number }>;
+  }
+  let press: Press | null = null;
+
+  /** Speed of the hand over its last 80 ms, in px a second. A hand that stopped before letting go has none. */
+  function speedOf(done: Press, now: number): { vx: number; vy: number } {
+    const recent = done.trail.filter((point) => now - point.at <= RELEASE_WINDOW_MS);
+    const first = recent[0];
+    const latest = recent[recent.length - 1];
+    if (!first || !latest || latest.at - first.at < 8) return { vx: 0, vy: 0 };
+    const span = (latest.at - first.at) / 1000;
+    return { vx: (latest.x - first.x) / span, vy: (latest.y - first.y) / span };
+  }
+
+  /** How far one book travels between its place and the next, in px: the same share `standAt` uses. */
+  const slotPx = (): number => Math.max(1, (box?.stageHeight ?? 1) * 0.92);
   let swallowClick = false;
 
   const centreOf = (): { x: number; y: number } => {
@@ -301,12 +348,6 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
     if (event.pointerType === 'touch' || press) return;
     const centre = centreOf();
     turn = aim(turn, tiltToward(event.clientX - centre.x, event.clientY - centre.y));
-    const rect = stage.getBoundingClientRect();
-    pointer = {
-      x: ((event.clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1,
-      y: ((event.clientY - rect.top) / Math.max(1, rect.height)) * 2 - 1,
-    };
-    drawing.setPointer(pointer.x, pointer.y);
     invalidate();
   };
   const onPointerLeave = (): void => {
@@ -319,7 +360,7 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
   const onDown = (event: PointerEvent): void => {
     if (event.button !== 0 || press) return;
     const now = event.timeStamp;
-    press = { id: event.pointerId, x: event.clientX, y: event.clientY, at: now, touch: event.pointerType === 'touch', axis: null, moved: false, lastX: event.clientX, lastY: event.clientY, lastAt: now, vx: 0, vy: 0 };
+    press = { id: event.pointerId, x: event.clientX, y: event.clientY, at: now, touch: event.pointerType === 'touch', axis: null, moved: false, lastX: event.clientX, lastY: event.clientY, trail: [{ x: event.clientX, y: event.clientY, at: now }] };
     swallowClick = false;
     try {
       control.setPointerCapture(event.pointerId);
@@ -343,14 +384,13 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
     }
     const stepX = event.clientX - press.lastX;
     const stepY = event.clientY - press.lastY;
-    const span = Math.max(1, event.timeStamp - press.lastAt);
-    // Speed of the hand, smoothed over the last few moves, for the coast after letting go.
-    press.vx = press.vx * 0.6 + ((stepX / span) * 1000) * 0.4;
-    press.vy = press.vy * 0.6 + ((stepY / span) * 1000) * 0.4;
     press.lastX = event.clientX;
     press.lastY = event.clientY;
-    press.lastAt = event.timeStamp;
-    if (press.axis !== 'y') turn = dragBy(turn, stepX, press.touch ? 0 : stepY);
+    press.trail.push({ x: event.clientX, y: event.clientY, at: event.timeStamp });
+    if (press.trail.length > 12) press.trail.shift();
+    if (press.axis !== 'y') turn = dragBy(turn, stepX, press.touch ? 0 : stepY, box?.width ?? 300);
+    // Up and down, the row follows the finger exactly: the next book comes as far as the finger has gone.
+    else if (!reduced()) travel = hold(travel, -dy / slotPx(), index > 0 ? index - 1 : null, index < items.length - 1 ? index + 1 : null);
     invalidate();
   };
   const onUp = (event: PointerEvent): void => {
@@ -360,14 +400,28 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
     delete root.dataset.held;
     if (!done.moved) return;
     swallowClick = true;
+    const hand = speedOf(done, event.timeStamp);
     if (done.axis === 'y') {
-      const step = event.type === 'pointercancel' ? 0 : swipeToStep(event.clientX - done.x, event.clientY - done.y, event.timeStamp - done.at);
-      if (step !== 0) move({ type: 'step', by: step });
+      const dy = event.clientY - done.y;
+      let step = event.type === 'pointercancel' ? 0 : swipeToStep(event.clientX - done.x, dy, event.timeStamp - done.at);
+      // Pulled more than half way, the next book has won even without a flick.
+      if (step === 0 && event.type !== 'pointercancel' && Math.abs(dy) > slotPx() / 2) step = dy < 0 ? 1 : -1;
+      if (!travel.held) {
+        if (step !== 0) move({ type: 'step', by: step });
+        return;
+      }
+      const target = clampIndex(index + step, items.length);
+      travel = letGo(travel, target, -hand.vy / slotPx());
+      if (target !== index) {
+        index = target;
+        describe(step as -1 | 1);
+        const item = current();
+        if (item) options.onIndex?.(index, item);
+      } else if (step !== 0) options.onEnd?.(step < 0 ? 'first' : 'last');
+      invalidate();
       return;
     }
-    // A hand that stopped before letting go leaves the book where it is, to come back on its own.
-    const resting = event.timeStamp - done.lastAt > 90;
-    turn = release(turn, resting ? 0 : done.vx, resting || done.touch ? 0 : done.vy);
+    turn = release(turn, hand.vx, done.touch ? 0 : hand.vy, box?.width ?? 300);
     invalidate();
   };
   const onClick = (event: MouseEvent): void => {
@@ -405,7 +459,6 @@ export function mountShowcase(host: HTMLElement, options: ShowcaseOptions): Show
     scene.appendChild(next.element);
     next.setLook(look);
     if (box) next.resize(box);
-    next.setPointer(pointer.x, pointer.y);
     root.dataset.paint = next.kind;
     paint();
     invalidate();
