@@ -137,6 +137,13 @@ export class Stage {
   readonly camera = new PerspectiveCamera(30, 1, 1, 10000);
   /** Everything that stands on the board: volumes and bookends. */
   readonly row = new Group();
+  /**
+   * Set by a caller that calls `advance` with every frame and `touch` when something that casts a shadow
+   * moved. The light then follows the pointer with a lag and shadows are drawn only when asked for. Left
+   * false, the light goes to the pointer at once and every frame draws its shadows, which is right for a
+   * caller that draws one book and knows of neither.
+   */
+  paced = false;
   /** By day the window light. At night, when the lamp is the key, a cool rim from behind for separation. */
   private readonly key = new DirectionalLight('#fff6ea', 2.3);
   private readonly lamp = new SpotLight('#ffe3c0', 0, 0, 1.0, 0.8, 2);
@@ -222,6 +229,10 @@ export class Stage {
     this.pointer.targetX = Math.max(-1, Math.min(1, x));
     this.pointer.targetY = Math.max(-1, Math.min(1, y));
     this.homing = false;
+    if (this.paced) return;
+    this.pointer.x = this.pointer.targetX;
+    this.pointer.y = this.pointer.targetY;
+    this.aimLights();
   }
 
   /** The pointer has left or lies still: the light drifts back to where it rests. */
@@ -303,7 +314,7 @@ export class Stage {
   }
 
   render(): void {
-    if (this.stale) {
+    if (this.stale || !this.paced) {
       this.stale = false;
       this.renderer.shadowMap.needsUpdate = true;
     }

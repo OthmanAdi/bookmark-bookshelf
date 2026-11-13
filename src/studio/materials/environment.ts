@@ -35,7 +35,7 @@ export const STUDIO_LAMPS: readonly SoftBox[] = [
   { position: [0, 10, 3], size: [12, 3], color: [1, 0.97, 0.92], intensity: 4, feather: 0.4 },
   // Narrow strips: the sharp lines that run across gloss and foil.
   // The one nearest the eye is the band that crosses a cover as it turns: narrow, so it passes a title and does not sit on it.
-  { position: [-1.5, 0.8, 11], size: [0.3, 10], color: [1, 0.95, 0.88], intensity: 26, feather: 0.25 },
+  { position: [-1.5, 0.8, 11], size: [0.3, 10], color: [1, 0.95, 0.88], intensity: 20, feather: 0.25 },
   { position: [4.2, 0.5, 10], size: [0.38, 9], color: [0.86, 0.92, 1], intensity: 15, feather: 0.25 },
   { position: [-10, 1, 3.5], size: [0.5, 9], color: [1, 0.9, 0.8], intensity: 13, feather: 0.25 },
   // Behind the shelf, for edges and for a volume turned away.

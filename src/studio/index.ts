@@ -73,6 +73,8 @@ const plainKit: DressKit = {
 export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): StudioHandle {
   if (!webglAvailable()) throw new Error('WebGL 2 is not available.');
   const stage = new Stage();
+  // This draw loop steps the light itself and says when a shadow has to be drawn again.
+  stage.paced = true;
   const canvas = stage.canvas;
   canvas.className = 'bb-studio';
   canvas.setAttribute('aria-hidden', 'true');
