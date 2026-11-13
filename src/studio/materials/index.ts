@@ -534,7 +534,7 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     get environment() {
       if (!studio) {
         if (disposed) throw new Error('The material kit has been disposed.');
-        studio = createStudioEnvironment(renderer, high ? 256 : 128);
+        studio = createStudioEnvironment(renderer, high ? 512 : 128);
       }
       return studio.texture;
     },

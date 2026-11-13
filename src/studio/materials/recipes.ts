@@ -241,7 +241,7 @@ const metal = {
 };
 
 export const STAMP_RECIPES: Record<Stamp, StampRecipe> = {
-  gold: { ...metal, color: [1, 0.74, 0.3], roughness: [0.36, 0.06], roughnessNear: [0.12, 0.04] },
+  gold: { ...metal, color: [1, 0.74, 0.3], roughness: [0.36, 0.06], roughnessNear: [0.1, 0.04] },
   silver: { ...metal, color: [0.93, 0.94, 0.95], roughness: [0.32, 0.06], roughnessNear: [0.12, 0.04] },
   copper: { ...metal, color: [0.97, 0.58, 0.4], roughness: [0.36, 0.06], roughnessNear: [0.16, 0.04] },
   holo: { ...metal, color: [0.93, 0.93, 0.95], roughness: [0.3, 0.04], roughnessNear: [0.12, 0.04], iridescence: STAMP_FILM.strength },
