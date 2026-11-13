@@ -102,6 +102,11 @@ const SURFACE = /* glsl */ `
 	diffuseColor.rgb *= 1.0 - 0.28 * min( bbGroove, 1.0 );
 
 	normal = normalize( normal + normalize( tbn[ 0 ] ) * bbLean.x + normalize( tbn[ 1 ] ) * bbLean.y );
+
+	// Relief finer than a pixel cannot throw single glints: where the normal changes quickly from one
+	// pixel to the next the highlight is spread instead, so a resting spine does not sparkle or crawl.
+	vec3 bbTurn = max( abs( dFdx( normal ) ), abs( dFdy( normal ) ) );
+	roughnessFactor = min( 1.0, roughnessFactor + min( 0.18, 0.5 * max( bbTurn.x, max( bbTurn.y, bbTurn.z ) ) ) );
 }
 #endif
 `;
@@ -142,7 +147,7 @@ export function patchFragmentShader(source: string): string {
 }
 
 /** Every patched material compiles to the same program as the others with the same features. */
-export const PROGRAM_KEY = 'bb-binding-1';
+export const PROGRAM_KEY = 'bb-binding-2';
 
 /**
  * Adds the binding code to a physical material. `face` materials carry a stamp mask and read the

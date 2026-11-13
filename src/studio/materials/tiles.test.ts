@@ -108,7 +108,7 @@ describe('binding surfaces', () => {
     }
   });
 
-  it('makes linen coarser and less even than book cloth', () => {
+  it('makes linen less even than book cloth', () => {
     const spread = (made: Surface) => {
       let mean = 0;
       for (const value of made.shade) mean += value;
@@ -118,6 +118,22 @@ describe('binding surfaces', () => {
       return variance / made.shade.length;
     };
     expect(spread(linenSurface(128))).toBeGreaterThan(spread(clothSurface(128)));
+  });
+
+  it('grains leather finely: a pebble is a twelfth of the tile or less', () => {
+    const size = 96;
+    const leather = leatherSurface(size);
+    // Creases are the deep lines between pebbles. Count the pebbles a row crosses by its runs of high ground.
+    let runs = 0;
+    for (let y = 0; y < size; y += 8) {
+      let high = false;
+      for (let x = 0; x < size; x += 1) {
+        const now = leather.height[y * size + x]! > 0.3;
+        if (now && !high) runs += 1;
+        high = now;
+      }
+    }
+    expect(runs / (size / 8)).toBeGreaterThanOrEqual(6);
   });
 
   it('makes leather rougher in its creases than on its pebbles', () => {

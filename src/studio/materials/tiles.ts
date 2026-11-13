@@ -107,20 +107,26 @@ export function clothSurface(size: number, seed = 1): Surface {
   return weaveSurface(size, { threads: size / 8, slub: 0.12, gap: 0.05, fuzz: 0.1, tint: 0.1, seed });
 }
 
-/** Linen: fewer, thicker threads that swell and thin, each a little different in colour. */
+/**
+ * Linen: threads nearly as fine as book cloth's (the recipe lays the tile over less of the board, so on
+ * the book they are finer), that swell and thin in slubs and each differ a little in colour.
+ */
 export function linenSurface(size: number, seed = 2): Surface {
-  return weaveSurface(size, { threads: size / 16, slub: 0.55, gap: 0.12, fuzz: 0.2, tint: 0.2, seed });
+  return weaveSurface(size, { threads: size / 9, slub: 0.4, gap: 0.1, fuzz: 0.18, tint: 0.28, seed });
 }
 
 /**
- * Leather: pebbles parted by creases. The cells are pushed about by slow noise so no two pebbles match,
- * the tops are pitted with fine pores, and the creases are rougher and darker than the polished tops.
+ * Leather: small pebbles parted by creases, as on goatskin. The cells are pushed about by slow noise so
+ * no two pebbles match, a second and larger run of cells lifts and sinks whole groups of them, the tops
+ * are pitted with fine pores, and the creases are rougher and darker than the polished tops.
  */
 export function leatherSurface(size: number, seed = 3): Surface {
   const out = surface(size);
-  const coarse = Math.max(4, Math.round(size / 20));
-  const fine = coarse * 3;
+  const coarse = Math.max(4, Math.round(size / 12));
+  const broad = Math.max(2, Math.round(coarse / 3));
+  const fine = coarse * 2;
   const near: Cells = { f1: 0, f2: 0, id: 0 };
+  const group: Cells = { f1: 0, f2: 0, id: 0 };
   for (let y = 0; y < size; y += 1) {
     const v = y / size;
     for (let x = 0; x < size; x += 1) {
@@ -131,10 +137,13 @@ export function leatherSurface(size: number, seed = 3): Surface {
       const pebble = smoothstep(0.02, 0.3, near.f2 - near.f1);
       const dome = 1 - Math.min(1, near.f1 * 1.15);
       const lift = 0.8 + 0.2 * near.id;
+      // The larger pebbles: whole groups stand a little higher, with a shallow fold between them.
+      cells((u + pushY * 0.05) * broad, (v + pushX * 0.05) * broad, broad, seed + 17, group, 0.9);
+      const swell = 0.76 + 0.24 * smoothstep(0, 0.35, group.f2 - group.f1) * (0.7 + 0.3 * group.id);
       // Pores: fine pits scattered over the pebbles.
       const pore = smoothstep(0.12, 0.4, valueNoise(u * fine, v * fine, fine, fine, seed + 31));
       const wrinkle = fbm(u, v, 3, 3, seed + 9, 2);
-      const height = clamp01(pebble * lift * (0.62 + 0.2 * dome) + 0.12 * pore * pebble + 0.1 * wrinkle);
+      const height = clamp01(pebble * lift * swell * (0.62 + 0.2 * dome) + 0.1 * pore * pebble + 0.1 * wrinkle);
       const index = y * size + x;
       out.height[index] = height;
       const crease = 1 - pebble;

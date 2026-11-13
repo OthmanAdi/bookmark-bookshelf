@@ -13,7 +13,7 @@
 import * as THREE from 'three';
 import type { Binding, PaintedFace, Stamp } from '../types';
 import { createStudioEnvironment } from './environment';
-import { BINDING_RECIPES, FILM, STAMP_RECIPES, type BindingRecipe, type StampRecipe, type TileName } from './recipes';
+import { BINDING_RECIPES, FILM, STAMP_RECIPES, nearness, reliefAt, type BindingRecipe, type StampRecipe, type TileName } from './recipes';
 import { applyBindingShader, type BindingUniforms, type FaceUniforms } from './shader';
 import {
   brushedSurface,
@@ -33,7 +33,7 @@ import {
 } from './tiles';
 
 export { resolveBinding, resolveStamp, BINDING_WEIGHTS, STAMP_WEIGHTS } from './resolve';
-export { BINDING_RECIPES, STAMP_RECIPES, type BindingRecipe, type StampRecipe } from './recipes';
+export { BINDING_RECIPES, STAMP_RECIPES, nearness, reliefAt, type BindingRecipe, type StampRecipe } from './recipes';
 
 export interface VolumeLook {
   binding: Binding;
@@ -48,6 +48,12 @@ export interface VolumeLook {
   joint?: boolean;
   /** How round the spine is across its width: 0 flat, 1 strongly rounded. Default 0.35. */
   spineRound?: number;
+  /**
+   * How near the volume is shown, 0 (standing in the row, at shelf distance) to 1 (a cover shown large).
+   * Grain is quieter and foil softer far off. Left out, it follows from `size.bookHeight`; say it when
+   * the volume is drawn at another size than `size` (a camera close to it, a scaled group).
+   */
+  presented?: number;
 }
 
 export interface VolumeMaterials {
@@ -99,8 +105,8 @@ interface TileTextures {
  */
 const TILES: Record<TileName, { size: number; reference: number; strength: number; make?: (size: number) => Surface }> = {
   cloth: { size: 256, reference: 512, strength: 1.5, make: clothSurface },
-  linen: { size: 256, reference: 512, strength: 2.4, make: linenSurface },
-  leather: { size: 256, reference: 512, strength: 4.5, make: leatherSurface },
+  linen: { size: 256, reference: 512, strength: 1.5, make: linenSurface },
+  leather: { size: 256, reference: 512, strength: 1.7, make: leatherSurface },
   paper: { size: 256, reference: 256, strength: 1.4, make: paperSurface },
   gloss: { size: 128, reference: 0, strength: 2.5, make: glossSurface },
   velvet: { size: 256, reference: 256, strength: 2, make: velvetSurface },
@@ -279,6 +285,8 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     round: number;
     /** Size of the detail against its size on a volume 340 px tall. */
     grain: number;
+    /** 0 at shelf distance, 1 shown large. */
+    near: number;
   }
 
   function faceMaterial(look: VolumeLook, recipe: BindingRecipe, stamp: StampRecipe, cloth: THREE.Color, ink: THREE.Color, spec: FaceSpec, into: Set<{ dispose(): void }>): THREE.MeshPhysicalMaterial {
@@ -288,7 +296,8 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     const material = bindingMaterial(recipe, cloth);
     material.map = canvasTexture(spec.face.color, THREE.SRGBColorSpace, into);
     material.normalMap = repeated(textures.normal, repeatX, repeatY, into);
-    material.normalScale.setScalar(recipe.normalScale);
+    const relief = reliefAt(spec.near);
+    material.normalScale.setScalar(recipe.normalScale * relief);
     material.roughnessMap = repeated(textures.detail, repeatX, repeatY, into);
     const holoStamp = stamp.iridescence === 1;
     if (recipe.iridescence > 0 || holoStamp) film(material, spec.width / spec.grain, spec.height / spec.grain, into);
@@ -299,7 +308,7 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     const stampColor = stamp.color === 'ink' ? ink : stamp.color ? new THREE.Color(stamp.color[0], stamp.color[1], stamp.color[2]) : new THREE.Color(0, 0, 0);
     const jointWidth = Math.max(1.5, spec.width * 0.011);
     const uniforms: FaceUniforms = {
-      bbDetail: { value: new THREE.Vector4(recipe.shade, recipe.lift, recipe.iridescence > 0 ? recipe.filmShift : holoStamp ? 120 : 0, recipe.pastel) },
+      bbDetail: { value: new THREE.Vector4(recipe.shade * relief, recipe.lift, recipe.iridescence > 0 ? recipe.filmShift : holoStamp ? 120 : 0, recipe.pastel) },
       bbStamp: { value: mask },
       bbStampTexel: { value: new THREE.Vector2(1.25 / Math.max(1, spec.face.mask.width), 1.25 / Math.max(1, spec.face.mask.height)) },
       bbStampColor: { value: stampColor },
@@ -339,10 +348,11 @@ export function createMaterialKit(renderer: THREE.WebGLRenderer, options?: { qua
     const jointAt = coverWidth * 0.034;
     const round = look.spineRound ?? 0.35;
     const grain = Math.max(0.25, bookHeight / REFERENCE_HEIGHT);
+    const near = nearness(bookHeight, look.presented);
 
-    const front = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.front, width: coverWidth, height: bookHeight, joint: jointAt, round: 0, grain }, own);
-    const back = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.back, width: coverWidth, height: bookHeight, joint: coverWidth - jointAt, round: 0, grain }, own);
-    const spine = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.spine, width: spineWidth, height: bookHeight, joint: -1, round, grain }, own);
+    const front = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.front, width: coverWidth, height: bookHeight, joint: jointAt, round: 0, grain, near }, own);
+    const back = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.back, width: coverWidth, height: bookHeight, joint: coverWidth - jointAt, round: 0, grain, near }, own);
+    const spine = faceMaterial(look, recipe, stamp, cloth, ink, { face: faces.spine, width: spineWidth, height: bookHeight, joint: -1, round, grain, near }, own);
 
     // The board edges are a few px wide: the binding's colour and finish, without its relief.
     const boardEdge = bindingMaterial(recipe, cloth);

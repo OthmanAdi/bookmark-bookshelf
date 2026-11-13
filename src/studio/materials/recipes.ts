@@ -55,7 +55,8 @@ const cloth: BindingRecipe = {
   // still resolves on an ordinary screen.
   span: 100,
   normalScale: 1,
-  roughness: 0.88,
+  // Low enough that the light draws a soft band down a board as it turns.
+  roughness: 0.78,
   metalness: 0,
   sheen: 0.7,
   sheenLift: 0.38,
@@ -65,7 +66,9 @@ const cloth: BindingRecipe = {
   anisotropy: 0,
   iridescence: 0,
   filmShift: 0,
-  shade: 0.8,
+  // The weave is relief for the light to find. Printed into the colour it stays put when the light moves
+  // and beats against the pixels of a resting spine, so only a little of it is.
+  shade: 0.35,
   lift: 1,
   pastel: 0,
   wear: [5, -0.05],
@@ -75,22 +78,25 @@ const cloth: BindingRecipe = {
 
 export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
   cloth,
-  linen: { ...cloth, tile: 'linen', span: 88, normalScale: 1.1, roughness: 0.95, sheen: 0.32, sheenLift: 0.3, sheenRoughness: 0.7, shade: 0.6, wear: [5, -0.04] },
+  // Linen book cloth is finer than buckram: 56 threads to 76 px, with slubs and threads of uneven colour.
+  linen: { ...cloth, tile: 'linen', span: 76, normalScale: 0.9, roughness: 0.93, sheen: 0.32, sheenLift: 0.3, sheenRoughness: 0.7, shade: 0.3, wear: [5, -0.04] },
   leather: {
     ...cloth,
     tile: 'leather',
-    span: 88,
-    normalScale: 0.9,
-    roughness: 0.62,
+    // Goatskin: a pebble of 0.6 to 1 mm, which on an octavo 340 px tall is about a pixel and a half.
+    span: 60,
+    normalScale: 0.6,
+    // Waxed, not varnished: a broad soft highlight and only a trace of a coat.
+    roughness: 0.7,
     sheen: 0,
-    clearcoat: 0.25,
-    clearcoatRoughness: 0.35,
-    shade: 0.55,
+    clearcoat: 0.1,
+    clearcoatRoughness: 0.4,
+    shade: 0.25,
     wear: [9, 0.2],
     bevel: [3, 0.7],
     joint: 1.1,
   },
-  paper: { ...cloth, tile: 'paper', span: 96, normalScale: 0.4, roughness: 0.84, sheen: 0, shade: 0.6, wear: [3, -0.03], bevel: [1.6, 0.45], joint: 0.7 },
+  paper: { ...cloth, tile: 'paper', span: 96, normalScale: 0.4, roughness: 0.72, sheen: 0, shade: 0.4, wear: [3, -0.03], bevel: [1.6, 0.45], joint: 0.7 },
   gloss: {
     ...cloth,
     tile: 'gloss',
@@ -139,6 +145,25 @@ export const BINDING_RECIPES: Record<Binding, BindingRecipe> = {
     joint: 0.8,
   },
 };
+
+/**
+ * How near a volume is drawn: 0 at shelf distance, 1 on a cover shown large or held in the hand. It
+ * follows from the height the volume is drawn at unless the caller says how `presented` it is.
+ */
+export function nearness(bookHeight: number, presented?: number): number {
+  if (presented !== undefined && Number.isFinite(presented)) return Math.min(1, Math.max(0, presented));
+  const t = Math.min(1, Math.max(0, (bookHeight - 380) / 260));
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * Share of a binding's relief and printed shade a volume shows. On a spine at shelf distance a thread or
+ * a pebble is about a pixel wide; drawn at full strength there it shimmers, so it is quieter the
+ * further off the volume stands and whole on a cover shown large.
+ */
+export function reliefAt(near: number): number {
+  return 0.45 + 0.55 * Math.min(1, Math.max(0, near));
+}
 
 /** Index of refraction and thickness range, in nanometres, of the film on holographic foil. */
 export const FILM = { ior: 1.6, thickness: [250, 520] as const, span: 260 };
