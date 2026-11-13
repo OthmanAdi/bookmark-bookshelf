@@ -548,6 +548,8 @@
 .bb-swatch__input {
   position: absolute;
   inset: 0;
+  /* Above the chip, so a press anywhere in the cell reaches the radio itself. */
+  z-index: 1;
   width: 100%;
   height: 100%;
   margin: 0;
