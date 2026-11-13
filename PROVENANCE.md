@@ -1,6 +1,6 @@
 # Provenance
 
-What is in this repository, where it came from, and what it is licensed under. Written for release 0.2.0.
+What is in this repository, where it came from, and what it is licensed under. Written for release 0.3.0.
 
 ## Original work
 
@@ -36,20 +36,20 @@ During that work, other bookshelf and reading interfaces on the public web were 
 
 ## Bundled third-party material
 
-Four things in a production build come from other parties: two typefaces, the three.js library for the optional Studio drawing, and one small helper script from the build tool.
+Four things in a production build come from other parties: two typefaces, the three.js library for the optional Studio drawing, and helper code from the build tool, in two small scripts.
 
 | Material | Source package | Version | Licence | Shipped as |
 |---|---|---|---|---|
 | Newsreader (variable, roman and italic, Latin and Latin Extended) | `@fontsource-variable/newsreader` | 5.3.0 | SIL OFL 1.1 | four files, `assets/newsreader-*.woff2` |
 | IBM Plex Mono (400 and 500, Latin and Latin Extended) | `@fontsource/ibm-plex-mono` | 5.3.0 | SIL OFL 1.1 | four files, `assets/ibm-plex-mono-*.woff2` |
 | three.js, loaded only when Studio is chosen | `three` | 0.187.0 | MIT | one lazily loaded chunk in `assets/` |
-| Module preload helper added to the generated JavaScript | `vite` | 8.3.7 | MIT | `assets/base-*.js`, about 0.7 kB |
+| Module preload helpers added to the generated JavaScript | `vite` | 8.3.7 | MIT | `assets/base-*.js`, about 0.7 kB, and `assets/preload-helper-*.js`, about 1.6 kB, which loads the chunks imported on demand |
 
-The font licence texts and the three.js licence are copied byte for byte from the packages into `public/licenses/`. The MIT notice for the helper is the "Vite core license" section of that package's `LICENSE.md`, copied exactly into `public/licenses/Vite-MIT.txt`. All three are served with every build in `licenses/`, and the build also copies `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md` and this file into its root. See `THIRD_PARTY_NOTICES.md`.
+The font licence texts and the three.js licence are copied byte for byte from the packages into `public/licenses/`. The MIT notice for the helpers is the "Vite core license" section of that package's `LICENSE.md`, copied exactly into `public/licenses/Vite-MIT.txt`. All three are served with every build in `licenses/`, and the build also copies `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md` and this file into its root. See `THIRD_PARTY_NOTICES.md`.
 
 ## Development tools
 
-Used to build and test, not shipped: Vite 8.3.7 (MIT), TypeScript 7.0.2 (Apache-2.0), Vitest 5.1.0 (MIT), happy-dom 21.0.4 (MIT), Playwright Test 1.65.0 (Apache-2.0). `package-lock.json` lists 95 packages for all platforms together: 52 MIT, 26 Apache-2.0, 12 MPL-2.0, 2 OFL-1.1, 1 BSD-2-Clause, 1 BSD-3-Clause, 1 ISC. Apart from the two font packages and the Vite helper listed above, nothing from them is in the build output.
+Used to build and test, not shipped: Vite 8.3.7 (MIT), TypeScript 7.0.2 (Apache-2.0), Vitest 5.1.0 (MIT), happy-dom 21.0.4 (MIT), Playwright Test 1.65.0 (Apache-2.0). `@types/three` 0.187.0 (MIT) is used for type checking only. `package-lock.json` lists 103 packages for all platforms together: 59 MIT, 27 Apache-2.0, 12 MPL-2.0, 2 OFL-1.1, 1 BSD-2-Clause, 1 BSD-3-Clause, 1 ISC. Apart from the two font packages, `three` and the Vite helpers listed above, nothing from them is in the build output.
 
 ## Runtime dependencies
 
