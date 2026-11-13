@@ -14,6 +14,7 @@ import {
   type BookNode,
 } from './book';
 import { stayers } from './body-order';
+import { carriedTurn, leanShare, stepFollower, stepRock, waveAt, waveDelay, type Sprung, type WaveSample } from './weight';
 import { fitTitle, forgetTitleWidths, type TitleFont } from './title-fit';
 import {
   blendPose,
@@ -71,11 +72,41 @@ const PRINT_FAR = 2.5;
 /**
  * Standing volumes have weight: while the row travels their heads trail a little behind their feet. The
  * lean is this many degrees for each volume a second the row moves, and never more than `SWAY_MOST`.
- * It follows the speed over `SWAY_EASE_MS`, so it comes on and goes without a step.
+ * The heads are on a spring (acceleration = stiffness x distance - damping x speed, in seconds), so the
+ * lean comes on without a step and rocks back past upright once when the row stops.
  */
-const SWAY_PER_SPEED = 0.1;
-const SWAY_MOST = 1.5;
-const SWAY_EASE_MS = 90;
+const SWAY_PER_SPEED = 0.24;
+const SWAY_MOST = 3.2;
+const SWAY_STIFFNESS = 180;
+const SWAY_DAMPING = 15;
+/** A lean and a speed of the heads, in degrees and degrees a second, below which they stand upright. */
+const SWAY_REST = 0.02;
+const SWAY_REST_SPEED = 0.25;
+/**
+ * The lean runs down the row as a wave: each volume takes it up this long after the one before it,
+ * counted from the middle of the row, and none later than `WAVE_MOST_MS`. That much of the lean is kept.
+ */
+const WAVE_PER_SLOT_MS = 18;
+const WAVE_MOST_MS = 144;
+/** The spine width, in px at scale 1, that takes the whole lean. A thicker volume stands firmer. */
+const SWAY_EVEN_SPINE = 60;
+/**
+ * A turning volume has weight too: its turn and lean are carried by a follower on a spring of this
+ * stiffness and damping ratio, which keeps its speed when the row slows. `TURN_GAIN` of what the follower
+ * is ahead goes into the drawn turn, never more than `TURN_MOST` of a full turn. The row's own position
+ * is not touched: it still arrives without swinging past.
+ */
+const TURN_STIFFNESS = 170;
+const TURN_DAMPING_RATIO = 0.78;
+const TURN_GAIN = 0.2;
+const TURN_MOST = 1.03;
+/** A follower this close to a fully turned volume, and this slow, has arrived. */
+const TURN_REST = 0.002;
+const TURN_REST_SPEED = 0.02;
+/** A turn that changes by more than this in one frame is a jump, not a travel: nothing is carried through it. */
+const TURN_JUMP = 0.4;
+/** The frame assumed to have passed when something starts from rest, in ms. */
+const FIRST_STEP_MS = 16;
 /** A change of shade smaller than this cannot be seen. */
 const SHADE_STEP = 0.002;
 /**
@@ -212,8 +243,17 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
   let shown = 0;
   let heading = 0;
   /** How far standing volumes lean behind the travel right now, in degrees, and when that was worked out. */
-  let sway = 0;
+  const sway: Sprung = { value: 0, speed: 0 };
   let swayAt = 0;
+  /** That lean over the last moments, oldest first: volumes further from the middle take it up later. */
+  const wave: WaveSample[] = [];
+  /**
+   * What each turning volume carries, by slot: its follower, the turn the layout gave it last frame, and
+   * the frame that last drew it. A volume at rest has none and is drawn exactly as the layout says.
+   */
+  const turns = new Map<number, Sprung & { weight: number; seen: number }>();
+  let turnAt = 0;
+  let frameCount = 0;
   /**
    * Where a lamp stands along the scene, in px from its centre: over the presented volume. A travelling
    * row brings that volume to the centre; in a row that stands still the lamp goes to the volume.
@@ -915,16 +955,49 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     if (disordered) orderRow();
 
     // Heads trail the feet: moving up the row takes the volumes left, so they lean right.
-    const speed = pose.reduced ? 0 : (pose.velocity ?? 0);
-    if (speed !== 0 || sway !== 0) {
-      const wanted = still() ? 0 : swayOf(speed, SWAY_PER_SPEED, SWAY_MOST);
-      const elapsed = Math.min(64, Math.max(0, travelNow() - swayAt));
-      swayAt = travelNow();
-      sway += (wanted - sway) * (1 - Math.exp(-elapsed / SWAY_EASE_MS));
-      if (wanted === 0 && Math.abs(sway) < 0.004) sway = 0;
+    const weighty = !still();
+    const speed = weighty ? (pose.velocity ?? 0) : 0;
+    if (!weighty) {
+      // Nothing moves by itself: no lean, no wave and nothing carried.
+      sway.value = 0;
+      sway.speed = 0;
+      wave.length = 0;
+      turns.clear();
+    } else if (speed !== 0 || wave.length > 0) {
+      const now = travelNow();
+      const elapsed = wave.length === 0 ? FIRST_STEP_MS : now - swayAt;
+      if (elapsed > 0) {
+        swayAt = now;
+        const wanted = swayOf(speed, SWAY_PER_SPEED, SWAY_MOST);
+        stepRock(sway, wanted, elapsed, SWAY_STIFFNESS, SWAY_DAMPING);
+        if (Math.abs(sway.value) > SWAY_MOST) {
+          // Held at the limit, the heads gather no more speed to throw them back with.
+          sway.value = Math.sign(sway.value) * SWAY_MOST;
+          sway.speed = 0;
+        }
+        if (wanted === 0 && Math.abs(sway.value) < SWAY_REST && Math.abs(sway.speed) < SWAY_REST_SPEED) {
+          sway.value = 0;
+          sway.speed = 0;
+        }
+        wave.push({ time: now, value: sway.value });
+        // One sample from before the longest delay is kept, so the furthest volume still reads between two.
+        while (wave.length > 2 && wave[1]!.time <= now - WAVE_MOST_MS) wave.shift();
+        if (sway.value === 0 && sway.speed === 0 && wave.every((sample) => sample.value === 0)) wave.length = 0;
+      }
       // The row may have come to rest while its volumes are still straightening up.
-      if (sway !== 0) travelling = true;
+      if (wave.length > 0) travelling = true;
     }
+    const frameId = ++frameCount;
+    let turnStep = -1;
+    /** The time the followers are stepped by in this frame, read once and only when one is. */
+    const turnElapsed = (): number => {
+      if (turnStep < 0) {
+        const now = travelNow();
+        turnStep = turns.size === 0 || now - turnAt > 100 ? FIRST_STEP_MS : Math.max(0, now - turnAt);
+        turnAt = now;
+      }
+      return turnStep;
+    };
 
     const opening = pose.open > 0;
     if (opening && openSlot === null) openSlot = centre;
@@ -977,6 +1050,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
         node.element.classList.remove('is-away');
       }
       let slotPose = live;
+      const before = node.drawn;
       if (node.from) {
         // After the row changed around it, a volume travels and turns from where it stood to where it belongs.
         const t = (travelNow() - node.fromAt) / TRAVEL_MS;
@@ -1008,13 +1082,51 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
         style.visibility = wrote.out ? 'hidden' : '';
       }
       // Only volumes standing at rest lean with the travel: the presented one and the two beside it hold still.
-      const tilt = sway === 0 ? 0 : sway * swayShare(distance);
+      // The lean reaches a volume later the further it stands from the middle, and a thick one takes less of it.
+      const share = wave.length === 0 ? 0 : swayShare(distance);
+      const rocked =
+        share === 0
+          ? 0
+          : waveAt(wave, travelNow() - waveDelay(distance, WAVE_PER_SLOT_MS, WAVE_MOST_MS)) *
+            share *
+            leanShare(sizeOf(slotPose.slot).spineWidth / scale, SWAY_EVEN_SPINE);
+      const tilt = Math.abs(rocked) < 0.0005 ? 0 : Math.min(SWAY_MOST, Math.max(-SWAY_MOST, rocked));
       const leaning = tilt === 0 ? '' : `rotateZ(${tilt.toFixed(3)}deg) `;
+
+      // A volume that turns in a travelling row carries its turn and lean a little past where the row puts them.
+      let angle = slotPose.angle;
+      let lean = slotPose.lean;
+      let turn = turns.get(slotPose.slot);
+      const stepped = Math.abs(slotPose.weight - (turn ? turn.weight : before ? before.weight : slotPose.weight));
+      if (!weighty || slotPose !== live || slotPose.weight <= 0 || stepped > TURN_JUMP) {
+        // At rest out of the turn, on its way to a new place, or put somewhere at once: as the layout says.
+        if (turn) turns.delete(slotPose.slot);
+      } else {
+        // Under a hand the row has no speed of its own, and a volume held there is not carried past it.
+        if (!turn && speed !== 0 && stepped > 0 && before && before.slot === slotPose.slot) {
+          turnElapsed();
+          turn = { value: before.weight, speed: 0, weight: before.weight, seen: frameId };
+          turns.set(slotPose.slot, turn);
+        }
+        if (turn) {
+          stepFollower(turn, turn.weight, slotPose.weight, turnElapsed(), TURN_STIFFNESS, TURN_DAMPING_RATIO);
+          turn.weight = slotPose.weight;
+          turn.seen = frameId;
+          if (slotPose.weight === 1 && Math.abs(turn.value - 1) < TURN_REST && Math.abs(turn.speed) < TURN_REST_SPEED) {
+            turns.delete(slotPose.slot);
+          } else {
+            const carried = carriedTurn(slotPose.weight, turn.value, TURN_GAIN, TURN_MOST) / slotPose.weight;
+            angle = Math.round(slotPose.angle * carried * 1000) / 1000;
+            lean = Math.round(slotPose.lean * carried * 1000) / 1000;
+            travelling = true;
+          }
+        }
+      }
       const transform =
         slotPose.lean === 0
-          ? `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ${leaning}rotateY(${-slotPose.angle}deg)`
+          ? `translate3d(${slotPose.x + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ${leaning}rotateY(${-angle}deg)`
           : `translate3d(${slotPose.x + slotPose.corner + away}px, ${-slotPose.lift}px, ${slotPose.z}px) ` +
-            `rotateZ(${slotPose.lean}deg) translateX(${-slotPose.corner}px) ${leaning}rotateY(${-slotPose.angle}deg)`;
+            `rotateZ(${lean}deg) translateX(${-slotPose.corner}px) ${leaning}rotateY(${-angle}deg)`;
       if (wrote.transform !== transform) {
         wrote.transform = transform;
         style.transform = transform;
@@ -1032,9 +1144,9 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
           coverWidth: size.coverWidth,
           x: slotPose.x + away,
           corner: slotPose.lean === 0 ? 0 : slotPose.corner,
-          lean: slotPose.lean,
+          lean,
           tilt,
-          angle: slotPose.angle,
+          angle,
           lift: slotPose.lift,
           z: slotPose.z,
           weight: slotPose.weight,
@@ -1049,21 +1161,20 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
 
       // Distance of the volume's middle from the lamp, in cover widths.
       const along = light.lamp
-        ? (slotPose.x - lampX + away + (geometry.coverWidth * Math.sin(slotPose.angle * DEG)) / 2) / geometry.coverWidth
+        ? (slotPose.x - lampX + away + (geometry.coverWidth * Math.sin(angle * DEG)) / 2) / geometry.coverWidth
         : 0;
-      const shades = faceShades(light, slotPose.angle, along);
+      const shades = faceShades(light, angle, along);
       writeShade(node, 0, node.spineShade, shades.spine);
       writeShade(node, 1, node.coverShade, shades.front);
       writeShade(node, 2, node.backShade, shades.back);
-      const turn = Math.sin(slotPose.angle * DEG);
       if (slotPose.weight > 0 || node.turn !== 0) {
         const turning = slotPose.weight > 0;
-        const turned = turning ? turn : 0;
+        const turned = turning ? Math.sin(angle * DEG) : 0;
         if (turned !== node.turn || wrote.sheen === '') {
           node.turn = turned;
           style.setProperty('--bb-turn', String(turned));
         }
-        const sheen = turning ? sheenOf(light, slotPose.angle, along).toFixed(4) : '0';
+        const sheen = turning ? sheenOf(light, angle, along).toFixed(4) : '0';
         if (wrote.sheen !== sheen) {
           wrote.sheen = sheen;
           style.setProperty('--bb-sheen', sheen);
@@ -1085,6 +1196,8 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
     }
     placeBookend(bookends.start, start);
     placeBookend(bookends.end, end);
+    // A volume that was not drawn in this frame carries nothing into the next one it is drawn in.
+    for (const [slot, turn] of turns) if (turn.seen !== frameId) turns.delete(slot);
 
     const open = pose.open <= 0 ? '0' : pose.open >= 1 ? '1' : 'moving';
     if (open !== wroteOpen) {
