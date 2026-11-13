@@ -21,7 +21,7 @@ export function applySessionPatch(lib: LibraryV2, patch: Partial<Session>): bool
     const id = patch[key];
     if (id !== undefined && (id === null || lib.bookmarks.some((b) => b.id === id))) set(key, id);
   }
-  if (patch.view === 'shelf' || patch.view === 'list') set('view', patch.view);
+  if (patch.view === 'shelf' || patch.view === 'list' || patch.view === 'showcase') set('view', patch.view);
   if (typeof patch.variant === 'string' && patch.variant.trim() !== '') set('variant', patch.variant.trim());
   if (typeof patch.textScale === 'number' && Number.isFinite(patch.textScale)) {
     set('textScale', Math.min(4, Math.max(0, Math.round(patch.textScale))));

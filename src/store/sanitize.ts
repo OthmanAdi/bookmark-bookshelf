@@ -281,7 +281,7 @@ export function readSession(value: unknown, shelfIds: IdMap, bookmarkIds: IdMap)
   session.shelfId = knownIdOrNull(value.shelfId, shelfIds);
   session.focusId = knownIdOrNull(value.focusId, bookmarkIds);
   session.openId = knownIdOrNull(value.openId, bookmarkIds);
-  if (value.view === 'shelf' || value.view === 'list') session.view = value.view;
+  if (value.view === 'shelf' || value.view === 'list' || value.view === 'showcase') session.view = value.view;
   if (typeof value.variant === 'string' && value.variant.trim() !== '') session.variant = value.variant.trim();
   const { textScale, sort, paint } = value;
   if (typeof textScale === 'number' && Number.isFinite(textScale)) {

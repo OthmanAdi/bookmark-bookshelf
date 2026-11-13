@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-variant="paper">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'sha256-sEPyJT05LkZGU7u7phyfvkISZabtu9H4Q8+OlaEFUDM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shelf, motion and Studio: a Bookmark Bookshelf example</title>
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  </head>
+  <body class="bb-example">
+    <header class="bb-example__bar">
+      <a class="bb-brand" href="../index.html"><span class="bb-mark" aria-hidden="true"></span>Bookmark Bookshelf</a>
+    </header>
+    <main class="bb-example__main">
+      <div class="bb-example__head">
+        <h1>Shelf, motion and Studio</h1>
+        <p class="bb-example__lead">
+          The shelf and the motion parts with Studio painting over them: the same row, drawn in WebGL with lit
+          bindings. Every press and key still lands on the shelf underneath. Move the pointer and the light follows;
+          rest it on the cover in front and the volume opens a little.
+        </p>
+        <div class="bb-example__controls">
+          <label class="bb-example__row">
+            Look
+            <select id="variant" class="bb-select"></select>
+          </label>
+          <label class="bb-example__row">
+            Binding
+            <select id="binding" class="bb-select"></select>
+          </label>
+          <label class="bb-example__row">
+            Title stamp
+            <select id="stamp" class="bb-select"></select>
+          </label>
+          <label class="bb-example__row bb-example__row--check">
+            <input id="studio" type="checkbox" checked />
+            Studio
+          </label>
+        </div>
+      </div>
+      <div id="shelf"></div>
+      <p id="log" class="bb-example__log" role="status" aria-live="polite"></p>
+      <p class="bb-example__back"><a href="../index.html">Back to the homepage</a></p>
+    </main>
+    <script type="module" src="./studio-shelf.ts"></script>
+  </body>
+</html>

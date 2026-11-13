@@ -1,0 +1,640 @@
+/*
+ * Showcase: one book at a time. A rail of ticks at the far left, the book in the left half, what is known
+ * about it in the right half. On a narrow screen the rail lies across the top, the book stands under it
+ * and the details follow. Colours and type are the app's tokens, so every look carries over.
+ */
+
+@property --bb-showcase-cloth {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: transparent;
+}
+
+/* In the app the showcase takes the whole stage. */
+.bb-app__chrome[data-view='showcase'] .bb-app__main:not([data-empty='1']) {
+  display: block;
+  padding: 0;
+}
+
+#showcase {
+  height: 100%;
+  min-height: 0;
+}
+
+#showcase[hidden] {
+  display: none;
+}
+
+.bb-showcase {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.08fr) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  /* The wash behind the book follows the cloth of the book in view, over the time of the move. */
+  transition: --bb-showcase-cloth 800ms var(--bb-ease-in-out, ease);
+}
+
+.bb-showcase[data-empty='1'] {
+  visibility: hidden;
+}
+
+/* ---------- the rail ---------- */
+
+.bb-showcase__rail {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: calc(var(--bb-gutter, 1.5rem) + 2.75rem);
+  min-height: 0;
+  padding-block: var(--bb-s-6, 2rem);
+  padding-inline-start: var(--bb-gutter, 1.5rem);
+}
+
+.bb-showcase__ticks {
+  display: flex;
+  flex-direction: column;
+}
+
+.bb-showcase__tick {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 2.75rem;
+  height: var(--bb-tick-pitch, 14px);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bb-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.bb-showcase__tick-mark {
+  display: block;
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.3;
+  transform-origin: 0 50%;
+  transition:
+    transform var(--bb-dur-2, 220ms) var(--bb-ease-out, ease-out),
+    opacity var(--bb-dur-2, 220ms) var(--bb-ease-out, ease-out);
+}
+
+.bb-showcase__ticks[data-dense='1'] .bb-showcase__tick-mark {
+  height: 1px;
+}
+
+.bb-showcase__tick[aria-current='true'] .bb-showcase__tick-mark {
+  opacity: 1;
+  transform: scaleX(1.75);
+}
+
+/* The ticks swell toward the pointer, the nearest most, so a close row can still be read and picked. */
+@media (hover: hover) {
+  .bb-showcase__tick:hover .bb-showcase__tick-mark {
+    opacity: 0.85;
+    transform: scaleX(2.5);
+  }
+
+  .bb-showcase__tick:hover + .bb-showcase__tick .bb-showcase__tick-mark,
+  .bb-showcase__tick:has(+ .bb-showcase__tick:hover) .bb-showcase__tick-mark {
+    transform: scaleX(2);
+  }
+
+  .bb-showcase__tick:hover + .bb-showcase__tick + .bb-showcase__tick .bb-showcase__tick-mark,
+  .bb-showcase__tick:has(+ .bb-showcase__tick + .bb-showcase__tick:hover) .bb-showcase__tick-mark {
+    transform: scaleX(1.5);
+  }
+
+  .bb-showcase__tick[aria-current='true']:hover .bb-showcase__tick-mark {
+    opacity: 1;
+  }
+}
+
+.bb-showcase__tick:focus-visible {
+  outline-offset: 0;
+}
+
+/* The name of the book a tick stands for, beside it. */
+.bb-showcase__tip {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + var(--bb-s-1, 0.25rem));
+  z-index: var(--bb-z-raised, 3);
+  max-width: 18rem;
+  padding: var(--bb-s-1, 0.25rem) var(--bb-s-2, 0.5rem);
+  overflow: hidden;
+  border-radius: var(--bb-r-1, 2px);
+  background: var(--bb-toast-bg, #1a1815);
+  color: var(--bb-toast-ink, #f6f3ec);
+  font-family: var(--bb-font-serif);
+  font-size: var(--bb-text-small, 0.875rem);
+  line-height: var(--bb-line-small, 1.25rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  translate: -4px -50%;
+  pointer-events: none;
+  transition:
+    opacity var(--bb-dur-1, 120ms) var(--bb-ease-out, ease-out),
+    translate var(--bb-dur-1, 120ms) var(--bb-ease-out, ease-out);
+}
+
+.bb-showcase__tick:hover .bb-showcase__tip,
+.bb-showcase__tick:focus-visible .bb-showcase__tip {
+  opacity: 1;
+  translate: 0 -50%;
+}
+
+/* ---------- the stage ---------- */
+
+.bb-showcase__stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bb-showcase__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    46% 52% at 50% 50%,
+    color-mix(in srgb, var(--bb-showcase-cloth) 15%, transparent),
+    color-mix(in srgb, var(--bb-showcase-cloth) 6%, transparent) 55%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Books leave and arrive through a soft edge at the head and the foot of the stage. */
+.bb-showcase__scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 10%, #000 90%, transparent 100%);
+  pointer-events: none;
+}
+
+.bb-showcase__shadow {
+  position: absolute;
+  top: calc(50% + var(--bb-book-h, 300px) * 0.515);
+  left: calc(50% - var(--bb-book-w, 200px) * 0.62 + var(--bb-shadow-turn, 0) * var(--bb-book-w, 200px) * -0.12);
+  width: calc(var(--bb-book-w, 200px) * 1.3);
+  height: calc(var(--bb-book-h, 300px) * 0.085);
+  background: radial-gradient(closest-side, rgba(18, 12, 6, 0.46), rgba(18, 12, 6, 0.2) 48%, rgba(18, 12, 6, 0) 100%);
+  filter: blur(5px);
+  pointer-events: none;
+}
+
+.bb-showcase__control {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--bb-book-w, 200px) * 1.08);
+  height: var(--bb-book-h, 300px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--bb-r-2, 4px);
+  background: none;
+  translate: -50% -50%;
+  cursor: grab;
+  /* The book takes every touch that starts on it: up and down for another book, sideways to turn it. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bb-showcase[data-held='1'] .bb-showcase__control {
+  cursor: grabbing;
+}
+
+.bb-showcase__control:focus-visible {
+  outline: var(--bb-focus-width-wide, 3px) solid var(--bb-focus-ring);
+  outline-offset: var(--bb-s-3, 0.75rem);
+}
+
+/* ---------- the classic drawing: six planes ---------- */
+
+.bb-showcase__classic {
+  position: absolute;
+  inset: 0;
+  perspective-origin: 50% 50%;
+}
+
+.bb-showcase__book {
+  --bb-t: calc(var(--bb-book-w) * var(--bb-book-t, 0.14));
+  --bb-square: calc(var(--bb-book-h) * 0.011);
+  --bb-block: calc(var(--bb-t) - var(--bb-book-h) * 0.014);
+  --bb-page: #efe6d2;
+  --bb-page-line: rgba(84, 66, 40, 0.28);
+  position: absolute;
+  top: calc(50% - var(--bb-book-h) / 2);
+  left: calc(50% - var(--bb-book-w) / 2);
+  width: var(--bb-book-w);
+  height: var(--bb-book-h);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.bb-showcase__face {
+  position: absolute;
+  display: block;
+  opacity: var(--bb-fade, 1);
+  backface-visibility: hidden;
+}
+
+.bb-showcase__face--front {
+  inset: 0;
+  transform: translateZ(calc(var(--bb-t) / 2)) rotateY(calc(var(--bb-peek, 0) * -17deg));
+  transform-origin: 0 50%;
+  transform-style: flat;
+}
+
+/* The cover's own cast shadow belongs to a volume on a shelf; here the shadow lies on the ground. */
+.bb-showcase__face--front > .bb-cover {
+  box-shadow: none;
+}
+
+.bb-showcase__face--front::after,
+.bb-showcase__face--spine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--bb-light-tint, #100b06);
+  pointer-events: none;
+}
+
+.bb-showcase__face--front::after {
+  opacity: var(--bb-shade-front, 0);
+}
+
+.bb-showcase__face--spine::after {
+  opacity: var(--bb-shade-spine, 0.3);
+}
+
+.bb-showcase__sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(102deg, transparent 28%, var(--bb-light-sheen, #fffaf0) 50%, transparent 72%) calc(var(--bb-sweep, 0.5) * 100%) 0 /
+    260% 100% no-repeat;
+  opacity: var(--bb-sheen, 0);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+.bb-showcase__face--back {
+  inset: 0;
+  border-radius: 3px 2px 2px 3px;
+  background-color: var(--cloth);
+  background-image: var(--bb-weave, none);
+  transform: rotateY(180deg) translateZ(calc(var(--bb-t) / 2));
+}
+
+.bb-showcase__face--spine {
+  top: 0;
+  left: calc(var(--bb-t) / -2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4%;
+  width: var(--bb-t);
+  height: 100%;
+  padding-block: 7% 6%;
+  overflow: hidden;
+  background-color: var(--cloth);
+  background-image:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.07) 26%, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.26)), var(--bb-weave, none);
+  color: var(--cloth-ink);
+  transform: rotateY(-90deg);
+}
+
+.bb-showcase__spine-mark {
+  font-family: var(--bb-font-mono);
+  font-size: clamp(7px, calc(var(--bb-t) * 0.24), 12px);
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.bb-showcase__spine-title {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  font-family: var(--bb-font-serif);
+  font-size: clamp(8px, calc(var(--bb-t) * 0.4), 24px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+}
+
+.bb-showcase__face--fore,
+.bb-showcase__face--head,
+.bb-showcase__face--foot {
+  background-color: var(--bb-page);
+}
+
+.bb-showcase__face--fore {
+  top: var(--bb-square);
+  left: calc(100% - var(--bb-square) - var(--bb-block) / 2);
+  width: var(--bb-block);
+  height: calc(100% - var(--bb-square) * 2);
+  background-image:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0) 22%, rgba(0, 0, 0, 0) 78%, rgba(0, 0, 0, 0.2)),
+    repeating-linear-gradient(90deg, transparent 0 1.2px, var(--bb-page-line) 1.2px 1.9px);
+  transform: rotateY(90deg);
+}
+
+.bb-showcase__face--head,
+.bb-showcase__face--foot {
+  left: 0;
+  width: calc(100% - var(--bb-square));
+  height: var(--bb-block);
+  background-image:
+    linear-gradient(0deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0) 22%, rgba(0, 0, 0, 0) 78%, rgba(0, 0, 0, 0.2)),
+    repeating-linear-gradient(0deg, transparent 0 1.2px, var(--bb-page-line) 1.2px 1.9px);
+}
+
+.bb-showcase__face--head {
+  top: calc(var(--bb-square) - var(--bb-block) / 2);
+  transform: rotateX(90deg);
+}
+
+.bb-showcase__face--foot {
+  top: calc(100% - var(--bb-square) - var(--bb-block) / 2);
+  transform: rotateX(-90deg);
+}
+
+/* The first leaf, seen when the board lifts under the hand. */
+.bb-showcase__face--leaf {
+  inset: var(--bb-square) var(--bb-square) var(--bb-square) 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 14%), var(--bb-page);
+  opacity: calc(var(--bb-fade, 1) * min(1, var(--bb-peek, 0) * 24));
+  transform: translateZ(calc(var(--bb-t) / 2 - 1.5px));
+}
+
+/* ---------- the studio drawing ---------- */
+
+.bb-showcase__studio {
+  position: absolute;
+  inset: 0;
+}
+
+.bb-showcase__studio > canvas {
+  position: absolute;
+  left: 0;
+  display: block;
+}
+
+/* ---------- the details ---------- */
+
+.bb-showcase__details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--bb-s-6, 2rem) var(--bb-gutter, 1.5rem) var(--bb-s-6, 2rem) var(--bb-s-5, 1.5rem);
+}
+
+.bb-showcase__words {
+  display: grid;
+  justify-items: start;
+  max-width: 33rem;
+  transition:
+    opacity 110ms var(--bb-ease-in-out, ease),
+    translate var(--bb-dur-2, 220ms) var(--bb-ease-out, ease-out);
+}
+
+/* The words leave the way the books go and the new ones settle into place. */
+.bb-showcase__words.is-leaving {
+  opacity: 0;
+  translate: 0 calc(var(--bb-swap, 1) * -0.5rem);
+  transition-duration: 110ms;
+}
+
+.bb-showcase__words > [hidden] {
+  display: none;
+}
+
+.bb-showcase__place {
+  color: var(--bb-ink-faint);
+  font-family: var(--bb-font-mono);
+  font-size: var(--bb-text-micro, 0.6875rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--bb-track-label, 0.08em);
+  line-height: var(--bb-line-micro, 1rem);
+}
+
+.bb-showcase__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  margin-top: var(--bb-s-3, 0.75rem);
+  overflow: hidden;
+  font-size: var(--bb-text-heading, 2.25rem);
+  font-weight: var(--bb-weight-display, 500);
+  letter-spacing: var(--bb-track-heading, -0.02em);
+  line-height: var(--bb-leading-tight, 1.1);
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
+.bb-showcase__byline {
+  margin-top: var(--bb-s-3, 0.75rem);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-ui, 0.9375rem);
+  line-height: var(--bb-line-ui, 1.25rem);
+}
+
+.bb-showcase__note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  max-width: 30rem;
+  margin-top: var(--bb-s-5, 1.5rem);
+  overflow: hidden;
+  font-size: var(--bb-text-read, 1.125rem);
+  font-style: italic;
+  line-height: var(--bb-leading-body, 1.5);
+}
+
+.bb-showcase__facts {
+  margin-top: var(--bb-s-5, 1.5rem);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small, 0.875rem);
+  line-height: var(--bb-line-small, 1.25rem);
+}
+
+.bb-showcase__meter {
+  width: min(100%, 14rem);
+  height: 2px;
+  margin-top: var(--bb-s-2, 0.5rem);
+  background: var(--bb-rule);
+}
+
+.bb-showcase__meter-fill {
+  display: block;
+  height: 100%;
+  background: var(--bb-accent);
+}
+
+.bb-showcase__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bb-s-1, 0.25rem) var(--bb-s-2, 0.5rem);
+  margin-top: var(--bb-s-4, 1rem);
+  padding: 0;
+  list-style: none;
+}
+
+.bb-showcase__tag {
+  padding: 0 var(--bb-s-2, 0.5rem);
+  border: var(--bb-hairline, 1px) solid var(--bb-rule);
+  border-radius: var(--bb-r-1, 2px);
+  color: var(--bb-ink-soft);
+  font-size: var(--bb-text-small, 0.875rem);
+  line-height: var(--bb-line-body, 1.5rem);
+}
+
+.bb-showcase__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bb-s-2, 0.5rem);
+  margin-top: var(--bb-s-6, 2rem);
+}
+
+/* ---------- a narrow screen: rail across, book, details ---------- */
+
+@media (max-width: 40rem) {
+  /* Book and details are taller than a phone: the page scrolls, as it does for the list. */
+  .bb-app__chrome[data-view='showcase'] {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .bb-app__chrome[data-view='showcase'] .bb-app__dock {
+    position: sticky;
+    bottom: 0;
+    z-index: var(--bb-z-bar, 2);
+  }
+
+  #showcase {
+    height: auto;
+  }
+
+  .bb-showcase {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    height: auto;
+  }
+
+  .bb-showcase__rail {
+    flex-direction: row;
+    width: auto;
+    padding: var(--bb-s-2, 0.5rem) var(--bb-gutter, 1.25rem) 0;
+  }
+
+  .bb-showcase__ticks {
+    flex-direction: row;
+  }
+
+  .bb-showcase__tick {
+    align-items: flex-end;
+    justify-content: center;
+    width: var(--bb-tick-pitch, 14px);
+    height: 1.5rem;
+  }
+
+  .bb-showcase__tick-mark {
+    width: 2px;
+    height: 12px;
+    transform-origin: 50% 100%;
+  }
+
+  .bb-showcase__ticks[data-dense='1'] .bb-showcase__tick-mark {
+    width: 1px;
+    height: 12px;
+  }
+
+  .bb-showcase__tick[aria-current='true'] .bb-showcase__tick-mark {
+    transform: scaleY(1.6);
+  }
+
+  .bb-showcase__tip {
+    display: none;
+  }
+
+  .bb-showcase__stage {
+    height: min(104vw, 62dvh);
+  }
+
+  .bb-showcase__details {
+    justify-content: flex-start;
+    padding: 0 var(--bb-gutter, 1.25rem) var(--bb-s-6, 2rem);
+  }
+
+  .bb-showcase__title {
+    margin-top: var(--bb-s-2, 0.5rem);
+  }
+
+  .bb-showcase__note,
+  .bb-showcase__facts {
+    margin-top: var(--bb-s-4, 1rem);
+  }
+
+  .bb-showcase__actions {
+    margin-top: var(--bb-s-5, 1.5rem);
+  }
+}
+
+/* A window this short keeps the book and the words side by side and tightens the words. */
+@media (min-width: 40.01rem) and (max-height: 34rem) {
+  .bb-showcase__note {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    margin-top: var(--bb-s-3, 0.75rem);
+  }
+
+  .bb-showcase__facts,
+  .bb-showcase__actions {
+    margin-top: var(--bb-s-4, 1rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-showcase,
+  .bb-showcase__words,
+  .bb-showcase__tick-mark,
+  .bb-showcase__tip {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .bb-showcase__glow,
+  .bb-showcase__sheen,
+  .bb-showcase__shadow {
+    display: none;
+  }
+
+  .bb-showcase__tick-mark {
+    background: ButtonText;
+  }
+
+  .bb-showcase__tick[aria-current='true'] .bb-showcase__tick-mark {
+    background: Highlight;
+  }
+
+  .bb-showcase__meter-fill {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+}

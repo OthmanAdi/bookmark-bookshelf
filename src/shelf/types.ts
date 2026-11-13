@@ -258,6 +258,8 @@ export interface ShelfFrame {
   perspective: number;
   /** Sideways give of the whole row under a pull, in px. */
   rowGive: number;
+  /** Space between two resting spines, in px. */
+  gap: number;
   volumes: FrameVolume[];
   bookends: FrameBookend[];
   light: Light;

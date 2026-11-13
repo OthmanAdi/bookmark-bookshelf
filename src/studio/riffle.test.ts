@@ -13,6 +13,7 @@ import {
   PEEK_REST_MS,
   peekAt,
   peekRest,
+  peekShare,
   shut,
   tidy,
 } from './riffle';
@@ -100,6 +101,15 @@ describe('the presented volume under the hand', () => {
     expect(reached(180)).toBeLessThan(0.9);
     expect(reached(260)).toBeGreaterThan(0.9);
     expect(reached(70)).toBeGreaterThan(0.45);
+  });
+
+  it('can be asked for by the share of the way the board has turned', () => {
+    expect(isShut(peekShare(0))).toBe(true);
+    expect(peekShare(1)).toEqual(peekRest());
+    for (const share of [0.1, 0.35, 0.6, 0.9]) {
+      expect(peekShare(share).cover).toBeCloseTo(PEEK_COVER * share, 6);
+      expectPaper(peekShare(share), `a share of ${share}`);
+    }
   });
 
   it('fans the leaves one after another, each less than the one in front', () => {

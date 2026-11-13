@@ -1,4 +1,4 @@
-import { CanvasTexture, type Material, MeshPhysicalMaterial, MeshStandardMaterial, SRGBColorSpace } from 'three';
+import { CanvasTexture, type Material, MeshPhysicalMaterial, MeshStandardMaterial, SRGBColorSpace, type Texture } from 'three';
 import type { FrameVolume } from '../shelf/types';
 import type { Binding, PaintedVolume, Stamp } from './types';
 import type { VolumeParts, VolumeSize } from './volume';
@@ -32,12 +32,17 @@ export interface PaintRequest {
 }
 
 export interface DressKit {
-  /** Resolves the binding and stamp a volume is drawn with. */
-  bindingOf(volume: FrameVolume): { binding: Binding; stamp: Stamp };
+  /** Resolves the binding and stamp a volume is drawn with, in a look. Called for every volume in every frame. */
+  bindingOf(volume: FrameVolume, variant?: string): { binding: Binding; stamp: Stamp };
   /** Paints the faces; may be slow. */
   paint?(request: PaintRequest): Promise<PaintedVolume>;
   /** Lit materials from painted faces. */
   materials?(volume: FrameVolume, style: DressStyle, binding: Binding, stamp: Stamp, faces: PaintedVolume): VolumeParts & { dispose(): void };
+  /** What the volumes reflect: a filtered studio of lights. Left out, the stage's plain room is used. */
+  readonly environment?: Texture;
+  /** The board the row stands on, for a look and a board size in px. The kit owns the material. */
+  floor?(variant: string, size: { width: number; depth: number }): Material;
+  dispose?(): void;
 }
 
 interface Entry {
@@ -73,7 +78,7 @@ export class Dresser {
   /** The parts to draw a volume with right now. */
   partsFor(volume: FrameVolume, variant: string, density: number): VolumeParts {
     const size: VolumeSize = { spineWidth: volume.spineWidth, bookHeight: volume.bookHeight, coverWidth: volume.coverWidth };
-    const { binding, stamp } = this.kit.bindingOf(volume);
+    const { binding, stamp } = this.kit.bindingOf(volume, variant);
     const item = volume.item;
     // Painted faces depend on what is printed and how big it is drawn, not on where the volume stands.
     const key = [

@@ -44,10 +44,10 @@ export interface Room {
 }
 
 export const ROOMS: Record<string, Room> = {
-  paper: { board: '#e9e3d6', lamp: false, key: 2.3, environment: 0.85, keyColor: '#fff6ea' },
-  oak: { board: '#8a6440', lamp: false, key: 2.4, environment: 0.75, keyColor: '#ffe9cf' },
-  night: { board: '#2a211b', lamp: true, key: 5.5, environment: 0.32, keyColor: '#ffd9a8' },
-  pocket: { board: '#d8c4a0', lamp: false, key: 2.2, environment: 0.9, keyColor: '#fff8ee' },
+  paper: { board: '#e2dccd', lamp: false, key: 1.7, environment: 0.42, keyColor: '#fff6ea' },
+  oak: { board: '#7a5636', lamp: false, key: 1.8, environment: 0.38, keyColor: '#ffe9cf' },
+  night: { board: '#2a211b', lamp: true, key: 5.5, environment: 0.16, keyColor: '#ffd9a8' },
+  pocket: { board: '#d2bd98', lamp: false, key: 1.6, environment: 0.45, keyColor: '#fff8ee' },
 };
 
 export function roomOf(variant: string): Room {
@@ -161,6 +161,12 @@ export class Stage {
     return this.box;
   }
 
+  /** Size of the board's top in px, in steps of 200 px so a resize does not ask for a new floor every frame. */
+  boardSize(): { width: number; depth: number } {
+    const step = (value: number) => Math.max(200, Math.round(value / 200) * 200);
+    return { width: step(this.span), depth: step(Math.max(14, this.depth * 0.14) + this.depth * 1.25) };
+  }
+
   render(): void {
     this.renderer.render(this.scene, this.camera);
   }
@@ -204,7 +210,7 @@ export class Stage {
       const lz = 0.91;
       this.key.position.set(lx * reach, y + reach * (0.62 - this.pointer.y * 0.12), lz * reach);
       this.key.target.position.set(0, y, -depth * 0.3);
-      this.sky.intensity = 0.55;
+      this.sky.intensity = 0.3;
       const camera = this.key.shadow.camera;
       camera.left = -this.span / 2;
       camera.right = this.span / 2;

@@ -137,7 +137,7 @@ export interface Session {
   focusId: string | null;
   /** Volume open in the reader, restored after a reload. */
   openId: string | null;
-  view: 'shelf' | 'list';
+  view: 'shelf' | 'list' | 'showcase';
   variant: string;
   /** Reading text size step, 0 to 4. Absent means 1. */
   textScale?: number;

@@ -1091,6 +1091,7 @@ export function mountShelf(host: HTMLElement, options: ShelfOptions): ShelfHandl
       floorY: FLOOR_ROOM,
       perspective: geometry.perspective,
       rowGive,
+      gap: geometry.gap,
       volumes,
       bookends: ends,
       light,

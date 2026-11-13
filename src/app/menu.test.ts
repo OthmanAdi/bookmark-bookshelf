@@ -149,7 +149,7 @@ describe('renderViewMenu', () => {
     { name: 'night', label: 'Night Study', summary: 'A dark ground.' },
   ];
 
-  it('lists the two views and every look with its summary as the description', () => {
+  it('lists the three views and every look with its summary as the description', () => {
     document.body.replaceChildren();
     const panel = document.createElement('div');
     panel.id = 'view-menu';
@@ -157,9 +157,9 @@ describe('renderViewMenu', () => {
     const menu = renderViewMenu({ panel, looks, onView: vi.fn(), onLook: vi.fn() });
     menu.update({ view: 'list', look: 'night' });
     const items = [...panel.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
-    expect(items.map((item) => item.querySelector('.bb-menu__label')?.textContent)).toEqual(['Shelf', 'List', 'Paper Row', 'Night Study']);
-    expect(items.map((item) => item.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false', 'true']);
-    const night = items[3]!;
+    expect(items.map((item) => item.querySelector('.bb-menu__label')?.textContent)).toEqual(['Shelf', 'List', 'Showcase', 'Paper Row', 'Night Study']);
+    expect(items.map((item) => item.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false', 'false', 'true']);
+    const night = items[4]!;
     expect(document.getElementById(night.getAttribute('aria-describedby')!)?.textContent).toBe('A dark ground.');
   });
 
@@ -171,13 +171,15 @@ describe('renderViewMenu', () => {
     const onLook = vi.fn();
     renderViewMenu({ panel, looks, onView, onLook });
     const items = [...panel.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
-    items[3]!.focus();
-    items[3]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+    items[4]!.focus();
+    items[4]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
     expect(onLook).not.toHaveBeenCalled();
-    items[3]!.click();
+    items[4]!.click();
     items[0]!.click();
+    items[2]!.click();
     expect(onLook).toHaveBeenCalledWith('night');
     expect(onView).toHaveBeenCalledWith('shelf');
+    expect(onView).toHaveBeenCalledWith('showcase');
   });
 });
 

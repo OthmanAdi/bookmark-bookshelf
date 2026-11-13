@@ -136,6 +136,9 @@ export default defineConfig({
   // Relative asset URLs so the built site works from any folder or sub-path.
   base: './',
   server: { host: '127.0.0.1', port: 5173, strictPort: false },
+  // Studio is imported on demand. Named here, three.js is prepared when the dev server starts and not on
+  // the first switch to Studio, which would reload the page in the middle of a session or a test.
+  optimizeDeps: { include: ['three'] },
   preview: { host: '127.0.0.1', port: 4173, strictPort: false },
   build: {
     target: 'es2022',
@@ -146,6 +149,8 @@ export default defineConfig({
         'example-shelf-only': resolve(root, 'examples/shelf-only.html'),
         'example-reader-only': resolve(root, 'examples/reader-only.html'),
         'example-store-only': resolve(root, 'examples/store-only.html'),
+        'example-materials': resolve(root, 'examples/materials.html'),
+        'example-studio-shelf': resolve(root, 'examples/studio-shelf.html'),
       },
     },
   },

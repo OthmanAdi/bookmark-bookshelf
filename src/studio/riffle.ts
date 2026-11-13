@@ -144,6 +144,16 @@ export function peekAt(ms: number, open: boolean, from: Opening = shut()): Openi
   return tidy({ cover, leaves });
 }
 
+/**
+ * The opening of a volume that has opened a share `amount` of the way under the hand, 0 shut and 1 at rest:
+ * the moment of `peekAt` at which its board has turned that share. For a host that keeps its own time.
+ */
+export function peekShare(amount: number): Opening {
+  const share = clamp01(amount);
+  if (share >= 0.9995) return peekRest();
+  return peekAt(-PEEK_TAU_MS * Math.log(1 - share), true);
+}
+
 /** How long the flutter of a volume that has just arrived at the centre lasts, in ms. */
 export const ARRIVE_MS = 340;
 /** The most the board gives during that flutter, in radians: about four degrees. */

@@ -1,9 +1,10 @@
 import './studio.css';
-import { BoxGeometry, Matrix4, Mesh, MeshStandardMaterial } from 'three';
+import { BoxGeometry, Matrix4, Mesh, MeshStandardMaterial, type WebGLRenderer } from 'three';
 import type { Flight, FlightOptions } from '../app/flight';
 import type { FrameVolume, ShelfFrame, ShelfHandle } from '../shelf/types';
 import { fromCssMatrix, volumeMatrix } from './camera';
 import { type DressKit, Dresser } from './dress';
+import { ContactShadows } from './ground';
 import { Stage, webglAvailable } from './stage';
 import { type FlightBook, FlightStage } from './flight';
 import { leafTangent } from './leaf';
@@ -11,6 +12,8 @@ import { arrivalAt, ARRIVE_MS, isShut, layer, PEEK_COVER, PEEK_REST_MS, peekAt, 
 import { type Opening, VolumeMesh } from './volume';
 
 export type { Binding, Paint, PaintedFace, PaintedVolume, Stamp } from './types';
+/** The presented volume opened a share of the way under the hand, for a host that keeps its own time. */
+export { peekShare as peekOpening } from './riffle';
 export { webglAvailable } from './stage';
 
 /**
@@ -20,8 +23,8 @@ export { webglAvailable } from './stage';
  */
 
 export interface StudioOptions {
-  /** Materials and painting. Left out, volumes are drawn in plain lit cloth. */
-  kit?: DressKit;
+  /** Materials and painting, or a function that makes them for Studio's renderer. Left out, volumes are drawn in plain lit cloth. */
+  kit?: DressKit | ((renderer: WebGLRenderer) => DressKit);
   /** Called when WebGL is lost or cannot start; the host should go back to the CSS shelf. */
   onFailure?: (reason: string) => void;
 }
@@ -99,7 +102,12 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
   let hovered: Element | null = null;
   const matrix = new Matrix4();
   const body = new Matrix4();
-  const dresser = new Dresser(options.kit ?? plainKit, () => invalidate());
+  let kit: DressKit = typeof options.kit === 'function' ? options.kit(stage.renderer) : (options.kit ?? plainKit);
+  const dresser = new Dresser(kit, () => invalidate());
+  stage.setEnvironment(kit.environment ?? null);
+  const ground = new ContactShadows();
+  stage.row.add(ground.mesh);
+  let floorKey = '';
   /** Draws a volume in the air between the row and the page; made for the first flight and kept for the next. */
   let flights: FlightStage | null = null;
 
@@ -144,11 +152,19 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       variant = current.variant;
       stage.setRoom(variant);
       dresser.clear();
+      ground.setStrength(variant === 'night' ? 0.34 : 0.5);
+      floorKey = '';
     }
     let deepest = 0;
     for (const volume of current.volumes) deepest = Math.max(deepest, volume.coverWidth);
     stage.fit(current, deepest);
     const origin = { x: current.rowGive, y: current.floorY - current.height / 2 };
+    const board = stage.boardSize();
+    if (floorKey !== `${variant}:${board.width}:${board.depth}`) {
+      floorKey = `${variant}:${board.width}:${board.depth}`;
+      stage.setBoardMaterial(kit.floor?.(variant, board) ?? null);
+    }
+    ground.update(current, origin, current.gap);
     const now = performance.now();
     const still = reducedMotion();
     let moving = false;
@@ -285,8 +301,12 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
 
   return {
     canvas,
-    setKit(kit) {
+    setKit(next) {
+      kit.dispose?.();
+      kit = next;
       dresser.setKit(kit);
+      stage.setEnvironment(kit.environment ?? null);
+      floorKey = '';
       invalidate();
     },
     createFlight(flightOptions, id) {
@@ -309,6 +329,8 @@ export function mountStudio(shelf: ShelfHandle, options: StudioOptions = {}): St
       bookendGeometry.dispose();
       bookendMaterial.dispose();
       dresser.dispose();
+      ground.dispose();
+      kit.dispose?.();
       stage.dispose();
       delete root.dataset.paint;
     },
