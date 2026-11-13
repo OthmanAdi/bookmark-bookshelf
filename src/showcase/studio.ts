@@ -1,7 +1,7 @@
 import { CanvasTexture, Matrix4, MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, SRGBColorSpace } from 'three';
 import { resolveCloth } from '../shelf/variants';
 import type { FrameVolume, ShelfFrame, ShelfItem } from '../shelf/types';
-import { peekOpening } from '../studio';
+import { peekShare } from '../studio/riffle';
 import { type DressKit, Dresser } from '../studio/dress';
 import { createKit } from '../studio/kit';
 import { paintVolume } from '../studio/paint';
@@ -148,7 +148,7 @@ export function createStudioDrawing(options: StudioDrawingOptions): Drawing {
       mesh.setParts(dresser.partsFor(volume, look.variant, density));
       const progress = frame.item.done ? 0 : Math.min(1, Math.max(0, frame.item.progress ?? 0));
       mesh.setSlip(progress, dresser.slipMaterial);
-      mesh.setOpening(frame.peek > 0 ? peekOpening(frame.peek) : null);
+      mesh.setOpening(frame.peek > 0 ? peekShare(frame.peek) : null);
 
       const yaw = (REST.yaw + frame.stand.yaw + frame.turn.yaw) * DEG;
       const pitch = (REST.pitch + frame.stand.pitch + frame.turn.pitch) * DEG;

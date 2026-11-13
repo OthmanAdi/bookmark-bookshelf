@@ -120,6 +120,20 @@ export function peekRest(): Opening {
 }
 
 /**
+ * A volume standing open by a share of the way to `peekRest`, 0 shut to 1: for a host that eases the
+ * opening itself, such as a book that opens as far as it is turned or pressed.
+ */
+export function peekShare(amount: number): Opening {
+  const share = clamp01(amount);
+  if (share === 0) return shut();
+  const rest = peekRest();
+  return tidy({
+    cover: rest.cover * share,
+    leaves: rest.leaves.map((leaf) => ({ angle: leaf.angle * share, curl: leaf.curl * share, flick: (leaf.flick ?? 0) * share })),
+  });
+}
+
+/**
  * The presented volume `ms` after the hand came (`open`) or left: the board lifts and the leaves fan after
  * it, each a little later than the one in front, their free edges trailing; leaving, it closes the same way
  * and the board gathers the leaves. `from` is how the volume stood at that moment, so a hand that comes
@@ -142,16 +156,6 @@ export function peekAt(ms: number, open: boolean, from: Opening = shut()): Openi
     ]);
   });
   return tidy({ cover, leaves });
-}
-
-/**
- * The opening of a volume that has opened a share `amount` of the way under the hand, 0 shut and 1 at rest:
- * the moment of `peekAt` at which its board has turned that share. For a host that keeps its own time.
- */
-export function peekShare(amount: number): Opening {
-  const share = clamp01(amount);
-  if (share >= 0.9995) return peekRest();
-  return peekAt(-PEEK_TAU_MS * Math.log(1 - share), true);
 }
 
 /** How long the flutter of a volume that has just arrived at the centre lasts, in ms. */

@@ -12,8 +12,6 @@ import { arrivalAt, ARRIVE_MS, isShut, layer, PEEK_COVER, PEEK_REST_MS, peekAt, 
 import { type Opening, VolumeMesh } from './volume';
 
 export type { Binding, Paint, PaintedFace, PaintedVolume, Stamp } from './types';
-/** The presented volume opened a share of the way under the hand, for a host that keeps its own time. */
-export { peekShare as peekOpening } from './riffle';
 export { webglAvailable } from './stage';
 
 /**
